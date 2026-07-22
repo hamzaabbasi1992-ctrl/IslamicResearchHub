@@ -25,6 +25,7 @@ data/*.sqlite3
 logs/*.log
 docs/library_report.json
 docs/library_report.md
+docs/maknoon/
 library/
 data/staging/
 
