@@ -7,8 +7,11 @@ name = "islamic-research-hub"
 version = "0.1.0"
 description = "Foundation for a future Islamic research platform."
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

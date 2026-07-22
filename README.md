@@ -1,14 +1,16 @@
 # IslamicResearchHub
 
-IslamicResearchHub is a Python foundation for a future Islamic research platform.
+IslamicResearchHub is a Python foundation for an Islamic research search
+engine, intended to eventually power both Windows and Android applications.
 
-Milestone 4 scans one folder recursively for Jibreel Mobile `.mjbz` files and
-analyzes the in-memory books. It exports library reports without creating a
-master database, search, OCR, AI, or PDF processing.
+The current tooling scans one folder recursively for Jibreel Mobile `.mjbz`
+files, analyzes the in-memory books, exports library reports and per-book
+Markdown files, and imports everything into a master SQLite database with a
+full-text search index. OCR, AI, and PDF processing are still out of scope.
 
 ## Requirements
 
-- Python 3.13
+- Python 3.11+
 - SQLite (included with Python)
 
 ## Getting started
@@ -17,6 +19,7 @@ master database, search, OCR, AI, or PDF processing.
 python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 python -m pip install -r requirements.txt
+python -m pip install -e .[dev]  # adds pytest for running the test suite
 ```
 
 See [PROJECT.md](PROJECT.md) for the planned architecture and roadmap.

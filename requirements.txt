@@ -1,2 +1,4 @@
 # Runtime dependencies will be added when implementation begins.
 # SQLite support is provided by Python's standard library.
+# Development dependencies (e.g. pytest) are declared in pyproject.toml
+# under [project.optional-dependencies] "dev". Install with: pip install -e .[dev]
