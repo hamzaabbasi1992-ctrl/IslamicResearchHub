@@ -12,6 +12,8 @@ LOGGER = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[int, int], None]
 
+DEFAULT_LIBRARY_NAME = "Maktaba Jibreel (Mobile)"
+
 
 class MasterBookRepository:
     """Create and populate the master SQLite database from in-memory books."""
@@ -21,6 +23,7 @@ class MasterBookRepository:
         database_path: Path,
         books: tuple[Book, ...],
         sources: tuple[Path, ...],
+        library_name: str = DEFAULT_LIBRARY_NAME,
         progress: ProgressCallback | None = None,
     ) -> tuple[int, int, int]:
         """Import books transactionally, returning imported, skipped, failed counts."""
@@ -31,8 +34,11 @@ class MasterBookRepository:
         with closing(sqlite3.connect(database_path)) as connection:
             fts_index_already_existed = self._pages_fts_exists(connection)
             self._create_schema(connection)
+            self._ensure_library_id_column(connection)
+            self._backfill_legacy_library(connection)
             if not fts_index_already_existed:
                 self._backfill_pages_fts(connection)
+            library_id = self._get_or_create_library_id(connection, library_name)
             imported_count = 0
             skipped_count = 0
             failed_count = 0
@@ -48,7 +54,7 @@ class MasterBookRepository:
                     if self._is_imported(connection, source):
                         skipped_count += 1
                     else:
-                        self._import_book(connection, source, book)
+                        self._import_book(connection, source, book, library_id)
                         imported_count += 1
                 except sqlite3.Error:
                     failed_count += 1
@@ -65,8 +71,14 @@ class MasterBookRepository:
         """Create the requested master schema when it does not yet exist."""
         connection.executescript(
             """
+            CREATE TABLE IF NOT EXISTS Libraries (
+                LibraryID INTEGER PRIMARY KEY,
+                Name TEXT NOT NULL UNIQUE
+            );
+
             CREATE TABLE IF NOT EXISTS Books (
                 BookID INTEGER PRIMARY KEY,
+                LibraryID INTEGER REFERENCES Libraries(LibraryID),
                 Source TEXT NOT NULL UNIQUE,
                 SourceBookID TEXT,
                 Title TEXT,
@@ -132,6 +144,38 @@ class MasterBookRepository:
         connection.commit()
 
     @staticmethod
+    def _ensure_library_id_column(connection: sqlite3.Connection) -> None:
+        """Add the LibraryID column to a Books table created before libraries existed."""
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+        if "LibraryID" not in columns:
+            connection.execute(
+                "ALTER TABLE Books ADD COLUMN LibraryID INTEGER REFERENCES Libraries(LibraryID)"
+            )
+            connection.commit()
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_books_library_id ON Books(LibraryID)")
+        connection.commit()
+
+    @staticmethod
+    def _get_or_create_library_id(connection: sqlite3.Connection, name: str) -> int:
+        """Return the id for a library, creating it if it does not yet exist."""
+        connection.execute("INSERT OR IGNORE INTO Libraries (Name) VALUES (?)", (name,))
+        row = connection.execute(
+            "SELECT LibraryID FROM Libraries WHERE Name = ?", (name,)
+        ).fetchone()
+        connection.commit()
+        return row[0]
+
+    @classmethod
+    def _backfill_legacy_library(cls, connection: sqlite3.Connection) -> None:
+        """Tag books imported before the library concept existed as the mobile library."""
+        legacy_library_id = cls._get_or_create_library_id(connection, DEFAULT_LIBRARY_NAME)
+        connection.execute(
+            "UPDATE Books SET LibraryID = ? WHERE LibraryID IS NULL",
+            (legacy_library_id,),
+        )
+        connection.commit()
+
+    @staticmethod
     def _is_imported(connection: sqlite3.Connection, source: Path) -> bool:
         """Return whether this exact source file has already been imported."""
         row = connection.execute(
@@ -145,17 +189,19 @@ class MasterBookRepository:
         connection: sqlite3.Connection,
         source: Path,
         book: Book,
+        library_id: int,
     ) -> None:
         """Insert one complete book and commit its transaction."""
         with connection:
             cursor = connection.execute(
                 """
                 INSERT INTO Books (
-                    Source, SourceBookID, Title, Author, Publisher, Language,
-                    Category, PageCount, ChapterCount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    LibraryID, Source, SourceBookID, Title, Author, Publisher,
+                    Language, Category, PageCount, ChapterCount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    library_id,
                     str(source),
                     book.information.get("MJBN"),
                     book.information.get("Name"),

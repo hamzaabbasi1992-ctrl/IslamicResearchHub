@@ -125,3 +125,66 @@ def test_repository_backfills_full_text_index_for_pre_existing_pages(
             "SELECT Content FROM PagesFTS WHERE PagesFTS MATCH 'Legacy'"
         ).fetchone()
     assert match == ("Legacy content",)
+
+
+def test_repository_tags_books_with_their_library(tmp_path: Path) -> None:
+    """Books imported under different library names get distinct LibraryID rows."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    mobile_book = Book(information={"Name": "Mobile Book"}, categories=(), table_of_contents=(), pages=())
+    desktop_book = Book(information={"Name": "Desktop Book"}, categories=(), table_of_contents=(), pages=())
+
+    repository.import_books(
+        database_path, (mobile_book,), (tmp_path / "mobile.mjbz",), library_name="Maktaba Jibreel (Mobile)"
+    )
+    repository.import_books(
+        database_path, (desktop_book,), (tmp_path / "desktop.mjbx",), library_name="Maktaba Jibreel (Desktop)"
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT Books.Title, Libraries.Name FROM Books
+            JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
+            ORDER BY Books.Title
+            """
+        ).fetchall()
+    assert rows == [
+        ("Desktop Book", "Maktaba Jibreel (Desktop)"),
+        ("Mobile Book", "Maktaba Jibreel (Mobile)"),
+    ]
+
+
+def test_repository_backfills_legacy_books_into_the_default_library(tmp_path: Path) -> None:
+    """Books imported before the library concept existed default to the mobile library."""
+    database_path = tmp_path / "books.db"
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript(
+            """
+            CREATE TABLE Books (
+                BookID INTEGER PRIMARY KEY, Source TEXT NOT NULL UNIQUE,
+                SourceBookID TEXT, Title TEXT, Author TEXT, Publisher TEXT,
+                Language TEXT, Category TEXT, PageCount INTEGER NOT NULL,
+                ChapterCount INTEGER NOT NULL
+            );
+            """
+        )
+        connection.execute(
+            "INSERT INTO Books (Source, Title, PageCount, ChapterCount) "
+            "VALUES ('legacy.mjbz', 'Legacy Book', 0, 0)"
+        )
+        connection.commit()
+
+    repository = MasterBookRepository()
+    new_book = Book(information={"Name": "New Book"}, categories=(), table_of_contents=(), pages=())
+    repository.import_books(database_path, (new_book,), (tmp_path / "new.mjbz",))
+
+    with sqlite3.connect(database_path) as connection:
+        library_name = connection.execute(
+            """
+            SELECT Libraries.Name FROM Books
+            JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
+            WHERE Books.Title = 'Legacy Book'
+            """
+        ).fetchone()
+    assert library_name == ("Maktaba Jibreel (Mobile)",)

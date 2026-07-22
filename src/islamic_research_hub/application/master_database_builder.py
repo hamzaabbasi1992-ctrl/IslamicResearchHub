@@ -10,6 +10,8 @@ from islamic_research_hub.domain.models.book import Book
 
 ProgressCallback = Callable[[int, int], None]
 
+DEFAULT_LIBRARY_NAME = "Maktaba Jibreel (Mobile)"
+
 
 class MasterDatabaseWriter(Protocol):
     """Contract for transactional persistence of scanned books."""
@@ -19,6 +21,7 @@ class MasterDatabaseWriter(Protocol):
         database_path: Path,
         books: tuple[Book, ...],
         sources: tuple[Path, ...],
+        library_name: str = DEFAULT_LIBRARY_NAME,
         progress: ProgressCallback | None = None,
     ) -> tuple[int, int, int]:
         """Import books and return imported, skipped, failed counts."""
@@ -43,6 +46,7 @@ class MasterDatabaseBuilder:
         self,
         scan_result: FolderScanResult,
         database_path: Path = Path("data/books.db"),
+        library_name: str = DEFAULT_LIBRARY_NAME,
         progress: ProgressCallback | None = None,
     ) -> MasterDatabaseBuildResult:
         """Create or update books.db using successful scanner results."""
@@ -50,6 +54,7 @@ class MasterDatabaseBuilder:
             database_path=database_path,
             books=scan_result.books,
             sources=scan_result.sources,
+            library_name=library_name,
             progress=progress,
         )
         return MasterDatabaseBuildResult(
