@@ -23,6 +23,9 @@ data/*.db
 data/*.sqlite
 data/*.sqlite3
 logs/*.log
+docs/library_report.json
+docs/library_report.md
+library/
 
 # Editors and operating systems
 .vscode/
