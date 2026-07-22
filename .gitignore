@@ -26,6 +26,7 @@ logs/*.log
 docs/library_report.json
 docs/library_report.md
 library/
+data/staging/
 
 # Editors and operating systems
 .vscode/
