@@ -1,0 +1,2 @@
+# Runtime dependencies will be added when implementation begins.
+# SQLite support is provided by Python's standard library.
