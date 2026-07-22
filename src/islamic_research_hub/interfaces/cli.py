@@ -26,6 +26,7 @@ from islamic_research_hub.infrastructure.persistence.mjbz_sqlite_inspector impor
     SqliteMjbzInspector,
 )
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
+    DEFAULT_LIBRARY_NAME,
     MasterBookRepository,
 )
 from islamic_research_hub.infrastructure.reporting.book_library_exporter import (
@@ -45,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Extract verified Jibreel Mobile .mjbz books from one folder."
     )
     parser.add_argument("folder_path", help="Folder to scan recursively for .mjbz files")
+    parser.add_argument(
+        "--library",
+        default=DEFAULT_LIBRARY_NAME,
+        help=f"Library name to tag imported books with (default: {DEFAULT_LIBRARY_NAME})",
+    )
     return parser
 
 
@@ -93,6 +99,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     try:
         database_result = MasterDatabaseBuilder(MasterBookRepository()).build(
             result,
+            library_name=args.library,
             progress=_print_progress,
         )
     except (OSError, ValueError) as error:
