@@ -429,3 +429,32 @@ not Phase 1.
   cataloging (title/path, no text) already exists and stays as-is.
 - Shamela - excluded per explicit instruction.
 - Calibre - not started; marked optional in the roadmap.
+
+## Phase 2, step 1: database verification tool
+
+First Phase 2 item, deliberately picked first: no schema changes, no risk,
+and everything that follows (backups, migrations, structural changes)
+benefits from having it in place before touching the schema further.
+
+`domain/models/verification_report.py` + `infrastructure/persistence/
+database_verifier.py`: read-only checks combining SQLite's own built-in
+integrity tools (`PRAGMA integrity_check`, and FTS5's own `integrity-check`
+command for `PagesFTS` - deliberately not a hand-rolled COUNT-based check,
+having already been burned once this session by COUNT(*) on an
+external-content FTS5 table silently proxying to the content table) with
+application-level checks specific to this schema: orphaned rows (Books
+pointing at a missing Library, Categories/Chapters/Pages pointing at a
+missing Book), stale `PageCount`/`ChapterCount` caches, and duplicate
+`(BookID, PageNo)` pairs. `verify_database_cli.py` prints a report and
+exits non-zero only on real errors (stale counts are a warning, not an
+error - they don't indicate corruption, just a cache that could be
+refreshed).
+
+8 new tests (86/86 total), each corrupting a fresh test database in one
+specific, controlled way and confirming the right issue is detected.
+
+Ran for real against the production database for the first time - the
+whole point of building this now: **0 errors, 0 warnings** on 7,687 books,
+after every operation performed on it this session (multiple imports,
+deletions, deduplication, re-imports, title rewrites). This is real,
+checked evidence the database is sound, not an assumption.
