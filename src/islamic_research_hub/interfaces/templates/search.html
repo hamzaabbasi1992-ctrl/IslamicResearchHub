@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>Islamic Research Hub — Search</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #faf8f5; color: #222; }
+  h1 { text-align: center; color: #2d5f3f; margin-bottom: 0.25rem; }
+  .subtitle { text-align: center; color: #888; margin-bottom: 1.5rem; font-size: 0.9rem; direction: ltr; }
+  form { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  input[type=text] { flex: 1; min-width: 200px; padding: 0.6rem; font-size: 1.1rem; border: 1px solid #ccc; border-radius: 6px; direction: rtl; }
+  select, button { padding: 0.6rem; font-size: 1rem; border-radius: 6px; border: 1px solid #ccc; }
+  button { background: #2d5f3f; color: white; border: none; cursor: pointer; }
+  button:hover { background: #234a32; }
+  .result { background: white; border: 1px solid #e0ddd6; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+  .result-title { font-size: 1.15rem; font-weight: bold; color: #1a3d2b; }
+  .result-meta { color: #777; font-size: 0.85rem; margin: 0.25rem 0; direction: ltr; text-align: left; }
+  .result-excerpt { margin-top: 0.5rem; line-height: 1.9; }
+  .result-excerpt mark { background: #ffe58a; padding: 0 2px; }
+  .open-link { display: inline-block; margin-top: 0.5rem; color: #2d5f3f; font-weight: bold; text-decoration: none; direction: ltr; }
+  .open-link:hover { text-decoration: underline; }
+  .no-results { text-align: center; color: #888; margin-top: 2rem; }
+  .matched-by { font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+  <h1>Islamic Research Hub</h1>
+  <div class="subtitle">
+    {% if semantic_available %}Keyword + semantic search{% else %}Keyword search{% endif %}
+  </div>
+  <form method="get" action="/">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search the library..." autofocus>
+    <select name="library">
+      <option value="">All Libraries</option>
+      {% for lib in libraries %}
+      <option value="{{ lib }}" {% if lib == library %}selected{% endif %}>{{ lib }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Search</button>
+  </form>
+
+  {% if query and not results %}
+    <p class="no-results">No matches found for "{{ query }}".</p>
+  {% endif %}
+
+  {% for item in results %}
+    {% set r = item.result %}
+    <div class="result">
+      <div class="result-title">{{ r.title or "(untitled)" }}</div>
+      <div class="result-meta">
+        {{ r.author or "Unknown" }} — {{ r.library or "Unknown library" }} — page {{ r.page_number or "?" }}
+        <span class="matched-by">({{ r.matched_by|join("+") }})</span>
+      </div>
+      <div class="result-excerpt">{{ item.excerpt_html }}</div>
+      <a class="open-link" href="{{ item.open_url }}" target="_blank">{{ item.open_label }} →</a>
+    </div>
+  {% endfor %}
+</body>
+</html>

@@ -13,12 +13,16 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 ai = ["sentence-transformers>=5"]
+web = ["flask>=3"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"islamic_research_hub.interfaces" = ["templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

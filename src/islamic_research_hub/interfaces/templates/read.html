@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>{{ title or "Book" }}</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 800px; margin: 1.5rem auto; padding: 0 1rem; background: #faf8f5; color: #222; line-height: 2.1; }
+  h1 { color: #2d5f3f; text-align: center; }
+  .meta { text-align: center; color: #777; margin-bottom: 2rem; }
+  .page { background: white; border: 1px solid #e0ddd6; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+  .page-number { color: #aaa; font-size: 0.85rem; margin-bottom: 0.5rem; direction: ltr; text-align: left; }
+  .jump-target { outline: 3px solid #ffe58a; }
+  a.back { display: inline-block; margin-bottom: 1rem; color: #2d5f3f; direction: ltr; }
+</style>
+</head>
+<body>
+  <a class="back" href="javascript:history.back()">← Back to search</a>
+  <h1>{{ title or "(untitled)" }}</h1>
+  <div class="meta">{{ author or "Unknown" }}</div>
+  {% for page in pages %}
+    <div class="page {% if jump_page and page.page_number == jump_page %}jump-target{% endif %}"
+         {% if jump_page and page.page_number == jump_page %}id="jump"{% endif %}>
+      <div class="page-number">Page {{ page.page_number }}</div>
+      <div>{{ page.content_f }}</div>
+    </div>
+  {% endfor %}
+  <script>
+    var el = document.getElementById('jump');
+    if (el) { el.scrollIntoView({block: 'center'}); }
+  </script>
+</body>
+</html>
