@@ -273,3 +273,23 @@ into two risk profiles:
 
 Verified: 59/59 tests passing, real database confirmed at 7,687 books
 across 4 libraries after the cleanup.
+
+## Second .mjbx password: investigation closed, unresolved
+
+Continued the investigation from the corpus-expansion session with fresh
+angles: tried ~13 plausible password variations against a known-failing
+file (correctly validated this time — first pass gave false positives
+because `SQLiteConnection.Open()` does not actually check the password,
+SQLite only decrypts on first query; caught before trusting any result).
+Checked `SoftwareUpdate.exe` (the app's own updater) for password strings —
+none; it only handles 7z update packages, not book decryption. Checked
+file version info — only one build (2.9.0.0) exists on this machine, no
+evidence of an older version that might explain a password change.
+Checked the full error log for any mention of "password" — zero.
+
+Combined with the earlier session's checks (binary string search across
+every exe/dll, cached-install search, date-clustering of failures), this
+is now closed as not solvable with reasonable effort. Getting further
+would require decompiling the app's actual code, not just reading its
+strings/config. The 1,694 locked Jibreel Desktop files remain
+inaccessible.
