@@ -59,26 +59,33 @@ def main(arguments: Sequence[str] | None = None) -> int:
     files = sorted(folder.glob("*.pdf.txt"))
     books = []
     sources = []
-    skipped_count = 0
+    placeholder_skipped_count = 0
+    failed_count = 0
     for completed_count, file_path in enumerate(files, start=1):
-        book = read_maknoon_text_file(file_path)
-        if book is None:
-            skipped_count += 1
+        try:
+            book = read_maknoon_text_file(file_path)
+        except OSError:
+            failed_count += 1
+            LOGGER.exception("Failed to read Maknoon text file: %s", file_path)
         else:
-            books.append(book)
-            sources.append(file_path.resolve())
+            if book is None:
+                placeholder_skipped_count += 1
+            else:
+                books.append(book)
+                sources.append(file_path.resolve())
         _print_progress(completed_count, len(files))
 
     result = FolderScanResult(
         books=tuple(books),
         processed_count=len(files),
-        failed_count=skipped_count,
+        failed_count=placeholder_skipped_count + failed_count,
         sources=tuple(sources),
     )
     print("Maknoon Import Summary")
     print(f"Files scanned: {result.processed_count}")
     print(f"Books with usable text: {result.succeeded_count}")
-    print(f"Placeholder-only (skipped): {skipped_count}")
+    print(f"Placeholder-only (skipped): {placeholder_skipped_count}")
+    print(f"Failed to read (corrupted/inaccessible): {failed_count}")
     print(f"Total pages: {result.total_pages}")
 
     report = LibraryAnalyzer().analyze(result)

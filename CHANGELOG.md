@@ -310,3 +310,53 @@ matches, confirming the earlier 672 removal was clean and permanent.
 
 Verified: 61/61 tests passing, 7,687 books unchanged, search confirmed
 returning real, varied page numbers for Maknoon results.
+
+## Local web app: search, PDF page-jump, in-app reading
+
+Added a Flask-based local web app (`interfaces/web_app.py`, optional `web`
+dependency group) reusing `HybridSearchService` unchanged - same search
+backend as the CLI, browser UI in front. Each result links to whatever is
+actually available for that book: a real PDF at the matching page
+(`/pdf/<id>#page=N`, using the browser's own built-in PDF viewer - no
+server-side page-jump logic needed) for Maknoon/PDF Archive books whose
+source file resolves, or an in-app reading view (`/read/<id>?page=N`,
+built straight from the database) for everything else, including Jibreel
+Mobile/Desktop, which never had PDFs to begin with. This only works
+correctly for Maknoon because of the real per-page data above - before
+that fix every result would have pointed at page 1.
+
+Hardened the semantic-loading path found during live testing: model
+loading previously crashed the whole app on any transient network issue
+(it revalidates against HuggingFace Hub even for an already-cached model);
+now sets `HF_HUB_OFFLINE=1` and catches broad failures, falling back to
+keyword-only rather than refusing to start.
+
+Launcher: `web_app_cli.py` + a double-click `.bat` file at the repo root.
+8 new tests (using `enable_semantic=False` to keep them fast - loading the
+real model made an early test run time out), 69/69 total passing.
+
+## Governance change: phased roadmap adopted
+
+The user handed down a strict phase-based roadmap (Import System &rarr;
+Master Database &rarr; Search &rarr; Desktop GUI &rarr; Book Viewer &rarr; AI),
+explicitly requiring each phase to be 100% complete before the next starts,
+no side improvements, no premature optimization, no unrequested AI work.
+Two direct conflicts with prior instructions were surfaced and resolved
+before proceeding rather than silently picked: the web app above stays
+(already built, already requested) but no further web/GUI work happens
+until the roadmap's GUI phase (PySide6 desktop, not web); Shamela stays
+excluded (still overrides the roadmap's Phase 1 list, per explicit
+confirmation). PDF importer scope for Phase 1 confirmed as native-text-layer
+extraction only - OCR is explicitly a separate, later phase.
+
+## Phase 1 hardening: Maknoon survives corrupted/unreadable files
+
+Found while assessing Phase 1 against the roadmap's completion bar ("logs
+failures... survives corrupted files"): `maknoon_import_cli.py` read each
+file with no error handling - a single corrupted or inaccessible file
+would have crashed the entire import run instead of being logged and
+skipped. Wrapped the per-file read in a try/except, and split the summary
+into two distinct counts (placeholder-only vs. failed-to-read) rather than
+conflating "no real content" with "could not be read" under one number.
+New test simulates an unreadable file and confirms the run completes and
+imports the remaining valid books. 70/70 tests passing.

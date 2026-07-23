@@ -135,12 +135,20 @@ def _build_semantic_service(database_path: Path):
         from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (
             SqlitePageEmbeddingRepository,
         )
+
+        return SemanticBookSearchService(
+            SentenceTransformerEmbedder(), SqlitePageEmbeddingRepository(database_path)
+        )
     except ImportError:
         LOGGER.info("Semantic search unavailable (install .[ai]); running keyword-only.")
         return None
-    return SemanticBookSearchService(
-        SentenceTransformerEmbedder(), SqlitePageEmbeddingRepository(database_path)
-    )
+    except Exception:
+        # Model loading can fail for reasons unrelated to whether the ai
+        # extra is installed (no network and no local cache, a corrupted
+        # cache, etc.) - semantic search is an enhancement, not a
+        # requirement, so keyword search should still work regardless.
+        LOGGER.exception("Semantic search failed to load; running keyword-only.")
+        return None
 
 
 def _highlight_excerpt(excerpt: str) -> Markup:

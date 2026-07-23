@@ -4,6 +4,7 @@ Requires the optional "ai" dependency group (`pip install -e .[ai]`).
 """
 
 import logging
+import os
 
 from sentence_transformers import SentenceTransformer
 
@@ -16,6 +17,10 @@ class SentenceTransformerEmbedder:
     """Embed text locally using a multilingual sentence-transformers model."""
 
     def __init__(self, model_name: str = DEFAULT_MODEL_NAME) -> None:
+        # The model is already downloaded/cached after the first run; skip
+        # HuggingFace Hub's online revalidation so loading works offline and
+        # starts faster even when a network is available.
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
         LOGGER.info("Loading embedding model: %s", model_name)
         self._model = SentenceTransformer(model_name)
 
