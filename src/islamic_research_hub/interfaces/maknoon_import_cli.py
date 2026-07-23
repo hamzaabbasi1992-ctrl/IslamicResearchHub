@@ -26,6 +26,7 @@ from islamic_research_hub.shared.logging_config import configure_logging
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_LIBRARY_NAME = "Maktaba Al-Maknoon"
+DEFAULT_DATABASE_PATH = Path("data/books.db")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +36,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("folder_path", help="Folder containing '<title>.pdf.txt' files")
     parser.add_argument("--library", default=DEFAULT_LIBRARY_NAME)
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=DEFAULT_DATABASE_PATH,
+        help=f"Path to the master database (default: {DEFAULT_DATABASE_PATH})",
+    )
     return parser
 
 
@@ -80,6 +87,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         library_export_result = BookLibraryExporter().export(result, Path("library"))
         database_result = MasterDatabaseBuilder(MasterBookRepository()).build(
             result,
+            database_path=args.database,
             library_name=args.library,
             progress=_print_progress,
         )

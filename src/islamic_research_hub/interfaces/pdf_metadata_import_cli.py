@@ -28,6 +28,8 @@ from islamic_research_hub.shared.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
 
+DEFAULT_DATABASE_PATH = Path("data/books.db")
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
@@ -36,6 +38,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("folder_path", help="Folder to scan recursively for .pdf files")
     parser.add_argument("--library", required=True, help="Library name to tag books with")
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=DEFAULT_DATABASE_PATH,
+        help=f"Path to the master database (default: {DEFAULT_DATABASE_PATH})",
+    )
     return parser
 
 
@@ -68,6 +76,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         LibraryReportExporter().export(report, Path("docs") / "pdf_catalog")
         database_result = MasterDatabaseBuilder(MasterBookRepository()).build(
             result,
+            database_path=args.database,
             library_name=args.library,
             progress=_print_progress,
         )
