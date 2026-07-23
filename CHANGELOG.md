@@ -251,3 +251,25 @@ were already readable). Re-exported `library/Uncategorized/` (Maknoon's
 match the cleaned titles, removing the 779 stale files first. Verified:
 8,359 books total (unchanged, no data loss), 57/57 tests passing, search
 confirmed showing the cleaned titles correctly.
+
+## Duplicate candidate review
+
+Reviewed the 699 candidates from the earlier detection pass. Split cleanly
+into two risk profiles:
+
+- **672 had one metadata-only (zero-page) side** — a PDF Archive stub with
+  no content, matching a Maknoon book that already has the real text. Safe
+  to consolidate: the empty side has nothing to lose. Added
+  `resolve_empty_stub_duplicates()` and ran it for real: **672 empty stubs
+  removed**. PDF Archive library: 3,115 → 2,443. Corpus total: 8,359 →
+  **7,687**.
+- **27 had real content on both sides** (all Jibreel Mobile vs Desktop) —
+  checked page counts before deciding anything, and most differ
+  substantially (e.g. 297 vs 42 pages, 209 vs 705 pages), meaning these are
+  very likely different editions or printings sharing a title, not true
+  duplicates. Left completely untouched — deleting real content on a
+  title-only match would be exactly the kind of mistake this review
+  process exists to avoid.
+
+Verified: 59/59 tests passing, real database confirmed at 7,687 books
+across 4 libraries after the cleanup.
