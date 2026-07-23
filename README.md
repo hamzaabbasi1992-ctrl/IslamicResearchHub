@@ -80,9 +80,37 @@ python -m islamic_research_hub.interfaces.search_cli "your search terms"
 ```
 
 Results are ranked by full-text relevance and include the book title, author,
-page number, and a highlighted excerpt. Use `--database` to point at a
-different database file and `--limit` to change how many results are
-returned (default 20).
+library, page number, and a highlighted excerpt. Use `--database` to point at
+a different database file, `--limit` to change how many results are returned
+(default 20), and `--library "Name"` to restrict results to one library
+(omit to search across all libraries).
+
+### Possible duplicates across libraries
+
+Since libraries come from different, unrelated source systems, the same book
+can end up cataloged more than once. Run the detector after importing new
+sources:
+
+```python
+from pathlib import Path
+from islamic_research_hub.infrastructure.persistence.duplicate_candidate_repository import (
+    DuplicateCandidateRepository,
+)
+DuplicateCandidateRepository(Path("data/books.db")).detect_and_store()
+```
+
+This only *records* candidates (title-based, cross-library) into a
+`DuplicateCandidates` table — it never deletes or merges anything
+automatically. Query it directly to review:
+
+```sql
+SELECT b1.Title, l1.Name, b2.Title, l2.Name, dc.MatchType
+FROM DuplicateCandidates dc
+JOIN Books b1 ON b1.BookID = dc.BookID
+JOIN Books b2 ON b2.BookID = dc.DuplicateOfBookID
+JOIN Libraries l1 ON l1.LibraryID = b1.LibraryID
+JOIN Libraries l2 ON l2.LibraryID = b2.LibraryID;
+```
 
 ## Semantic search (pilot, not scaled to the full corpus)
 

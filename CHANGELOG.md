@@ -144,3 +144,38 @@ full suite and a search sanity check before moving on.
 | Maktaba Al-Maknoon | 778 |
 | Maktaba Jibreel (PDF Archive) | 3,115 (metadata only) |
 | **Total** | **8,359** |
+
+## Search redesign, phase 1: library-awareness and duplicate detection
+
+Started once the corpus was substantially built out across four libraries.
+Scoped deliberately to a contained first phase rather than everything at
+once — unified keyword+semantic search and a proper query API layer for
+future Windows/Android apps remain open for later phases.
+
+### Added
+
+- `SearchResult.library` — every search result now shows which library it
+  came from.
+- `--library "Name"` on `search_cli.py` to scope a search to one library;
+  omit to search across all of them. `SqliteBookSearchRepository` and
+  `BookSearchService` both thread the filter through.
+- `DuplicateCandidateRepository` (`infrastructure/persistence/duplicate_candidate_repository.py`)
+  — detects possible cross-library duplicates by exact normalized title
+  match and persists them to a new `DuplicateCandidates` table. Two match
+  types: `exact_title_and_source_id` (high confidence) and `exact_title`
+  (title only, lower confidence). Intentionally does not delete or merge
+  anything — recomputes from scratch on every call, so it's safe to re-run
+  after future imports. This formalizes the manual audit from the corpus
+  session into durable, queryable, re-runnable infrastructure instead of a
+  one-off finding.
+
+### Verified against real data
+
+- Ran `detect_and_store()` against `data/books.db`: found exactly 699
+  candidates, matching the manual audit total (27 + 672) precisely. All are
+  `exact_title` (the higher-confidence `exact_title_and_source_id` cases
+  were already resolved by the earlier cleanup) — correctly left for human
+  review via the `DuplicateCandidates` table, not auto-merged.
+- Confirmed library-filtered and unfiltered search both return correct
+  results with correct library names against the real corpus.
+- Full test suite (43 tests) passing throughout.
