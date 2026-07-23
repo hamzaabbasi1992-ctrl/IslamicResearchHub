@@ -222,3 +222,32 @@ future Windows/Android apps remain open for later phases.
 - Scaling the embedding index beyond the pilot subject (~17-18 hours of CPU
   time estimated for the full corpus, plus the storage-efficiency fix
   flagged during the pilot still needs doing first).
+
+## Title cleanup for filename-derived titles
+
+The Maknoon and PDF Archive libraries have no real cataloged title, only
+the source file's name. Investigated whether real titles could be
+recovered before doing anything cosmetic:
+
+- Checked Maknoon's own recovered text content for a structured
+  "Book Name:" title-page line: found in **1 of 778 books (0.1%)**.
+- Checked what the 672 PDF-Archive-matches-real-content duplicate
+  candidates actually pointed at: **671 of 672 match Maknoon** (same
+  filename-derived titles — no improvement available), and only **1**
+  matches Jibreel Mobile with a genuine cataloged title.
+
+So real title recovery only applied to 2 books total. Applied those 2
+directly, then added `shared/title_cleanup.py` + `title_cleanup_cli.py`
+for the realistic remaining option: cosmetic cleanup of all-caps,
+underscore-style titles (`KHUTBAAT_E_ALI_MIYAN_VOL_8` →
+`Khutbaat E Ali Miyan Vol 8`), leaving already-readable mixed-case titles
+untouched. Only touches `Books.Title` in `data/books.db` — never the
+original source files under the Maktaba Jibreel/Maknoon folders on F:,
+per explicit instruction to leave those undisturbed.
+
+Applied to the real database: 2,227 of 3,893 titles cleaned up (the rest
+were already readable). Re-exported `library/Uncategorized/` (Maknoon's
+778 files, confirmed to be the only library exported there) so filenames
+match the cleaned titles, removing the 779 stale files first. Verified:
+8,359 books total (unchanged, no data loss), 57/57 tests passing, search
+confirmed showing the cleaned titles correctly.
