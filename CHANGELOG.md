@@ -125,6 +125,16 @@ full suite and a search sanity check before moving on.
   accidentally committed to git before `data/staging/` was added to
   `.gitignore` — caught and fixed in the same session.
 
+### Additional finding (not acted on)
+
+- 672 of the 3,115 PDF Archive metadata-only entries have a title that
+  exactly matches a book that already has real content in another library.
+  These aren't harmful (no content to duplicate — they're empty stubs), but
+  they are redundant and inflate book-count statistics. Same reasoning as
+  above applies: filename-derived titles from a different source system
+  aren't a reliable enough signal to auto-remove entries on, so this is
+  left for human review rather than acted on.
+
 ### Final corpus state
 
 | Library | Books |
