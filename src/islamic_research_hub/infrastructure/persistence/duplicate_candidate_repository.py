@@ -83,6 +83,50 @@ class DuplicateCandidateRepository:
             for row in rows
         )
 
+    def resolve_empty_stub_duplicates(self) -> int:
+        """Remove metadata-only (zero-page) sides of a candidate pair, returning the count removed.
+
+        Only acts when exactly one side of a pair has zero pages and the
+        other has real content: the empty side adds no search value and its
+        removal cannot lose any content. Pairs where both sides have real
+        content are left untouched, since a title match alone is not a
+        reliable enough signal to delete real content on.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            self._create_schema(connection)
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT dc.BookID, dc.DuplicateOfBookID, b1.PageCount AS P1, b2.PageCount AS P2
+                FROM DuplicateCandidates dc
+                JOIN Books b1 ON b1.BookID = dc.BookID
+                JOIN Books b2 ON b2.BookID = dc.DuplicateOfBookID
+                """
+            ).fetchall()
+
+            empty_side_book_ids: set[int] = set()
+            for row in rows:
+                is_book1_empty = row["P1"] == 0
+                is_book2_empty = row["P2"] == 0
+                if is_book1_empty and not is_book2_empty:
+                    empty_side_book_ids.add(row["BookID"])
+                elif is_book2_empty and not is_book1_empty:
+                    empty_side_book_ids.add(row["DuplicateOfBookID"])
+
+            for book_id in empty_side_book_ids:
+                connection.execute("DELETE FROM DuplicateCandidates WHERE BookID = ?", (book_id,))
+                connection.execute(
+                    "DELETE FROM DuplicateCandidates WHERE DuplicateOfBookID = ?", (book_id,)
+                )
+                connection.execute("DELETE FROM Categories WHERE BookID = ?", (book_id,))
+                connection.execute("DELETE FROM Chapters WHERE BookID = ?", (book_id,))
+                connection.execute("DELETE FROM Pages WHERE BookID = ?", (book_id,))
+                connection.execute("DELETE FROM Books WHERE BookID = ?", (book_id,))
+            connection.commit()
+
+        LOGGER.info("Removed %d empty-stub duplicate(s).", len(empty_side_book_ids))
+        return len(empty_side_book_ids)
+
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:
         """Create the duplicate candidates table when it does not yet exist."""
