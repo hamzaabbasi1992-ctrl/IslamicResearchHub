@@ -293,3 +293,20 @@ is now closed as not solvable with reasonable effort. Getting further
 would require decompiling the app's actual code, not just reading its
 strings/config. The 1,694 locked Jibreel Desktop files remain
 inaccessible.
+
+## Maknoon real per-page data, applied to the real database
+
+Re-imported all 778 Maknoon books using the new page-splitting reader.
+Deleted the 778 old single-page rows first (and their Pages/PagesFTS/
+DuplicateCandidates entries), then re-ran the import so search results now
+carry the real matching page number instead of always page 1 — verified:
+205,301 real pages now, vs. 778 before (one per book). Since re-importing
+recreated the rows from scratch, three downstream fixes needed reapplying:
+title cleanup (618 titles), the one genuine real-title fix found earlier,
+and the `library/Uncategorized/` export (regenerated with correct titles).
+Duplicate detection re-run: still exactly 27 remaining candidates (the
+Mobile/Desktop pairs, unaffected by this change) and 0 new empty-stub
+matches, confirming the earlier 672 removal was clean and permanent.
+
+Verified: 61/61 tests passing, 7,687 books unchanged, search confirmed
+returning real, varied page numbers for Maknoon results.
