@@ -60,28 +60,36 @@ class SqlitePageEmbeddingRepository:
             raise PageEmbeddingError("Embeddings could not be written.") from error
 
     def search(
-        self, embedding: tuple[float, ...], limit: int
+        self, embedding: tuple[float, ...], limit: int, library: str | None = None
     ) -> tuple[SemanticSearchResult, ...]:
-        """Return the top matching pages ranked by cosine similarity."""
+        """Return the top matching pages ranked by cosine similarity.
+
+        When `library` is given, results are restricted to that library name.
+        """
         try:
             with closing(sqlite3.connect(self._database_path)) as connection:
                 connection.row_factory = sqlite3.Row
-                rows = connection.execute(
-                    """
+                sql = """
                     SELECT
                         PageEmbeddings.BookID AS BookID,
                         PageEmbeddings.PageNo AS PageNo,
                         PageEmbeddings.Embedding AS Embedding,
                         Books.Title AS Title,
                         Books.Author AS Author,
-                        Pages.Content AS Content
+                        Pages.Content AS Content,
+                        Libraries.Name AS Library
                     FROM PageEmbeddings
                     JOIN Books ON Books.BookID = PageEmbeddings.BookID
                     JOIN Pages
                         ON Pages.BookID = PageEmbeddings.BookID
                         AND Pages.PageNo = PageEmbeddings.PageNo
-                    """
-                ).fetchall()
+                    LEFT JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
+                """
+                parameters: list[object] = []
+                if library is not None:
+                    sql += " WHERE Libraries.Name = ?"
+                    parameters.append(library)
+                rows = connection.execute(sql, parameters).fetchall()
         except sqlite3.Error as error:
             LOGGER.exception("Unable to search page embeddings: %s", self._database_path)
             raise PageEmbeddingError("Embeddings could not be searched.") from error
@@ -104,6 +112,7 @@ class SqlitePageEmbeddingRepository:
                 page_number=rows[index]["PageNo"],
                 excerpt=_excerpt(rows[index]["Content"]),
                 similarity=float(similarities[index]),
+                library=rows[index]["Library"],
             )
             for index in ranked_indices
         )

@@ -13,3 +13,4 @@ class SemanticSearchResult:
     page_number: int | None
     excerpt: str
     similarity: float
+    library: str | None = None

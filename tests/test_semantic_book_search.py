@@ -24,13 +24,15 @@ class FakeIndex:
     def __init__(self) -> None:
         self.last_embedding: tuple[float, ...] | None = None
         self.last_limit: int | None = None
+        self.last_library: str | None = None
 
     def search(
-        self, embedding: tuple[float, ...], limit: int
+        self, embedding: tuple[float, ...], limit: int, library: str | None = None
     ) -> tuple[SemanticSearchResult, ...]:
         """Record the request and return one fixed result."""
         self.last_embedding = embedding
         self.last_limit = limit
+        self.last_library = library
         return (
             SemanticSearchResult(
                 book_id=1, title="Title", author="Author", page_number=1,
@@ -50,6 +52,15 @@ def test_search_embeds_normalized_query_and_delegates() -> None:
     assert index.last_embedding == (1.0, 0.0)
     assert index.last_limit == 5
     assert len(results) == 1
+
+
+def test_search_passes_through_library_filter() -> None:
+    """An optional library filter reaches the index unchanged."""
+    index = FakeIndex()
+
+    SemanticBookSearchService(FakeEmbedder(), index).search("query", library="Lib A")
+
+    assert index.last_library == "Lib A"
 
 
 def test_search_rejects_blank_query() -> None:

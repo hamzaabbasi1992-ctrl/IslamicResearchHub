@@ -45,6 +45,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LIMIT,
         help=f"Maximum number of results to return (default: {DEFAULT_LIMIT})",
     )
+    parser.add_argument(
+        "--library",
+        default=None,
+        help="Restrict results to one library name (default: search all libraries)",
+    )
     return parser
 
 
@@ -59,7 +64,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     service = SemanticBookSearchService(embedder, store)
 
     try:
-        results = service.search(args.query, args.limit)
+        results = service.search(args.query, args.limit, args.library)
     except ValueError as error:
         LOGGER.error("Invalid search request: %s", error)
         return 1

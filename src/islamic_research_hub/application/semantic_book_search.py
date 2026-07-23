@@ -10,7 +10,7 @@ class SemanticSearchIndex(Protocol):
     """Contract for a nearest-neighbor search backend over page embeddings."""
 
     def search(
-        self, embedding: tuple[float, ...], limit: int
+        self, embedding: tuple[float, ...], limit: int, library: str | None = None
     ) -> tuple[SemanticSearchResult, ...]:
         """Return the top matching pages for a query embedding."""
 
@@ -22,7 +22,9 @@ class SemanticBookSearchService:
         self._embedder = embedder
         self._index = index
 
-    def search(self, query: str, limit: int = 20) -> tuple[SemanticSearchResult, ...]:
+    def search(
+        self, query: str, limit: int = 20, library: str | None = None
+    ) -> tuple[SemanticSearchResult, ...]:
         """Embed the query and return the top semantically similar pages."""
         normalized_query = query.strip()
         if not normalized_query:
@@ -30,4 +32,4 @@ class SemanticBookSearchService:
         if limit < 1:
             raise ValueError("Search limit must be at least 1.")
         (embedding,) = self._embedder.embed((normalized_query,))
-        return self._index.search(embedding, limit)
+        return self._index.search(embedding, limit, library)
