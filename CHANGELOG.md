@@ -360,3 +360,46 @@ into two distinct counts (placeholder-only vs. failed-to-read) rather than
 conflating "no real content" with "could not be read" under one number.
 New test simulates an unreadable file and confirms the run completes and
 imports the remaining valid books. 70/70 tests passing.
+
+## Phase 1: Jibreel Desktop decryption formalized into real, tested code
+
+Replaced the ad-hoc scratchpad PowerShell scripts from the corpus-expansion
+session with committed, tested code - the real gap flagged when auditing
+Phase 1 against the "has tests" bar.
+
+- `application/jibreel_desktop_import.py`: `find_new_files()` and
+  `JibreelDesktopImportPlanner` - pure, fully unit-tested logic for
+  deciding which `.mjbx` files are new. Simplification found while
+  planning this: `.mjbx` filenames are literally the app's own catalog id
+  (`2584.mjbx` = book id 2584), so "is this file new" only needs a
+  filename comparison against `Books.SourceBookID` - no need to open or
+  decrypt anything just to check.
+- `infrastructure/persistence/scripts/decrypt_mjbx.ps1`: the actual
+  decryption script, now living in the repo instead of a scratchpad
+  temp folder, parameterized (job list in, results out, both JSON)
+  instead of hardcoded paths.
+- `infrastructure/persistence/powershell_mjbx_decryptor.py`: Python
+  adapter that shells out to the script. Real bug caught during
+  end-to-end validation (not just the fake-decryptor unit tests):
+  PowerShell's `Out-File -Encoding utf8` writes a UTF-8 BOM, which
+  `json.loads` doesn't handle by default - fixed by reading with
+  `utf-8-sig` instead of `utf-8`.
+- `interfaces/jibreel_desktop_import_cli.py`: wires it together and
+  reuses the existing, already-tested scan/import pipeline unchanged
+  for the decrypted output. Structured with a separate `run(args,
+  decryptor)` so tests can inject a fake decryptor - the real one
+  requires the external app's own 32-bit DLL, which won't exist in a
+  portable test environment.
+- 8 new tests: pure planning logic, plus CLI orchestration with a fake
+  decryptor covering new-file decryption, a locked (wrong-password)
+  file being skipped rather than fatal, and already-imported files
+  being correctly excluded from re-planning.
+
+Validated against real data, not just fakes: ran the real CLI with the
+real DLL and real password against 2 known-good and 1 known-locked
+`.mjbx` file. Result matched expectations exactly - 2 decrypted and
+imported (217 and 393 pages, matching the original pilot run's numbers
+for these same files), 1 correctly rejected as failed. Re-run confirmed
+the already-imported files are excluded and the still-locked file is
+retried (not permanently blacklisted, in case its password is found
+later). 78/78 tests passing.
