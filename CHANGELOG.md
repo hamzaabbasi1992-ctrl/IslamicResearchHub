@@ -179,3 +179,46 @@ future Windows/Android apps remain open for later phases.
 - Confirmed library-filtered and unfiltered search both return correct
   results with correct library names against the real corpus.
 - Full test suite (43 tests) passing throughout.
+
+## Search redesign, phase 2: unify keyword and semantic search
+
+### Added
+
+- `HybridSearchService` (`application/hybrid_search.py`) — fuses keyword
+  (FTS5) and semantic (embedding) search into one ranked list using
+  Reciprocal Rank Fusion (`score = sum of 1/(60+rank)` per ranker that
+  found a page). RRF was chosen specifically because it combines rankers by
+  rank position rather than raw score, avoiding the problem of BM25 scores
+  and cosine similarities living on completely different, incomparable
+  scales.
+- Semantic search is fully optional in the fused service — pass `None` and
+  it behaves as keyword-only. This matters concretely here, not just in
+  theory: the embedding index only covers the pilot subject (~8,000 of
+  900,000+ pages), so most queries will only ever get keyword results.
+  That's correct behavior, not something to special-case around.
+- `hybrid_search_cli.py` — degrades the same way at runtime if the `ai`
+  extra isn't importable, and `--keyword-only` forces it explicitly.
+- When a page is found by both rankers, its keyword excerpt (highlighted)
+  is preferred over the semantic one, and the result shows which ranker(s)
+  matched (`matched_by`) plus the fused score.
+- Library-awareness extended to the semantic path for consistency with
+  phase 1: `SemanticSearchResult.library`, `--library` on
+  `semantic_search_cli.py`, and a library filter on
+  `SqlitePageEmbeddingRepository.search()`.
+
+### Verified against real data
+
+- A query relevant to the pilot subject (رحمت اور شفقت) returned a genuine
+  mix of `matched by: keyword` and `matched by: semantic` results from
+  different libraries — confirming the fusion surfaces conceptual matches
+  the keyword-only search would have missed, without losing exact matches.
+- `--keyword-only` confirmed working correctly for queries outside the
+  pilot's semantic coverage.
+- Full test suite (51 tests) passing throughout.
+
+### Still open (later phase)
+
+- A proper query API layer (vs. CLI-only) for the Windows/Android app goal.
+- Scaling the embedding index beyond the pilot subject (~17-18 hours of CPU
+  time estimated for the full corpus, plus the storage-efficiency fix
+  flagged during the pilot still needs doing first).

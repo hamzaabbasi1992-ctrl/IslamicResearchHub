@@ -124,3 +124,21 @@ $env:PYTHONPATH = "src"
 python -m islamic_research_hub.interfaces.semantic_index_cli "Root Category Name"
 python -m islamic_research_hub.interfaces.semantic_search_cli "your search terms"
 ```
+
+## Hybrid search (keyword + semantic, fused)
+
+Combines keyword and semantic search into one ranked list via Reciprocal
+Rank Fusion. Semantic search degrades gracefully — if the `ai` extra isn't
+installed, or a page just isn't covered by the (pilot-scale) embedding
+index, results simply come from keyword matching alone.
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m islamic_research_hub.interfaces.hybrid_search_cli "your search terms"
+python -m islamic_research_hub.interfaces.hybrid_search_cli "your search terms" --keyword-only
+```
+
+Each result shows `matched by: keyword`, `matched by: semantic`, or
+`matched by: keyword+semantic` (found by both, ranked higher) alongside its
+fused score. Supports the same `--database`, `--limit`, and `--library`
+flags as the other search commands.
