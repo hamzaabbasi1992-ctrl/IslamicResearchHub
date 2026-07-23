@@ -38,6 +38,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LIMIT,
         help=f"Maximum number of results to return (default: {DEFAULT_LIMIT})",
     )
+    parser.add_argument(
+        "--library",
+        default=None,
+        help="Restrict results to one library name (default: search all libraries)",
+    )
     return parser
 
 
@@ -49,7 +54,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     service = BookSearchService(SqliteBookSearchRepository(args.database))
 
     try:
-        results = service.search(args.query, args.limit)
+        results = service.search(args.query, args.limit, args.library)
     except ValueError as error:
         LOGGER.error("Invalid search request: %s", error)
         return 1
@@ -79,7 +84,8 @@ def _print_results(results: tuple[SearchResult, ...]) -> None:
         title = result.title or "(untitled)"
         author = result.author or "Unknown"
         page = result.page_number if result.page_number is not None else "?"
-        print(f"{index}. {title} — {author} (page {page})")
+        library = result.library or "Unknown library"
+        print(f"{index}. {title} — {author} (page {page}) [{library}]")
         print(f"   {result.excerpt}")
 
 

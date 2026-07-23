@@ -12,3 +12,4 @@ class SearchResult:
     author: str | None
     page_number: int | None
     excerpt: str
+    library: str | None = None

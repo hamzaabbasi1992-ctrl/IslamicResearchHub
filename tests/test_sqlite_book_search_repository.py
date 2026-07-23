@@ -31,7 +31,7 @@ def _seed_database(database_path: Path) -> None:
 
 
 def test_search_returns_ranked_matches_with_snippets(tmp_path: Path) -> None:
-    """A matching term returns the book, page, author, and a highlighted excerpt."""
+    """A matching term returns the book, page, author, library, and a highlighted excerpt."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
 
@@ -41,7 +41,34 @@ def test_search_returns_ranked_matches_with_snippets(tmp_path: Path) -> None:
     assert results[0].title == "Book of Fiqh"
     assert results[0].author == "Author One"
     assert results[0].page_number == 1
+    assert results[0].library == "Maktaba Jibreel (Mobile)"
     assert "jurisprudence" in results[0].excerpt.lower()
+
+
+def test_search_filters_by_library(tmp_path: Path) -> None:
+    """A library filter excludes matches from other libraries."""
+    database_path = tmp_path / "books.db"
+    other_book = Book(
+        information={"Name": "Other Book"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence explained again", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path,
+        (other_book,),
+        (database_path.parent / "other.mjbz",),
+        library_name="Other Library",
+    )
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence", limit=10, library="Other Library"
+    )
+
+    assert len(results) == 1
+    assert results[0].title == "Other Book"
+    assert results[0].library == "Other Library"
 
 
 def test_search_returns_no_results_for_unmatched_term(tmp_path: Path) -> None:

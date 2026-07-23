@@ -12,11 +12,15 @@ class FakeIndex:
     def __init__(self) -> None:
         self.last_query: str | None = None
         self.last_limit: int | None = None
+        self.last_library: str | None = None
 
-    def search(self, query: str, limit: int) -> tuple[SearchResult, ...]:
+    def search(
+        self, query: str, limit: int, library: str | None = None
+    ) -> tuple[SearchResult, ...]:
         """Record the request and return one fixed result."""
         self.last_query = query
         self.last_limit = limit
+        self.last_library = library
         return (SearchResult(book_id=1, title="Title", author="Author", page_number=1, excerpt="..."),)
 
 
@@ -29,6 +33,15 @@ def test_search_delegates_normalized_query_and_limit() -> None:
     assert index.last_query == "jurisprudence"
     assert index.last_limit == 5
     assert len(results) == 1
+
+
+def test_search_passes_through_library_filter() -> None:
+    """An optional library filter reaches the index unchanged."""
+    index = FakeIndex()
+
+    BookSearchService(index).search("query", library="Maktaba Al-Maknoon")
+
+    assert index.last_library == "Maktaba Al-Maknoon"
 
 
 def test_search_rejects_blank_query() -> None:

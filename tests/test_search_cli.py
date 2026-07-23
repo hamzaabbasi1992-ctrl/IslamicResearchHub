@@ -51,3 +51,35 @@ def test_main_fails_cleanly_when_database_is_missing(tmp_path: Path) -> None:
     exit_code = main(["query", "--database", str(tmp_path / "missing.db")])
 
     assert exit_code == 1
+
+
+def test_main_shows_library_and_respects_library_filter(tmp_path: Path, capsys) -> None:
+    """Results show their library, and --library restricts the search to one."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    other_book = Book(
+        information={"Name": "Other Fiqh Book"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "More rules of jurisprudence here", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path,
+        (other_book,),
+        (database_path.parent / "other.mjbz",),
+        library_name="Second Library",
+    )
+
+    exit_code = main(["jurisprudence", "--database", str(database_path)])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "[Maktaba Jibreel (Mobile)]" in captured.out
+    assert "[Second Library]" in captured.out
+
+    exit_code = main(
+        ["jurisprudence", "--database", str(database_path), "--library", "Second Library"]
+    )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Other Fiqh Book" in captured.out
+    assert "Book of Fiqh" not in captured.out
