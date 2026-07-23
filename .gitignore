@@ -26,6 +26,7 @@ logs/*.log
 docs/library_report.json
 docs/library_report.md
 docs/maknoon/
+docs/pdf_catalog/
 library/
 data/staging/
 
