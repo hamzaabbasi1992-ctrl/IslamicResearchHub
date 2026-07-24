@@ -10,6 +10,7 @@ without risk. Real structural changes start at version 2.
 
 import logging
 import sqlite3
+from collections import Counter
 
 from islamic_research_hub.domain.models.migration import Migration
 
@@ -59,8 +60,56 @@ def _normalize_authors(connection: sqlite3.Connection) -> None:
     )
 
 
+def _pick_canonical(counter: Counter) -> object:
+    """Return the most frequent value, tie-broken by the smallest value."""
+    max_count = max(counter.values())
+    candidates = sorted(value for value, count in counter.items() if count == max_count)
+    return candidates[0]
+
+
+def _normalize_categories(connection: sqlite3.Connection) -> None:
+    """Add a cross-library category taxonomy, deduplicated from per-book rows.
+
+    The per-book `Categories` table (BookID, MJCN, ParentMJCN, Name, SortKey)
+    is left completely untouched - nothing downstream reads it outside the
+    existing category-chain-to-subject logic, which keeps working unmodified.
+    `MJCN` is shared across the two Jibreel libraries (same source
+    classification scheme), so one taxonomy row per distinct MJCN is a real
+    cross-library category, not a per-library duplicate. A handful of MJCN
+    codes have inconsistent Name spelling or ParentMJCN across books (found
+    by inspecting the real data); the most frequent value wins, tie-broken
+    deterministically by the smallest value.
+    """
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS CategoryTaxonomy (
+            MJCN INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL,
+            ParentMJCN INTEGER
+        )
+        """
+    )
+
+    names_by_mjcn: dict[int, Counter] = {}
+    parents_by_mjcn: dict[int, Counter] = {}
+    for mjcn, name, parent_mjcn in connection.execute(
+        "SELECT MJCN, Name, ParentMJCN FROM Categories"
+    ):
+        names_by_mjcn.setdefault(mjcn, Counter())[name] += 1
+        parents_by_mjcn.setdefault(mjcn, Counter())[parent_mjcn] += 1
+
+    connection.executemany(
+        "INSERT OR IGNORE INTO CategoryTaxonomy (MJCN, Name, ParentMJCN) VALUES (?, ?, ?)",
+        (
+            (mjcn, _pick_canonical(names_by_mjcn[mjcn]), _pick_canonical(parents_by_mjcn[mjcn]))
+            for mjcn in sorted(names_by_mjcn)
+        ),
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
+CATEGORIES_VERSION = 3
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -74,6 +123,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add a normalized Authors table and Books.AuthorID, backfilled from "
         "the existing Books.Author free-text column.",
         _normalize_authors,
+    ),
+    Migration(
+        CATEGORIES_VERSION,
+        "Add a cross-library CategoryTaxonomy table, deduplicated by MJCN "
+        "from the existing per-book Categories table.",
+        _normalize_categories,
     ),
 )
 

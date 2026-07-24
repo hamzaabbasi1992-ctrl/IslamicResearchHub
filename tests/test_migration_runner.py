@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.domain.models.migration import Migration
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
@@ -13,6 +13,7 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 from islamic_research_hub.infrastructure.persistence.migration_runner import (
     AUTHORS_VERSION,
     BASELINE_VERSION,
+    CATEGORIES_VERSION,
     MIGRATIONS,
     MigrationRunner,
 )
@@ -117,8 +118,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
         assert [migration.version for migration in applied] == [
             BASELINE_VERSION,
             AUTHORS_VERSION,
+            CATEGORIES_VERSION,
         ]
-        assert runner.current_version(connection) == AUTHORS_VERSION
+        assert runner.current_version(connection) == CATEGORIES_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -151,6 +153,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
         assert [migration.version for migration in applied] == [
             BASELINE_VERSION,
             AUTHORS_VERSION,
+            CATEGORIES_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -164,3 +167,77 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
         assert by_title["Book Two"] == ("Imam Al-Ghazali", authors["Imam Al-Ghazali"])
         assert by_title["Book Three"] == ("Ibn Kathir", authors["Ibn Kathir"])
         assert by_title["Book Four"] == (None, None)
+
+
+def _seed_book_with_categories(
+    database_path: Path, title: str, categories: tuple[Category, ...], source: str
+) -> None:
+    """Import one minimal real book carrying the given category hierarchy."""
+    book = Book(
+        information={"Name": title},
+        categories=categories,
+        table_of_contents=(),
+        pages=(Page(1, 1, "Some real page content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / source,)
+    )
+
+
+def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) -> None:
+    """Migration 3 builds one taxonomy row per distinct MJCN across all books."""
+    database_path = tmp_path / "books.db"
+    fiqh = Category(mjcn=9, name="Fiqh", parent_mjcn=0, sort_key=1)
+    hadith = Category(mjcn=10, name="Hadith", parent_mjcn=0, sort_key=2)
+    _seed_book_with_categories(database_path, "Book One", (fiqh,), "one.mjbz")
+    _seed_book_with_categories(database_path, "Book Two", (fiqh, hadith), "two.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner = MigrationRunner(MIGRATIONS)
+        applied = runner.migrate(connection)
+
+        assert [migration.version for migration in applied] == [
+            BASELINE_VERSION,
+            AUTHORS_VERSION,
+            CATEGORIES_VERSION,
+        ]
+
+        rows = connection.execute(
+            "SELECT MJCN, Name, ParentMJCN FROM CategoryTaxonomy ORDER BY MJCN"
+        ).fetchall()
+        assert rows == [(9, "Fiqh", 0), (10, "Hadith", 0)]
+
+
+def test_categories_migration_resolves_inconsistent_spelling_by_frequency(
+    tmp_path: Path,
+) -> None:
+    """When the same MJCN has conflicting Name/ParentMJCN, the most common wins."""
+    database_path = tmp_path / "books.db"
+    majority_a = Category(mjcn=5, name="Common Name", parent_mjcn=1, sort_key=1)
+    majority_b = Category(mjcn=5, name="Common Name", parent_mjcn=1, sort_key=1)
+    minority = Category(mjcn=5, name="Rare Spelling", parent_mjcn=2, sort_key=1)
+    _seed_book_with_categories(database_path, "Book One", (majority_a,), "one.mjbz")
+    _seed_book_with_categories(database_path, "Book Two", (majority_b,), "two.mjbz")
+    _seed_book_with_categories(database_path, "Book Three", (minority,), "three.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        row = connection.execute(
+            "SELECT Name, ParentMJCN FROM CategoryTaxonomy WHERE MJCN = 5"
+        ).fetchone()
+        assert row == ("Common Name", 1)
+
+
+def test_categories_migration_produces_no_rows_when_no_books_have_categories(
+    tmp_path: Path,
+) -> None:
+    """A database with no categorized books gets an empty (but present) taxonomy."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        count = connection.execute("SELECT COUNT(*) FROM CategoryTaxonomy").fetchone()[0]
+        assert count == 0

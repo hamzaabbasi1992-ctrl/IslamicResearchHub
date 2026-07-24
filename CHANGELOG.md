@@ -547,3 +547,33 @@ Ran for real against the production database (fresh backup taken
 immediately beforehand): **650 Authors rows, 4,466 books backfilled with
 AuthorID, 0 mismatches** - exactly matching the pre-migration survey.
 Verified with the step 1 database verifier afterward: still healthy.
+
+## Phase 2, step 5: Categories normalized into a cross-library taxonomy
+
+Fifth Phase 2 item. Surveyed the real data first: 13,929 per-book Category
+rows, 691 distinct MJCN codes, shared across both Jibreel libraries
+(Desktop and Mobile use the same source classification scheme, so one MJCN
+code genuinely is the same category across both - not a coincidental
+collision). Also found the data isn't perfectly clean: 4 MJCN codes have
+inconsistent Name spelling and 1 has an inconsistent ParentMJCN across
+different books (out of 691) - small enough to resolve deterministically
+rather than needing manual review.
+
+Migration 3 (`_normalize_categories`): adds a `CategoryTaxonomy` table
+(`MJCN` primary key, `Name`, `ParentMJCN`), one row per distinct MJCN
+across every book's Categories rows. Where a code's Name or ParentMJCN
+disagrees across books, the most frequent value wins, tie-broken by the
+smallest value for determinism. The existing per-book `Categories` table
+is untouched - confirmed nothing outside the category-chain-to-subject
+logic (`book_library_exporter.py`, `semantic_index_cli.py`) reads it, and
+that logic keeps working unmodified since its source table didn't change.
+
+New tests (111/111 total): dedup across books sharing an MJCN, the
+frequency tie-break on a deliberately conflicting Name/ParentMJCN, and a
+database with no categorized books producing an empty (not missing)
+taxonomy table.
+
+Ran for real against the production database (fresh backup taken
+immediately beforehand): **691 CategoryTaxonomy rows**, exactly matching
+the 691 distinct MJCN codes in the real data, including correct resolution
+of all 5 known conflict cases. Verified healthy afterward.
