@@ -793,3 +793,53 @@ than Phase 4's GUI scope.
 seeded content, a malformed-query error test at the repository level, and
 a web-app regression test proving the malformed-query request now returns
 200 with an error message instead of crashing.
+
+## Phase 3, step 4: root search evaluated and deliberately not built
+
+Checked what's available offline before building anything: no Arabic
+morphology/stemming library is installed (`pyarabic`, `tashaphyne`,
+`qalsadi`, `camel-tools` all absent). Real root extraction needs one of:
+a verified root dictionary (none available, can't be fabricated), a
+rule-based light stemmer (installable, but known 30-50% error rates -
+would actively return wrong results as often as right ones), or a real
+statistical morphological analyzer (accurate, but needs downloaded
+models and is arguably AI-adjacent, conflicting with Phase 3's explicit
+"No semantic AI" rule). Also a corpus-fit problem: root-pattern morphology
+is Arabic-specific and a large share of this corpus is Urdu (no root
+system), so it would only ever help part of the library.
+
+Presented this assessment to the user with three options (skip / build an
+unreliable stemmer anyway with the error rate documented / defer).
+**Decision: skip.** No code written. Can be revisited if a verified-root
+resource becomes available, or folded into Phase 6 alongside other
+advanced language features.
+
+## Phase 3, step 5: highlighting and page navigation confirmed (no changes needed)
+
+Final Phase 3 item. Both were already fully built (Phase-1-era) and
+required no changes: `snippet()`-based `**term**` highlighting (converted
+to `<mark>` tags in the web app) and page navigation (PDF results open at
+`#page=N`; the in-app reader uses `?page=N` with a `#jump` anchor).
+Re-verified both still work correctly with this phase's new normalized
+search index - real production output showed `**علي**` markers rendering
+correctly in excerpts - and confirmed via the existing, unmodified,
+still-passing web-app test suite. Nothing built; explicitly confirmed
+rather than assumed.
+
+### Phase 3 status: complete
+
+- FTS5 keyword search, bm25 ranking - already built (Phase 1).
+- Arabic/Urdu normalization - built (migration 5): 2,046,888 pages
+  indexed into `PagesFTSNormalized`, verified with real variant-spelling
+  queries.
+- Filters - library (already built) plus new author/category filters.
+- Boolean search - verified working via FTS5's native syntax; found and
+  fixed a real crash bug in the web app along the way.
+- Highlighting and page navigation - confirmed already working, no
+  changes needed.
+- Root search - evaluated, deliberately not built (see above): no
+  reliable offline option exists.
+
+138/138 tests passing. Every real-data change (migration 5) was preceded
+by a fresh backup and followed by a full integrity check; the two filter/
+boolean-search steps were read-only against the schema and needed neither.
