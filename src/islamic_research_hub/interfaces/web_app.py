@@ -20,6 +20,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     BookBrowserRepository,
 )
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
+    BookSearchError,
     SqliteBookSearchRepository,
 )
 from islamic_research_hub.shared.logging_config import configure_logging
@@ -89,15 +90,21 @@ def create_app(
         query = request.args.get("q", "").strip()
         library = request.args.get("library") or None
         results = []
+        error = None
         if query:
-            hits = search_service.search(query, DEFAULT_LIMIT, library)
-            results = [build_result_view(hit) for hit in hits]
+            try:
+                hits = search_service.search(query, DEFAULT_LIMIT, library)
+                results = [build_result_view(hit) for hit in hits]
+            except BookSearchError:
+                LOGGER.warning("Invalid search query rejected: %s", query)
+                error = "That search couldn't be run - check your query and try again."
         return render_template(
             "search.html",
             query=query,
             library=library,
             libraries=browser.list_libraries(),
             results=results,
+            error=error,
             semantic_available=semantic_service is not None,
         )
 

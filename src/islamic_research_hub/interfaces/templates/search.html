@@ -20,6 +20,7 @@
   .open-link { display: inline-block; margin-top: 0.5rem; color: #2d5f3f; font-weight: bold; text-decoration: none; direction: ltr; }
   .open-link:hover { text-decoration: underline; }
   .no-results { text-align: center; color: #888; margin-top: 2rem; }
+  .search-error { text-align: center; color: #a33; margin-top: 2rem; }
   .matched-by { font-size: 0.8rem; color: #999; }
 </style>
 </head>
@@ -39,7 +40,9 @@
     <button type="submit">Search</button>
   </form>
 
-  {% if query and not results %}
+  {% if error %}
+    <p class="search-error">{{ error }}</p>
+  {% elif query and not results %}
     <p class="no-results">No matches found for "{{ query }}".</p>
   {% endif %}
 

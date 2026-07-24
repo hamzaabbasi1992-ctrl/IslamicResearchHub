@@ -101,6 +101,18 @@ def test_search_with_no_matches_shows_message(tmp_path: Path) -> None:
     assert b"No matches found" in response.data
 
 
+def test_search_with_malformed_boolean_query_shows_error_instead_of_crashing(
+    tmp_path: Path,
+) -> None:
+    """A malformed FTS5 query (e.g. an unbalanced quote) shows an error, not a 500."""
+    client, _ = _make_client(tmp_path)
+
+    response = client.get('/?q="unbalanced quote')
+
+    assert response.status_code == 200
+    assert b"couldn" in response.data.lower() or b"error" in response.data.lower()
+
+
 def test_read_book_renders_pages_and_marks_jump_target(tmp_path: Path) -> None:
     """The reading view shows all pages and marks the requested page for scrolling."""
     client, _ = _make_client(tmp_path)

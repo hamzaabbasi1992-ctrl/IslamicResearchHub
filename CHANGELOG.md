@@ -764,3 +764,32 @@ database (read-only, no schema change, no backup needed): author filter,
 category filter, and library+author combined all return correctly scoped
 real results (e.g. کفایت المفتی by حضرت مولانا مفتی محمد کفایت اللہ دہلوی
 صاحب, ارشاد المفتین under فتاوی).
+
+## Phase 3, step 3: boolean search verified, real crash fixed
+
+Third Phase 3 item. `SqliteBookSearchRepository` already passes the query
+straight through to FTS5's `MATCH`, which natively supports `AND`/`OR`/
+`NOT`, quoted phrases, and prefix (`term*`) queries - so "boolean search"
+was really a verification task, not a build. Confirmed for real against
+the production database: `قرآن AND حدیث`, `قرآن OR تفسیر`,
+`قرآن NOT تفسیر`, `"حکم شرعی"`, and `قرآن*` all returned correct results.
+
+Also tested deliberately malformed queries (bare `-`, an unbalanced
+quote, a bare `AND`) against real data to see how they fail. The
+repository layer already caught these correctly (`BookSearchError`, not a
+raw crash) - but **`web_app.py`'s `/` route called `search_service.search()`
+with no exception handling at all**, so typing an unbalanced quote into
+the search box would have crashed the request with an uncaught 500. Found
+by testing the actual failure path, not by inspection.
+
+Fixed: the route now catches `BookSearchError` and renders a clear
+"couldn't be run" message instead of crashing (`search.html` gets a
+`.search-error` block, styled consistently with the existing `.no-results`
+message - no other UI changes). This is a bug fix to existing search
+handling, not new UI work, so it stays within the Phase 3 boundary rather
+than Phase 4's GUI scope.
+
+6 new tests (138/138 total): AND/OR/NOT/phrase queries against real
+seeded content, a malformed-query error test at the repository level, and
+a web-app regression test proving the malformed-query request now returns
+200 with an error message instead of crashing.

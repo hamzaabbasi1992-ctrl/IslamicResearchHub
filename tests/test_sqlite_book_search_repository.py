@@ -173,3 +173,62 @@ def test_search_filters_by_category(tmp_path: Path) -> None:
 
     assert len(results) == 1
     assert results[0].title == "Fiqh Book"
+
+
+def test_search_supports_boolean_and_operator(tmp_path: Path) -> None:
+    """An explicit AND query matches only pages containing both terms."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence AND fiqh", limit=10
+    )
+
+    assert len(results) == 1
+    assert results[0].page_number == 1
+
+
+def test_search_supports_boolean_or_operator(tmp_path: Path) -> None:
+    """An OR query matches pages containing either term."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence OR unrelated", limit=10
+    )
+
+    assert len(results) == 2
+
+
+def test_search_supports_boolean_not_operator(tmp_path: Path) -> None:
+    """A NOT query excludes pages containing the excluded term."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence NOT extensive", limit=10
+    )
+
+    assert results == ()
+
+
+def test_search_supports_phrase_queries(tmp_path: Path) -> None:
+    """A quoted phrase matches only that exact word sequence."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        '"rules of jurisprudence"', limit=10
+    )
+
+    assert len(results) == 1
+    assert results[0].page_number == 1
+
+
+def test_search_raises_book_search_error_for_malformed_query(tmp_path: Path) -> None:
+    """A malformed FTS5 query (unbalanced quote) raises a clear error, not a raw crash."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    with pytest.raises(BookSearchError):
+        SqliteBookSearchRepository(database_path).search('"unbalanced quote', limit=10)
