@@ -739,3 +739,28 @@ production database (fresh backup taken first): backfilled all
 - "علی" and "علي" (Urdu vs Arabic yeh) now return identical results;
 same for "أحمد"/"احمد". Verified healthy afterward (0 errors, 0
 warnings).
+
+## Phase 3, step 2: Author and Category search filters
+
+Second Phase 3 item, made possible by Phase 2's Authors/CategoryTaxonomy
+work. Extended the existing `library` filter pattern (unchanged in
+behavior) with `author` (exact match against `Books.Author`) and
+`category` (exact match against the per-book `Categories.Name`, via
+`EXISTS`) - both optional, both additive to `SqliteBookSearchRepository`,
+`BookSearchService`/`SearchIndex`, and `search_cli.py` (`--author`,
+`--category`). `HybridSearchService` and `web_app.py` needed no changes -
+new parameters are optional and trailing, called positionally with the
+same three arguments as before.
+
+Caught by the test suite, not by inspection: `FakeKeywordIndex` in
+`test_hybrid_search.py` only accepted 3 positional arguments - adding the
+new parameters to `BookSearchService.search()` would have made every
+`HybridSearchService` call raise `TypeError` the moment hybrid/semantic
+search was exercised for real. Fixed by updating the fake to match the
+real protocol.
+
+6 new tests (132/132 total). Validated for real against the production
+database (read-only, no schema change, no backup needed): author filter,
+category filter, and library+author combined all return correctly scoped
+real results (e.g. کفایت المفتی by حضرت مولانا مفتی محمد کفایت اللہ دہلوی
+صاحب, ارشاد المفتین under فتاوی).

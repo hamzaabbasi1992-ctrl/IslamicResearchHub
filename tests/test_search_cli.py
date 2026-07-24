@@ -83,3 +83,27 @@ def test_main_shows_library_and_respects_library_filter(tmp_path: Path, capsys) 
     assert exit_code == 0
     assert "Other Fiqh Book" in captured.out
     assert "Book of Fiqh" not in captured.out
+
+
+def test_main_respects_author_filter(tmp_path: Path, capsys) -> None:
+    """--author restricts results to one exact author."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    other_book = Book(
+        information={"Name": "Other Fiqh Book", "ANAME": "Author Two"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "More rules of jurisprudence here", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (other_book,), (database_path.parent / "other.mjbz",)
+    )
+
+    exit_code = main(
+        ["jurisprudence", "--database", str(database_path), "--author", "Author Two"]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Other Fiqh Book" in captured.out
+    assert "Book of Fiqh" not in captured.out

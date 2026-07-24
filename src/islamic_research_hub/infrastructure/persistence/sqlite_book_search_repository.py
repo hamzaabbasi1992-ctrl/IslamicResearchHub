@@ -31,13 +31,26 @@ class SqliteBookSearchRepository:
         self._database_path = database_path
 
     def search(
-        self, query: str, limit: int, library: str | None = None
+        self,
+        query: str,
+        limit: int,
+        library: str | None = None,
+        author: str | None = None,
+        category: str | None = None,
     ) -> tuple[SearchResult, ...]:
         """Return the top matching pages, ranked by full-text relevance.
 
-        When `library` is given, results are restricted to that library name.
+        `library` restricts to one library name, `author` to one exact
+        `Books.Author` value, and `category` to books linked (in the
+        per-book `Categories` table) to a category with that exact name.
         """
-        LOGGER.info("Searching library for: %s (library filter: %s)", query, library)
+        LOGGER.info(
+            "Searching library for: %s (library=%s, author=%s, category=%s)",
+            query,
+            library,
+            author,
+            category,
+        )
         try:
             with closing(self._connect_read_only(self._database_path)) as connection:
                 connection.row_factory = sqlite3.Row
@@ -62,6 +75,18 @@ class SqliteBookSearchRepository:
                 if library is not None:
                     sql += " AND Libraries.Name = ?"
                     parameters.append(library)
+                if author is not None:
+                    sql += " AND Books.Author = ?"
+                    parameters.append(author)
+                if category is not None:
+                    sql += """
+                        AND EXISTS (
+                            SELECT 1 FROM Categories
+                            WHERE Categories.BookID = Books.BookID
+                            AND Categories.Name = ?
+                        )
+                    """
+                    parameters.append(category)
                 sql += " ORDER BY rank LIMIT ?"
                 parameters.append(limit)
                 rows = connection.execute(sql, parameters).fetchall()

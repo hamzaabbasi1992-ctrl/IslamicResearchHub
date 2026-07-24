@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
@@ -119,3 +119,57 @@ def test_search_falls_back_to_plain_index_before_migration(tmp_path: Path) -> No
 
     assert len(results) == 1
     assert results[0].title == "Book of Fiqh"
+
+
+def test_search_filters_by_author(tmp_path: Path) -> None:
+    """An author filter excludes matches by a different author."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    other_book = Book(
+        information={"Name": "Other Book", "ANAME": "Author Two"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence explained again", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (other_book,), (database_path.parent / "other.mjbz",)
+    )
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence", limit=10, author="Author Two"
+    )
+
+    assert len(results) == 1
+    assert results[0].title == "Other Book"
+    assert results[0].author == "Author Two"
+
+
+def test_search_filters_by_category(tmp_path: Path) -> None:
+    """A category filter excludes matches from books outside that category."""
+    database_path = tmp_path / "books.db"
+    fiqh = Category(mjcn=9, name="Fiqh", parent_mjcn=0, sort_key=1)
+    hadith = Category(mjcn=10, name="Hadith", parent_mjcn=0, sort_key=1)
+    fiqh_book = Book(
+        information={"Name": "Fiqh Book"},
+        categories=(fiqh,),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence in fiqh", "Plain"),),
+    )
+    hadith_book = Book(
+        information={"Name": "Hadith Book"},
+        categories=(hadith,),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence in hadith too", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path,
+        (fiqh_book, hadith_book),
+        (database_path.parent / "fiqh.mjbz", database_path.parent / "hadith.mjbz"),
+    )
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "jurisprudence", limit=10, category="Fiqh"
+    )
+
+    assert len(results) == 1
+    assert results[0].title == "Fiqh Book"

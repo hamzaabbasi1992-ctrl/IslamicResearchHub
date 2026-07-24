@@ -13,7 +13,7 @@ class FakeKeywordIndex:
     def __init__(self, results: tuple[SearchResult, ...]) -> None:
         self._results = results
 
-    def search(self, query, limit, library=None):
+    def search(self, query, limit, library=None, author=None, category=None):
         return self._results[:limit]
 
 

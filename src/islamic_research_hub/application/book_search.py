@@ -9,7 +9,12 @@ class SearchIndex(Protocol):
     """Contract for a full-text search backend over imported book pages."""
 
     def search(
-        self, query: str, limit: int, library: str | None = None
+        self,
+        query: str,
+        limit: int,
+        library: str | None = None,
+        author: str | None = None,
+        category: str | None = None,
     ) -> tuple[SearchResult, ...]:
         """Return the top matching pages for a free-text query."""
 
@@ -21,15 +26,20 @@ class BookSearchService:
         self._index = index
 
     def search(
-        self, query: str, limit: int = 20, library: str | None = None
+        self,
+        query: str,
+        limit: int = 20,
+        library: str | None = None,
+        author: str | None = None,
+        category: str | None = None,
     ) -> tuple[SearchResult, ...]:
         """Search the library, rejecting blank queries and non-positive limits.
 
-        When `library` is given, results are restricted to that library.
+        `library`, `author`, and `category` each restrict results when given.
         """
         normalized_query = query.strip()
         if not normalized_query:
             raise ValueError("Search query must not be empty.")
         if limit < 1:
             raise ValueError("Search limit must be at least 1.")
-        return self._index.search(normalized_query, limit, library)
+        return self._index.search(normalized_query, limit, library, author, category)

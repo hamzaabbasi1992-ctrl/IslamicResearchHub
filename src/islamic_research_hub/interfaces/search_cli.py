@@ -43,6 +43,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Restrict results to one library name (default: search all libraries)",
     )
+    parser.add_argument(
+        "--author",
+        default=None,
+        help="Restrict results to one exact author name",
+    )
+    parser.add_argument(
+        "--category",
+        default=None,
+        help="Restrict results to one exact category name",
+    )
     return parser
 
 
@@ -54,7 +64,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
     service = BookSearchService(SqliteBookSearchRepository(args.database))
 
     try:
-        results = service.search(args.query, args.limit, args.library)
+        results = service.search(
+            args.query, args.limit, args.library, args.author, args.category
+        )
     except ValueError as error:
         LOGGER.error("Invalid search request: %s", error)
         return 1
