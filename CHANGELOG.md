@@ -487,3 +487,33 @@ Ran for real against the production database: created an actual backup of
 byte-identical in size to the live database. `data/backups/` added to
 `.gitignore` - backup files are local safety copies, not committed
 artifacts, same treatment as `data/staging/`.
+
+## Phase 2, step 3: migration system
+
+Third Phase 2 item: the remaining steps (Authors, Categories, Volumes,
+Footnotes normalization) all require real schema changes. Until now schema
+evolution has been ad-hoc, hand-written inline in `MasterBookRepository`
+(e.g. `_ensure_library_id_column`, `_backfill_legacy_library`). That code is
+working and untouched - this adds a general, versioned system for the
+schema changes still to come, rather than more one-off methods.
+
+`domain/models/migration.py`: a `Migration` record (version, description,
+apply function). `infrastructure/persistence/migration_runner.py`:
+`MigrationRunner`, using SQLite's own `PRAGMA user_version` as the version
+counter (no extra tracking table). `migrate()` applies every migration
+above the current version, in order, each in its own transaction.
+Migration 1 is deliberately a no-op: it adopts the schema
+`MasterBookRepository` already creates as the baseline, without
+re-declaring any of it, so an existing database (at version 0) is tagged
+version 1 with zero risk. Real structural changes start at version 2, when
+Authors/Categories/Volumes work begins. `interfaces/migrate_database_cli.py`
+applies pending migrations and reports what ran.
+
+10 new tests (107/107 total): version defaults to 0 on a fresh database,
+pending/ordering logic, idempotency (a second run applies nothing),
+duplicate version numbers rejected, a real ALTER TABLE migration applied
+through the runner, and the real `MIGRATIONS` registry adopting a fresh
+database at the baseline version.
+
+Ran for real against the production database (backed up beforehand via the
+step 2 tooling): version went from 0 to 1, no schema change, no errors.
