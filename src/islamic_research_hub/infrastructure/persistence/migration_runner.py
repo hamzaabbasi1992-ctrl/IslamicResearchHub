@@ -20,7 +20,47 @@ def _adopt_existing_schema(connection: sqlite3.Connection) -> None:
     """No-op: the schema at this version already exists, created elsewhere."""
 
 
+def _normalize_authors(connection: sqlite3.Connection) -> None:
+    """Add a real Authors entity, backfilled from the existing free-text column.
+
+    `Books.Author` (free text) is left untouched - search and the web app
+    read it directly and must keep working unmodified. `Books.AuthorID` is
+    additive: NULL wherever `Author` is NULL/empty, and only used by future
+    features (author browsing/filtering) built on top of this.
+    """
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS Authors (
+            AuthorID INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL UNIQUE
+        )
+        """
+    )
+    connection.execute(
+        "ALTER TABLE Books ADD COLUMN AuthorID INTEGER REFERENCES Authors(AuthorID)"
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_books_author_id ON Books(AuthorID)")
+
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO Authors (Name)
+        SELECT DISTINCT TRIM(Author) FROM Books
+        WHERE Author IS NOT NULL AND TRIM(Author) != ''
+        """
+    )
+    connection.execute(
+        """
+        UPDATE Books
+        SET AuthorID = (
+            SELECT AuthorID FROM Authors WHERE Authors.Name = TRIM(Books.Author)
+        )
+        WHERE Books.Author IS NOT NULL AND TRIM(Books.Author) != ''
+        """
+    )
+
+
 BASELINE_VERSION = 1
+AUTHORS_VERSION = 2
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -28,6 +68,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Adopt the existing Libraries/Books/Categories/Chapters/Pages/PagesFTS "
         "schema as the migration baseline.",
         _adopt_existing_schema,
+    ),
+    Migration(
+        AUTHORS_VERSION,
+        "Add a normalized Authors table and Books.AuthorID, backfilled from "
+        "the existing Books.Author free-text column.",
+        _normalize_authors,
     ),
 )
 

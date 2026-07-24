@@ -517,3 +517,33 @@ database at the baseline version.
 
 Ran for real against the production database (backed up beforehand via the
 step 2 tooling): version went from 0 to 1, no schema change, no errors.
+
+## Phase 2, step 4: Authors normalized into a real entity
+
+Fourth Phase 2 item. Surveyed the real data before designing anything:
+7,687 books, 3,221 with no recorded author, 650 distinct author values
+among the rest (a mix of individual scholars and issuing
+institutions/madaris - that is genuinely what the source `ANAME` field
+contains, so that is what got modeled, not an idealized "person" entity).
+Also confirmed what reads `Books.Author` today (`sqlite_book_search_repository.py`,
+`sqlite_page_embedding_repository.py`, `hybrid_search.py`) so the change
+could be made without touching any of it.
+
+Migration 2 (`_normalize_authors` in `migration_runner.py`, the first real
+structural migration built on top of the versioned system from step 3):
+adds an `Authors` table (`AuthorID`, unique `Name`) and a `Books.AuthorID`
+column, backfilled by matching each book's existing `Author` text.
+`Books.Author` (free text) is left completely untouched - additive only,
+nothing downstream had to change. `AuthorID` is NULL wherever `Author` is
+NULL/empty.
+
+New tests (108/108 total): the migration backfills correctly against real
+`Book`/`Page` domain objects imported through `MasterBookRepository`
+(shared authors collapse to one `AuthorID`, distinct authors get separate
+rows, no-author books stay NULL), and the CLI end-to-end test now asserts
+both migrations (1 and 2) apply against a freshly imported database.
+
+Ran for real against the production database (fresh backup taken
+immediately beforehand): **650 Authors rows, 4,466 books backfilled with
+AuthorID, 0 mismatches** - exactly matching the pre-migration survey.
+Verified with the step 1 database verifier afterward: still healthy.
