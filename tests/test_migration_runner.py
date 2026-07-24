@@ -15,6 +15,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     BASELINE_VERSION,
     CATEGORIES_VERSION,
     MIGRATIONS,
+    VOLUMES_VERSION,
     MigrationRunner,
 )
 
@@ -119,8 +120,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             BASELINE_VERSION,
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
+            VOLUMES_VERSION,
         ]
-        assert runner.current_version(connection) == CATEGORIES_VERSION
+        assert runner.current_version(connection) == VOLUMES_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -154,6 +156,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             BASELINE_VERSION,
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
+            VOLUMES_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -200,6 +203,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             BASELINE_VERSION,
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
+            VOLUMES_VERSION,
         ]
 
         rows = connection.execute(
@@ -241,3 +245,65 @@ def test_categories_migration_produces_no_rows_when_no_books_have_categories(
 
         count = connection.execute("SELECT COUNT(*) FROM CategoryTaxonomy").fetchone()[0]
         assert count == 0
+
+
+def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> None:
+    """Migration 4 groups titles like 'X جلد N' into one Series with volume numbers."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "کفایت المفتی جلد 1", None, "one.mjbz")
+    _seed_book(database_path, "کفایت المفتی جلد 2", None, "two.mjbz")
+    _seed_book(database_path, "کفایت المفتی جلد 3", None, "three.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner = MigrationRunner(MIGRATIONS)
+        applied = runner.migrate(connection)
+
+        assert [migration.version for migration in applied] == [
+            BASELINE_VERSION,
+            AUTHORS_VERSION,
+            CATEGORIES_VERSION,
+            VOLUMES_VERSION,
+        ]
+
+        series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
+        assert series_rows == [(1, "کفایت المفتی")]
+
+        rows = connection.execute(
+            "SELECT Title, SeriesID, VolumeNumber FROM Books ORDER BY VolumeNumber"
+        ).fetchall()
+        assert rows == [
+            ("کفایت المفتی جلد 1", 1, 1),
+            ("کفایت المفتی جلد 2", 1, 2),
+            ("کفایت المفتی جلد 3", 1, 3),
+        ]
+
+
+def test_volumes_migration_leaves_a_lone_volume_title_ungrouped(tmp_path: Path) -> None:
+    """A title with a volume suffix but no sibling volumes gets no Series."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Book جلد 1", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        series_count = connection.execute("SELECT COUNT(*) FROM Series").fetchone()[0]
+        assert series_count == 0
+
+        row = connection.execute(
+            "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'Some Book جلد 1'"
+        ).fetchone()
+        assert row == (None, None)
+
+
+def test_volumes_migration_leaves_non_volume_titles_untouched(tmp_path: Path) -> None:
+    """A title with no volume suffix is left with SeriesID/VolumeNumber NULL."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "A Standalone Book", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        row = connection.execute(
+            "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'A Standalone Book'"
+        ).fetchone()
+        assert row == (None, None)

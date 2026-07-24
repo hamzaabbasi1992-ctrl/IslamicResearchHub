@@ -577,3 +577,30 @@ Ran for real against the production database (fresh backup taken
 immediately beforehand): **691 CategoryTaxonomy rows**, exactly matching
 the 691 distinct MJCN codes in the real data, including correct resolution
 of all 5 known conflict cases. Verified healthy afterward.
+
+## Phase 2, step 6: Volumes modeled as a Series entity
+
+Sixth Phase 2 item. Surveyed the real data first: 2,501 book titles end
+with a volume suffix (`جلد N` / `حصہ N` / `vol.`/`part`), and grouping by
+the base title (suffix stripped) gives 412 real multi-volume series
+covering 2,452 books. Spot-checked one series
+(کفایت المفتی، 9 volumes) against `SourceBookID` before writing any
+code - the source ids are sequential (995-1003), confirming this is a
+real series, not a title-matching coincidence.
+
+Migration 4 (`_model_volumes`): adds a `Series` table (`SeriesID`, unique
+`Title` = base title) and additive `Books.SeriesID`/`Books.VolumeNumber`
+columns. A base title only becomes a `Series` row when at least two books
+share it - a lone "volume 1" with no siblings in this database is not a
+demonstrated series, so it's left ungrouped rather than assumed.
+`Books.Title` is untouched.
+
+New tests (114/114 total): a real 3-volume series groups correctly with
+sequential volume numbers, a lone volume-suffixed title stays ungrouped,
+and a title with no volume suffix stays untouched.
+
+Ran for real against the production database (fresh backup taken
+immediately beforehand): **412 Series rows, 2,452 books assigned**,
+exactly matching the pre-migration survey - including the same
+کفایت المفتی 9-volume series confirmed by inspection. Verified healthy
+afterward.

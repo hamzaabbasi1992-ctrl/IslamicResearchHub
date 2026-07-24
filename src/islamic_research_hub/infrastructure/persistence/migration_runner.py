@@ -9,8 +9,9 @@ without risk. Real structural changes start at version 2.
 """
 
 import logging
+import re
 import sqlite3
-from collections import Counter
+from collections import Counter, defaultdict
 
 from islamic_research_hub.domain.models.migration import Migration
 
@@ -107,9 +108,72 @@ def _normalize_categories(connection: sqlite3.Connection) -> None:
     )
 
 
+VOLUME_TITLE_PATTERN = re.compile(
+    r"(?P<base>.*?)\s*[-،,]?\s*(?:جلد|حصہ|vol\.?|volume|part)\s*[:.]?\s*(?P<volume>\d+)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _parse_volume_title(title: str) -> tuple[str, int] | None:
+    """Split a title like 'کفایت المفتی جلد 6' into ('کفایت المفتی', 6)."""
+    match = VOLUME_TITLE_PATTERN.search(title)
+    if match is None:
+        return None
+    base_title = match.group("base").strip()
+    if not base_title:
+        return None
+    return base_title, int(match.group("volume"))
+
+
+def _model_volumes(connection: sqlite3.Connection) -> None:
+    """Add a Series entity grouping books that are volumes of the same work.
+
+    Titles like 'کفایت المفتی جلد 6' are parsed into a base title and a
+    volume number (found by inspecting the real data: 2,501 titles carry a
+    جلد/حصہ/vol/part suffix). A base title only becomes a `Series` row when
+    at least two books share it - a single 'volume 1' with no siblings in
+    this database is not a demonstrated series. `Books.Title` is left
+    untouched; `SeriesID`/`VolumeNumber` are additive.
+    """
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS Series (
+            SeriesID INTEGER PRIMARY KEY,
+            Title TEXT NOT NULL UNIQUE
+        )
+        """
+    )
+    connection.execute("ALTER TABLE Books ADD COLUMN SeriesID INTEGER REFERENCES Series(SeriesID)")
+    connection.execute("ALTER TABLE Books ADD COLUMN VolumeNumber INTEGER")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_books_series_id ON Books(SeriesID)")
+
+    book_ids_by_base_title: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for book_id, title in connection.execute(
+        "SELECT BookID, Title FROM Books WHERE Title IS NOT NULL"
+    ):
+        parsed = _parse_volume_title(title)
+        if parsed is not None:
+            base_title, volume_number = parsed
+            book_ids_by_base_title[base_title].append((book_id, volume_number))
+
+    for base_title in sorted(book_ids_by_base_title):
+        members = book_ids_by_base_title[base_title]
+        if len(members) < 2:
+            continue
+        connection.execute("INSERT OR IGNORE INTO Series (Title) VALUES (?)", (base_title,))
+        series_id = connection.execute(
+            "SELECT SeriesID FROM Series WHERE Title = ?", (base_title,)
+        ).fetchone()[0]
+        connection.executemany(
+            "UPDATE Books SET SeriesID = ?, VolumeNumber = ? WHERE BookID = ?",
+            ((series_id, volume_number, book_id) for book_id, volume_number in members),
+        )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
+VOLUMES_VERSION = 4
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -129,6 +193,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add a cross-library CategoryTaxonomy table, deduplicated by MJCN "
         "from the existing per-book Categories table.",
         _normalize_categories,
+    ),
+    Migration(
+        VOLUMES_VERSION,
+        "Add a Series table and Books.SeriesID/VolumeNumber, grouping books "
+        "whose titles share a base title with a volume/جلد suffix.",
+        _model_volumes,
     ),
 )
 
