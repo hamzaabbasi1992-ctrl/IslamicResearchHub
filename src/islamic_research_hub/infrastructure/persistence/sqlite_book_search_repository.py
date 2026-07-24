@@ -6,6 +6,7 @@ from contextlib import closing
 from pathlib import Path
 
 from islamic_research_hub.domain.models.search_result import SearchResult
+from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,7 +16,16 @@ class BookSearchError(Exception):
 
 
 class SqliteBookSearchRepository:
-    """Query the PagesFTS full-text index built by MasterBookRepository."""
+    """Query the full-text index built by MasterBookRepository/the migration system.
+
+    Prefers `PagesFTSNormalized` (diacritic/letter-form-normalized text, see
+    `shared/arabic_text_normalization.py`, added by migration 5) so spelling
+    variants like "علی" and "علي" match each other, normalizing the query the
+    same way. Falls back to the plain `PagesFTS` index (literal matching) for
+    a database that's been imported but not yet migrated. Excerpts are drawn
+    from whichever index matched - stored page content itself (and the book
+    viewer) is never touched either way.
+    """
 
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
@@ -31,21 +41,24 @@ class SqliteBookSearchRepository:
         try:
             with closing(self._connect_read_only(self._database_path)) as connection:
                 connection.row_factory = sqlite3.Row
-                sql = """
+                use_normalized_index = self._normalized_index_exists(connection)
+                fts_table = "PagesFTSNormalized" if use_normalized_index else "PagesFTS"
+                match_query = normalize_search_text(query) if use_normalized_index else query
+                sql = f"""
                     SELECT
                         Books.BookID AS BookID,
                         Books.Title AS Title,
                         Books.Author AS Author,
                         Pages.PageNo AS PageNo,
-                        snippet(PagesFTS, 0, '**', '**', ' ... ', 12) AS Excerpt,
+                        snippet({fts_table}, 0, '**', '**', ' ... ', 12) AS Excerpt,
                         Libraries.Name AS Library
-                    FROM PagesFTS
-                    JOIN Pages ON Pages.rowid = PagesFTS.rowid
+                    FROM {fts_table}
+                    JOIN Pages ON Pages.rowid = {fts_table}.rowid
                     JOIN Books ON Books.BookID = Pages.BookID
                     LEFT JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
-                    WHERE PagesFTS MATCH ?
+                    WHERE {fts_table} MATCH ?
                 """
-                parameters: list[object] = [query]
+                parameters: list[object] = [match_query]
                 if library is not None:
                     sql += " AND Libraries.Name = ?"
                     parameters.append(library)
@@ -78,3 +91,16 @@ class SqliteBookSearchRepository:
         if not database_path.is_file():
             raise BookSearchError(f"Master database does not exist: {database_path}")
         return sqlite3.connect(f"{database_path.resolve().as_uri()}?mode=ro", uri=True)
+
+    @staticmethod
+    def _normalized_index_exists(connection: sqlite3.Connection) -> bool:
+        """Return whether PagesFTSNormalized exists (migration 5 has run).
+
+        Falls back to the plain PagesFTS index when it hasn't, so search
+        keeps working for a database that's been imported but not yet
+        migrated - a normal, expected state.
+        """
+        row = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'PagesFTSNormalized'"
+        ).fetchone()
+        return row is not None

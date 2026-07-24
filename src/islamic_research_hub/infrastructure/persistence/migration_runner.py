@@ -14,6 +14,9 @@ import sqlite3
 from collections import Counter, defaultdict
 
 from islamic_research_hub.domain.models.migration import Migration
+from islamic_research_hub.shared.arabic_text_normalization import (
+    build_sql_normalize_expression,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -170,10 +173,43 @@ def _model_volumes(connection: sqlite3.Connection) -> None:
         )
 
 
+def _add_normalized_search_index(connection: sqlite3.Connection) -> None:
+    """Add a diacritic/letter-form-normalized FTS5 index for Arabic/Urdu search.
+
+    `PagesFTS` (untouched) matches literal spelling only, so a search for
+    "علی" misses "علي" - real corpus text mixes both. `PagesFTSNormalized`
+    stores a normalized rendering of each page (diacritics stripped, alef/
+    yeh variants unified - see `shared/arabic_text_normalization.py`) built
+    entirely in SQL, so the AFTER INSERT trigger works for every future
+    import automatically without any change to `MasterBookRepository`.
+    Stored page content itself is never touched - this is a search-only
+    index alongside it.
+    """
+    normalize_new_content = build_sql_normalize_expression("new.Content")
+    normalize_existing_content = build_sql_normalize_expression("Content")
+
+    connection.execute("CREATE VIRTUAL TABLE PagesFTSNormalized USING fts5(Content)")
+    connection.execute(
+        f"""
+        CREATE TRIGGER pages_after_insert_normalized AFTER INSERT ON Pages BEGIN
+            INSERT INTO PagesFTSNormalized (rowid, Content)
+            VALUES (new.rowid, {normalize_new_content});
+        END
+        """
+    )
+    connection.execute(
+        f"""
+        INSERT INTO PagesFTSNormalized (rowid, Content)
+        SELECT rowid, {normalize_existing_content} FROM Pages
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
 VOLUMES_VERSION = 4
+NORMALIZED_SEARCH_VERSION = 5
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -199,6 +235,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add a Series table and Books.SeriesID/VolumeNumber, grouping books "
         "whose titles share a base title with a volume/جلد suffix.",
         _model_volumes,
+    ),
+    Migration(
+        NORMALIZED_SEARCH_VERSION,
+        "Add PagesFTSNormalized, a diacritic/letter-form-normalized full-text "
+        "index for Arabic/Urdu search, kept in sync automatically.",
+        _add_normalized_search_index,
     ),
 )
 

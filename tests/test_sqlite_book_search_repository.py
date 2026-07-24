@@ -1,5 +1,6 @@
 """Tests for the read-only full-text search adapter over the master database."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from islamic_research_hub.domain.models.book import Book, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
+from islamic_research_hub.infrastructure.persistence.migration_runner import MigrationRunner
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
     BookSearchError,
     SqliteBookSearchRepository,
@@ -85,3 +87,35 @@ def test_search_raises_when_database_is_missing(tmp_path: Path) -> None:
     """Searching a database that was never built raises a clear error."""
     with pytest.raises(BookSearchError):
         SqliteBookSearchRepository(tmp_path / "missing.db").search("query", limit=10)
+
+
+def test_search_matches_letter_form_variants_after_migration(tmp_path: Path) -> None:
+    """Once migrated, a query using one spelling variant matches another."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book About Ali"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "كتاب علی الفقه", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    results = SqliteBookSearchRepository(database_path).search("علي", limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "Book About Ali"
+
+
+def test_search_falls_back_to_plain_index_before_migration(tmp_path: Path) -> None:
+    """Before migration 5 runs, search still works via the plain PagesFTS index."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search("jurisprudence", limit=10)
+
+    assert len(results) == 1
+    assert results[0].title == "Book of Fiqh"

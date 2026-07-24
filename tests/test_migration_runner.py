@@ -15,6 +15,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     BASELINE_VERSION,
     CATEGORIES_VERSION,
     MIGRATIONS,
+    NORMALIZED_SEARCH_VERSION,
     VOLUMES_VERSION,
     MigrationRunner,
 )
@@ -121,8 +122,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
+            NORMALIZED_SEARCH_VERSION,
         ]
-        assert runner.current_version(connection) == VOLUMES_VERSION
+        assert runner.current_version(connection) == NORMALIZED_SEARCH_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -157,6 +159,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
+            NORMALIZED_SEARCH_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -204,6 +207,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
+            NORMALIZED_SEARCH_VERSION,
         ]
 
         rows = connection.execute(
@@ -263,6 +267,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             AUTHORS_VERSION,
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
+            NORMALIZED_SEARCH_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -307,3 +312,74 @@ def test_volumes_migration_leaves_non_volume_titles_untouched(tmp_path: Path) ->
             "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'A Standalone Book'"
         ).fetchone()
         assert row == (None, None)
+
+
+def _seed_book_with_page_content(database_path: Path, title: str, content: str, source: str) -> None:
+    """Import one minimal real book carrying the given raw page content."""
+    book = Book(
+        information={"Name": title},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, content, "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / source,)
+    )
+
+
+def test_normalized_search_migration_backfills_existing_pages(tmp_path: Path) -> None:
+    """Migration 5 populates PagesFTSNormalized with normalized existing content."""
+    database_path = tmp_path / "books.db"
+    _seed_book_with_page_content(database_path, "Book One", "الْحَمْدُ لِلَّهِ علی", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        applied = runner_migrate_all(connection)
+        assert NORMALIZED_SEARCH_VERSION in [m.version for m in applied]
+
+        stored = connection.execute("SELECT Content FROM PagesFTSNormalized").fetchone()[0]
+        assert stored == "الحمد لله علي"
+
+
+def test_normalized_search_migration_stays_in_sync_for_future_imports(tmp_path: Path) -> None:
+    """The pure-SQL trigger keeps PagesFTSNormalized in sync for imports after migration."""
+    database_path = tmp_path / "books.db"
+    _seed_book_with_page_content(database_path, "Book One", "placeholder", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+    # A second, later import - simulating ongoing use after the migration ran once.
+    _seed_book_with_page_content(database_path, "Book Two", "أحمد إبراهيم", "two.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        rows = {
+            row[0]
+            for row in connection.execute(
+                "SELECT Content FROM PagesFTSNormalized"
+            ).fetchall()
+        }
+        assert "احمد ابراهيم" in rows
+
+
+def test_normalized_search_migration_matches_variant_spellings(tmp_path: Path) -> None:
+    """A query using one letter-form variant matches content using another."""
+    database_path = tmp_path / "books.db"
+    _seed_book_with_page_content(database_path, "Book One", "كتاب علی الفقه", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        from islamic_research_hub.shared.arabic_text_normalization import (
+            normalize_search_text,
+        )
+
+        match = connection.execute(
+            "SELECT COUNT(*) FROM PagesFTSNormalized WHERE PagesFTSNormalized MATCH ?",
+            (normalize_search_text("علي"),),
+        ).fetchone()[0]
+        assert match == 1
+
+
+def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:
+    """Run the real MIGRATIONS registry to completion against one connection."""
+    return MigrationRunner(MIGRATIONS).migrate(connection)

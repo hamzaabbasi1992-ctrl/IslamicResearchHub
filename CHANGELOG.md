@@ -683,3 +683,59 @@ loses nothing real: these books carry no author/category metadata (title
 + path only), and none were checked for Series grouping. If that matters
 later, it needs a deliberate incremental-backfill design, not a rerun of
 the existing migrations.
+
+## Phase 3, step 1: Arabic/Urdu-normalized search index
+
+First Phase 3 (Search) item. Checked what already existed before building
+anything: FTS5 keyword search, bm25 ranking, and `snippet()` highlighting
+were already built (Phase-1-era). What Phase 3 still needed: normalization,
+filters beyond library, verified boolean search, and a decision on root
+search.
+
+Surveyed real corpus text first: sampled 5,000 pages - 46% carry
+diacritics (tashkeel), and letter-form variants are heavily used (Urdu yeh
+"ی" appears 3x more often than Arabic yeh "ي" in the same corpus; hamza-
+bearing alef forms أ/إ/آ appear ~37,000 times against 319,000 plain alef).
+Literal FTS5 matching treats these as different words - a real,
+significant recall gap for a mixed Arabic/Urdu corpus.
+
+`shared/arabic_text_normalization.py`: one canonical mapping (13
+diacritic/tatweel characters stripped, alef variants -> ا, yeh variants ->
+ي, ة -> ه) driving both `normalize_search_text()` (pure Python, for
+query-time normalization) and `build_sql_normalize_expression()` (a SQL
+REPLACE-chain builder, for index-time normalization) - single source of
+truth, so the two can never drift apart. A dedicated test asserts the SQL
+and Python paths agree on every sample.
+
+Migration 5 (`_add_normalized_search_index`): adds `PagesFTSNormalized`, a
+standalone FTS5 table (not external-content, since it stores normalized
+text rather than `Pages.Content` verbatim) plus a pure-SQL `AFTER INSERT`
+trigger on `Pages`. Because the trigger is pure SQL (no registered Python
+function), it works automatically for every future import through
+`MasterBookRepository` without any change to that class - confirmed by a
+test that imports a *second* book after migrating and checks the trigger
+fired. Existing pages are backfilled in one `INSERT ... SELECT` statement.
+
+`SqliteBookSearchRepository` now prefers `PagesFTSNormalized`, normalizing
+the incoming query the same way, and **falls back to the plain `PagesFTS`
+index (literal matching) when `PagesFTSNormalized` doesn't exist yet** -
+a database that's been imported but not yet migrated is a normal state,
+and search must keep working for it without requiring the caller (web
+app, CLI) to know about migrations. A test covers each path explicitly.
+
+**Trade-off made deliberately, not silently:** search excerpts now show
+normalized text (no diacritics, unified letter forms) rather than the
+page's exact original spelling, since the excerpt is drawn from
+`PagesFTSNormalized` to keep matched-term highlighting correct. Stored
+page content and the book viewer/PDF are completely unaffected - only the
+search snippet. Diacritics are supplementary in Arabic/Urdu reading
+(native text is normally printed without them), so this was judged an
+acceptable, honest trade for the recall gain.
+
+14 new tests (128/128 total, including the existing search-repository
+suite exercising the fallback path unchanged). Ran for real against the
+production database (fresh backup taken first): backfilled all
+**2,046,888 pages** into `PagesFTSNormalized`. Verified with real queries
+- "علی" and "علي" (Urdu vs Arabic yeh) now return identical results;
+same for "أحمد"/"احمد". Verified healthy afterward (0 errors, 0
+warnings).
