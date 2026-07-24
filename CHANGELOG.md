@@ -642,3 +642,44 @@ ever surfaces real footnote data, this can be revisited then.
 All four real migrations validated against the actual 7,687-book
 production database, each preceded by a fresh backup and followed by a
 full integrity check. 114/114 tests passing throughout.
+
+## PDF inventory and metadata cataloging (between Phase 2 and Phase 3)
+
+User-requested audit, not a roadmap phase item: built a full inventory of
+every PDF in three folders not yet in the database - `F:\jibreel full
+pdf` (3,115 files), `F:\Maknoon Mufahris Almakhtotaat...` (3,258 files),
+and `F:\JUMMA BAYANAT...` (2,718 files, a newly-identified Friday-sermon/
+general-talks collection, not book content). Cross-referenced every file
+against existing `Books.Source` (exact path) and `Books.Title` (case-
+insensitive) to separate: already-catalogued, matches-existing-text-book,
+and genuinely-new. Full row-level results saved to
+`docs/pdf_inventory/pdf_inventory_2026-07-24.csv` (gitignored, local
+only).
+
+Findings: 9,091 raw PDFs, 5,931 distinct titles, 2,743 of which are
+duplicate copies of the same book across the three folders (heavy overlap
+between the Jibreel and Maknoon PDF collections specifically), 3,358
+genuinely new titles not represented anywhere in the database.
+
+At the user's request, catalogued every new PDF as a metadata-only Book
+(title + path, no page content - same approach as the existing PDF
+Archive, using the already-built `pdf_metadata_import_cli.py`, no new
+code written). Ran against the real database (fresh backup taken first):
+
+- `Maktaba Jibreel (PDF Archive)`: 672 imported, 2,443 skipped as already
+  catalogued, 0 failed.
+- `Maktaba Al-Maknoon (PDF Archive)` (new library, separate from the
+  existing text-bearing `Maktaba Al-Maknoon`): 3,258 imported, 0 failed.
+- `Jumma Bayanat` (new library): 2,718 imported, 0 failed.
+
+Total books: **7,687 -> 14,335**. Verified healthy afterward (0 errors, 0
+warnings).
+
+**Known limitation, noted rather than silently left:** migrations 2-4
+(Authors/Categories/Series) are one-time, version-gated backfills - they
+already ran before this cataloging step, so the 6,648 newly-added
+metadata-only books were not retroactively processed. In practice this
+loses nothing real: these books carry no author/category metadata (title
++ path only), and none were checked for Series grouping. If that matters
+later, it needs a deliberate incremental-backfill design, not a rerun of
+the existing migrations.
