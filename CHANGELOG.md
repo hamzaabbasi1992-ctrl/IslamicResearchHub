@@ -604,3 +604,41 @@ immediately beforehand): **412 Series rows, 2,452 books assigned**,
 exactly matching the pre-migration survey - including the same
 کفایت المفتی 9-volume series confirmed by inspection. Verified healthy
 afterward.
+
+## Phase 2 closed: Footnotes evaluated and deliberately not built
+
+Before building anything, checked what source data would back a Footnotes
+entity - same approach as the Phase 1 Generic PDF decision. Inspected the
+real `.mjbz` schema directly against a live source file (not just what our
+reader parses): six tables total (`Content`, `Title`, `Information`,
+`Category`, `sqlite_sequence`, `android_metadata`). `Content` carries only
+`ContentF`/`ContentP` (formatted/plain page text) - no footnote table,
+column, or marker anywhere. Maknoon and the PDF Archive are plain
+page/text content with the same gap. No library in this corpus produces
+structured footnote data.
+
+Given that, decided not to build a Footnotes entity - there is nothing to
+normalize. No code was written. If a future library (or OCR, later phase)
+ever surfaces real footnote data, this can be revisited then.
+
+### Phase 2 status: complete
+
+- Database verification tool - built, validated against the real database
+  (0 errors, 0 warnings).
+- Backup/restore tooling - built, validated (byte-identical real backup).
+- Migration system - built; every step since has run as a real, versioned
+  migration against it.
+- Authors - normalized (migration 2): 650 authors, 4,466 books backfilled.
+- Categories - normalized into a cross-library taxonomy (migration 3): 691
+  categories.
+- Volumes - modeled as a Series entity (migration 4): 412 series, 2,452
+  books.
+- Footnotes - evaluated, deliberately not built (see above): no source
+  data exists in any current library.
+- Library IDs - already in place from the multi-library work earlier this
+  session (`Libraries` table, `Books.LibraryID`); not repeated here since
+  nothing new was needed.
+
+All four real migrations validated against the actual 7,687-book
+production database, each preceded by a fresh backup and followed by a
+full integrity check. 114/114 tests passing throughout.
