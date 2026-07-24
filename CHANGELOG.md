@@ -458,3 +458,32 @@ whole point of building this now: **0 errors, 0 warnings** on 7,687 books,
 after every operation performed on it this session (multiple imports,
 deletions, deduplication, re-imports, title rewrites). This is real,
 checked evidence the database is sound, not an assumption.
+
+## Phase 2, step 2: backup and restore tooling
+
+Second Phase 2 item, picked next for the same safety-first reason as the
+verifier: the structural changes coming after this (Authors/Categories/
+Volumes normalization) touch schema and data directly, and shouldn't be
+attempted without a tested way to recover the live database first.
+
+`infrastructure/persistence/database_backup.py`: `DatabaseBackupService`
+with `create_backup`, `list_backups`, and `restore_backup`, all built on
+SQLite's own online backup API (`Connection.backup()`) rather than a raw
+file copy, so a backup taken while the database is open/in-use is still
+safe and consistent. Backups are timestamped
+(`<stem>_backup_<YYYYMMDD_HHMMSS>.db`) under `data/backups/`.
+
+`interfaces/database_backup_cli.py`: `backup`, `list`, and `restore`
+subcommands (first use of argparse subparsers in this project). `backup`
+and `list` are non-destructive. `restore` overwrites the live database and
+is gated behind an explicit `--yes` flag - refuses to run without it.
+
+11 new tests (97/97 total) covering backup creation, listing order (most
+recent first), an empty/missing backup folder, and restore both with and
+without the confirmation flag.
+
+Ran for real against the production database: created an actual backup of
+`data/books.db` (4,440,469,504 bytes) and confirmed the backup file is
+byte-identical in size to the live database. `data/backups/` added to
+`.gitignore` - backup files are local safety copies, not committed
+artifacts, same treatment as `data/staging/`.

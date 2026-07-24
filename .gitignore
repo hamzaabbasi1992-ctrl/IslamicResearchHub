@@ -30,6 +30,7 @@ docs/pdf_catalog/
 docs/jibreel_desktop/
 library/
 data/staging/
+data/backups/
 
 # Editors and operating systems
 .vscode/
