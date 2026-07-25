@@ -33,7 +33,16 @@ class MainWindow(QMainWindow):
         self.resize(1180, 760)
 
         self._stack = QStackedWidget()
-        self._stack.addWidget(SearchScreen(database_path, maknoon_pdf_folder))
+        if database_path.is_file():
+            self._stack.addWidget(SearchScreen(database_path, maknoon_pdf_folder))
+        else:
+            self._stack.addWidget(
+                _placeholder_screen(
+                    "Database not found",
+                    f"Expected data\\books.db next to the app, at:\n{database_path}\n\n"
+                    "Copy or link your master database there and restart.",
+                )
+            )
         for title, message in _SCREENS[1:]:
             self._stack.addWidget(_placeholder_screen(title, message))
 
@@ -85,6 +94,7 @@ def _placeholder_screen(title: str, message: str) -> QWidget:
 
     body = QLabel(message)
     body.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    body.setWordWrap(True)
     body.setStyleSheet("color: #7a7264;")
     layout.addWidget(body)
 

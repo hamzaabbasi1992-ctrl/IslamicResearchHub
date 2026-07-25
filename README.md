@@ -149,3 +149,27 @@ Each result shows `matched by: keyword`, `matched by: semantic`, or
 `matched by: keyword+semantic` (found by both, ranked higher) alongside its
 fused score. Supports the same `--database`, `--limit`, and `--library`
 flags as the other search commands.
+
+## Desktop app (Phase 4, in progress)
+
+A native Windows desktop app is being built with PySide6. Search is fully
+working today; Viewer, Import, and Settings are visible but not built yet.
+
+Run from source (`pip install -e .[gui]` first):
+
+```powershell
+python -m islamic_research_hub.interfaces.desktop_app
+```
+
+Build a standalone, portable `.exe` (`pip install -e .[gui,build]` first):
+
+```powershell
+.\build_installer.ps1
+```
+
+This produces `installation\IslamicResearchHub\IslamicResearchHub.exe` -
+a self-contained folder that runs without a separate Python install. See
+[installation/README.md](installation/README.md) (also available in
+[Urdu](installation/README.ur.md) and [Arabic](installation/README.ar.md))
+for how to run it, including where it expects `data\books.db`. The
+`installation/` folder is a build output, not checked into git.

@@ -11,7 +11,16 @@ from PySide6.QtWidgets import QApplication
 from islamic_research_hub.interfaces.desktop_app.main_window import MainWindow
 from islamic_research_hub.shared.logging_config import configure_logging
 
-DEFAULT_DATABASE_PATH = Path("data/books.db")
+# A packaged exe's working directory depends on how it was launched (double
+# click, shortcut, command line) and can't be relied on - resolve paths
+# relative to the exe itself instead. In dev mode (`python -m ...`), keep
+# the existing CWD-relative behavior, matching the CLI tools.
+if getattr(sys, "frozen", False):
+    _BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    _BASE_DIR = Path.cwd()
+
+DEFAULT_DATABASE_PATH = _BASE_DIR / "data" / "books.db"
 DEFAULT_MAKNOON_PDF_FOLDER = Path(
     r"F:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data"
 )

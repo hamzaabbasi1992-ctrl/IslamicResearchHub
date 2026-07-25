@@ -911,3 +911,41 @@ got 30 correctly ranked, highlighted, real results (e.g. الأصل المعرو
 بالمبسوط للشيباني, العناية شرح الهداية) with correct titles, authors,
 libraries, and page numbers, screenshotted for visual confirmation.
 
+## Phase 4, step 2: packaged into a standalone, portable exe
+
+`build_installer.ps1` runs PyInstaller (`--onedir`, `--windowed`) to
+produce `installation/IslamicResearchHub/IslamicResearchHub.exe` - a
+self-contained ~110 MB folder that runs without a separate Python
+install. `installation/` is a build output (gitignored, like `data/`),
+rebuildable any time with the script.
+
+**A real bug found by actually running the packaged exe, not just
+building it:** the app resolved `data/books.db` relative to the current
+working directory, which is unreliable for a double-clicked exe (Windows
+Explorer's CWD behavior isn't guaranteed, and shortcuts/command-line
+launches can differ). Fixed in `desktop_app/__main__.py` to resolve the
+database path relative to the executable's own folder when frozen
+(detected via `sys.frozen`), keeping the previous CWD-relative behavior
+in dev mode. Also found that a missing database was handled silently
+(SQLite auto-creates an empty file on connect) - `MainWindow` now checks
+`database_path.is_file()` first and shows a clear "Database not found"
+message with the expected path instead of building a broken, empty
+search screen. 1 new test (160/160 total) locks in that the database is
+never silently auto-created.
+
+Verified for real, end-to-end, as an actual separate Windows process
+(not just via Python test/import): launched the real `.exe` with no
+database present - stayed running, showed the honest missing-database
+message. Then hard-linked the real production `data/books.db` (8.2 GB,
+zero-copy, same NTFS volume) into `installation/IslamicResearchHub/data/`
+and relaunched - the process started, initialized correctly (window
+title confirmed via `Get-Process`), and stayed running.
+
+README.md added inside `installation/`, in English, Urdu (`README.ur.md`),
+and Arabic (`README.ar.md`) - what the app is, how to run it, where the
+database must go, what's not built yet, and a note that moving the
+folder to another machine needs `data/books.db` copied separately if a
+hard link was used. Main `README.md` and `PROJECT.md` updated to point
+at it and reflect Phase 4's real (in-progress) status.
+
+

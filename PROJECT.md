@@ -84,13 +84,23 @@ real-data validation behind every item below.
   deliberately not built per explicit decision.
 - Page navigation - confirmed working (PDF `#page=N`, in-app `?page=N`).
 
-### Phase 4 — Desktop GUI (PySide6): **not started**
+### Phase 4 — Desktop GUI (PySide6): **in progress**
 
-Library, Search, Book Details, Viewer, Import Manager, Settings, Logs,
-Duplicate Review tabs. The application/infrastructure layers this phase
-needs (search, import, verification, backups) already exist and are
-tested - this phase is primarily new `interfaces/` code plus a PySide6
-composition root, not new business logic.
+- Search screen - **done**: `interfaces/desktop_app/` (`MainWindow` nav
+  rail + `SearchScreen`), wired to the real, already-tested
+  `BookSearchService`/`BookBrowserRepository` - no new search logic.
+  Verified for real: searched the production database from the actual
+  packaged `.exe`, screenshotted, 30 correct results with visible
+  highlighting.
+- Packaging - **done**: `build_installer.ps1` produces a standalone,
+  portable `installation/IslamicResearchHub/` folder (PyInstaller
+  `--onedir`) that runs without a separate Python install. README in
+  English/Urdu/Arabic included. Not an installer/uninstaller yet - a
+  portable folder.
+- Viewer, Import Manager, Settings, Logs, Book Details, Duplicate
+  Review tabs - **not started**, shown as honest "coming in a future
+  update" placeholders (verified to have zero interactive controls)
+  rather than pretending to be built.
 
 ### Phase 5 — Book Viewer: **not started**
 

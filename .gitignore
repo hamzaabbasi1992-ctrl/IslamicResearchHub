@@ -32,6 +32,8 @@ docs/pdf_inventory/
 library/
 data/staging/
 data/backups/
+installation/
+build_temp/
 
 # Editors and operating systems
 .vscode/
