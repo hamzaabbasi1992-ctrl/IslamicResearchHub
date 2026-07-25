@@ -14,9 +14,14 @@ all share one full-text search index. Sources imported so far:
 | Maktaba Jibreel (Desktop) | `.mjbx` (encrypted SQLite, same schema) | ~2,144 |
 | Maktaba Al-Maknoon | Pre-extracted PDF text (OCR done upstream) | ~778 |
 | Maktaba Jibreel (PDF Archive) | Raw PDFs, no text extraction | ~3,115 (metadata only) |
+| Maktaba Al-Maknoon (PDF Archive) | Raw PDFs, no text extraction | ~3,258 (metadata only) |
+| Jumma Bayanat | Raw PDFs (Friday sermons/general talks), no text extraction | ~2,718 (metadata only) |
 
-OCR and full PDF text extraction are still out of scope — the PDF Archive
-library above is cataloged by title/path only, not full text.
+**Total: ~14,335 books.** OCR and full PDF text extraction are still out
+of scope — the metadata-only libraries above are cataloged by title/path
+only, not full text. Search also normalizes Arabic/Urdu spelling variants
+(diacritics, letter forms) so e.g. "علی" and "علي" match each other - see
+[PROJECT.md](PROJECT.md) for the full roadmap and current phase status.
 
 ## Requirements
 
@@ -82,8 +87,10 @@ python -m islamic_research_hub.interfaces.search_cli "your search terms"
 Results are ranked by full-text relevance and include the book title, author,
 library, page number, and a highlighted excerpt. Use `--database` to point at
 a different database file, `--limit` to change how many results are returned
-(default 20), and `--library "Name"` to restrict results to one library
-(omit to search across all libraries).
+(default 20), and `--library "Name"`, `--author "Name"`, `--category "Name"`
+to restrict results (omit any to search across everything). Boolean queries
+(`AND`/`OR`/`NOT`), quoted phrases, and prefix (`term*`) queries are all
+supported natively.
 
 ### Possible duplicates across libraries
 
