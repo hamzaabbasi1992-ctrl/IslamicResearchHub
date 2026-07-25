@@ -843,3 +843,21 @@ rather than assumed.
 138/138 tests passing. Every real-data change (migration 5) was preceded
 by a fresh backup and followed by a full integrity check; the two filter/
 boolean-search steps were read-only against the schema and needed neither.
+
+## Phase 4 prep: shared PDF source resolver, real bug fixed
+
+Before starting the desktop app, extracted `web_app.py`'s local
+`resolve_pdf_path` closure into `application/pdf_source_resolver.py` so
+the upcoming desktop GUI doesn't duplicate this logic (`Never duplicate
+code`). While extracting it, found a real gap: the closure only
+recognized `Maktaba Jibreel (PDF Archive)` as a PDF-source library - the
+two PDF libraries added this session (`Maktaba Al-Maknoon (PDF Archive)`,
+`Jumma Bayanat`) store their real PDF path as `Source` the exact same
+way, but had no route to it, so their "Open PDF" link never appeared even
+though the files exist. Fixed by generalizing to a `PDF_SOURCE_LIBRARIES`
+set instead of a single constant.
+
+8 new tests (146/146 total): the resolver's own unit tests (all library
+cases, including the fix), plus a web-app regression test proving both
+newly-added libraries now render an "Open PDF" link for a real match.
+

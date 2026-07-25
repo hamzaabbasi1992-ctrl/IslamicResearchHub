@@ -15,6 +15,7 @@ from markupsafe import Markup, escape
 
 from islamic_research_hub.application.book_search import BookSearchService
 from islamic_research_hub.application.hybrid_search import HybridSearchService
+from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
 from islamic_research_hub.domain.models.hybrid_search_result import HybridSearchResult
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
@@ -29,8 +30,6 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_PATH = Path("data/books.db")
 DEFAULT_LIMIT = 20
-PDF_ARCHIVE_LIBRARY = "Maktaba Jibreel (PDF Archive)"
-MAKNOON_LIBRARY = "Maktaba Al-Maknoon"
 DEFAULT_MAKNOON_PDF_FOLDER = Path(
     r"F:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data"
 )
@@ -56,20 +55,12 @@ def create_app(
     semantic_service = _build_semantic_service(database_path) if enable_semantic else None
     search_service = HybridSearchService(keyword_service, semantic_service)
 
-    def resolve_pdf_path(library: str | None, source: str) -> Path | None:
-        """Return the real PDF path for a book, or None if it has no PDF available."""
-        if library == PDF_ARCHIVE_LIBRARY:
-            path = Path(source)
-            return path if path.is_file() else None
-        if library == MAKNOON_LIBRARY:
-            candidate = maknoon_pdf_folder / Path(source).stem  # "X.pdf.txt" -> "X.pdf"
-            return candidate if candidate.is_file() else None
-        return None
-
     def build_result_view(hit: HybridSearchResult) -> dict:
         """Attach an open-link (PDF or in-app read view) and highlighted excerpt to one hit."""
         source = browser.get_book_source(hit.book_id)
-        pdf_path = resolve_pdf_path(source[1], source[0]) if source else None
+        pdf_path = (
+            resolve_pdf_path(source[1], source[0], maknoon_pdf_folder) if source else None
+        )
         if pdf_path is not None:
             fragment = f"#page={hit.page_number}" if hit.page_number else ""
             open_url = f"/pdf/{hit.book_id}{fragment}"
@@ -111,7 +102,9 @@ def create_app(
     @app.route("/pdf/<int:book_id>")
     def open_pdf(book_id: int):
         source = browser.get_book_source(book_id)
-        pdf_path = resolve_pdf_path(source[1], source[0]) if source else None
+        pdf_path = (
+            resolve_pdf_path(source[1], source[0], maknoon_pdf_folder) if source else None
+        )
         if pdf_path is None:
             abort(404)
         return send_file(pdf_path, mimetype="application/pdf")

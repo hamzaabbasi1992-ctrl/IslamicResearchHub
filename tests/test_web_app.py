@@ -91,6 +91,38 @@ def test_search_shows_pdf_link_when_pdf_file_exists(tmp_path: Path) -> None:
     assert b"Open PDF" in response.data
 
 
+def test_search_shows_pdf_link_for_jumma_bayanat_and_maknoon_pdf_archive(
+    tmp_path: Path,
+) -> None:
+    """Regression: the two PDF libraries added this session also get Open PDF links."""
+    database_path = tmp_path / "books.db"
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    for name, library in (
+        ("A Bayan.pdf", "Jumma Bayanat"),
+        ("A Maknoon PDF.pdf", "Maktaba Al-Maknoon (PDF Archive)"),
+    ):
+        pdf_path = database_path.parent / name
+        pdf_path.write_bytes(b"%PDF-1.4 fake pdf content")
+        book = Book(
+            information={"Name": name},
+            categories=(),
+            table_of_contents=(),
+            pages=(Page(1, 3, "Content extracted about jurisprudence", None),),
+        )
+        MasterBookRepository().import_books(
+            database_path, (book,), (pdf_path,), library_name=library
+        )
+    app = create_app(
+        database_path, maknoon_pdf_folder=tmp_path / "maknoon_pdfs", enable_semantic=False
+    )
+    client = app.test_client()
+
+    response = client.get("/?q=extracted")
+
+    assert response.status_code == 200
+    assert response.data.count(b"Open PDF") == 2
+
+
 def test_search_with_no_matches_shows_message(tmp_path: Path) -> None:
     """A query with no hits shows a clear no-results message."""
     client, _ = _make_client(tmp_path)
