@@ -7,11 +7,10 @@ keyword-only search, same as the CLI tools.
 """
 
 import logging
-import re
 from pathlib import Path
 
 from flask import Flask, abort, render_template, request, send_file
-from markupsafe import Markup, escape
+from markupsafe import Markup
 
 from islamic_research_hub.application.book_search import BookSearchService
 from islamic_research_hub.application.hybrid_search import HybridSearchService
@@ -24,6 +23,7 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
+from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 from islamic_research_hub.shared.logging_config import configure_logging
 
 LOGGER = logging.getLogger(__name__)
@@ -33,8 +33,6 @@ DEFAULT_LIMIT = 20
 DEFAULT_MAKNOON_PDF_FOLDER = Path(
     r"F:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data"
 )
-
-_BOLD_MARKER = re.compile(r"\*\*(.+?)\*\*")
 
 
 def create_app(
@@ -71,7 +69,7 @@ def create_app(
             open_label = "Read"
         return {
             "result": hit,
-            "excerpt_html": _highlight_excerpt(hit.excerpt),
+            "excerpt_html": Markup(highlight_excerpt_html(hit.excerpt)),
             "open_url": open_url,
             "open_label": open_label,
         }
@@ -149,18 +147,6 @@ def _build_semantic_service(database_path: Path):
         # requirement, so keyword search should still work regardless.
         LOGGER.exception("Semantic search failed to load; running keyword-only.")
         return None
-
-
-def _highlight_excerpt(excerpt: str) -> Markup:
-    """Convert **term** snippet markers into safe HTML <mark> tags."""
-    parts = []
-    last_end = 0
-    for match in _BOLD_MARKER.finditer(excerpt):
-        parts.append(escape(excerpt[last_end : match.start()]))
-        parts.append(Markup("<mark>") + escape(match.group(1)) + Markup("</mark>"))
-        last_end = match.end()
-    parts.append(escape(excerpt[last_end:]))
-    return Markup("").join(parts)
 
 
 if __name__ == "__main__":

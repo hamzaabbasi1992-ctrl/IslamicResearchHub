@@ -861,3 +861,53 @@ set instead of a single constant.
 cases, including the fix), plus a web-app regression test proving both
 newly-added libraries now render an "Open PDF" link for a real match.
 
+Also extracted `web_app.py`'s Flask-`Markup`-specific excerpt highlighter
+into `shared/excerpt_highlighting.py` (stdlib `html.escape` only, no
+Flask dependency) so the desktop app could reuse it too, ahead of
+actually needing it. 5 more tests (151/151 total).
+
+## Phase 4, step 1: desktop app shell + Search screen (PySide6)
+
+First real Phase 4 milestone. Added `gui`/`build`/`gui-dev` optional
+dependency groups (PySide6, pyinstaller, pytest-qt) to `pyproject.toml`.
+
+`interfaces/desktop_app/`: `MainWindow` (a navigation rail - Search,
+Viewer, Import, Settings - over a `QStackedWidget`) and `SearchScreen`,
+wired to the exact same, already-tested `BookSearchService` and
+`BookBrowserRepository` the CLI and web app use - no new search logic,
+no duplicated business logic. Viewer/Import/Settings are honest "coming
+in a future update" placeholders (verified to have zero interactive
+controls, not fake buttons) rather than pretending to be built.
+
+The "Open PDF" button reuses `pdf_source_resolver.resolve_pdf_path`
+(fixed in the prep step above) and `QDesktopServices.openUrl` to hand
+the file to the OS's default PDF viewer; when no PDF is available it
+shows an honest "In-app viewer not built yet" note rather than a dead
+button - the Viewer screen is a separate, later milestone.
+
+8 new tests (159/159 total) using `pytest-qt` in offscreen mode (a
+`tests/conftest.py` sets `QT_QPA_PLATFORM=offscreen` so the suite runs
+headless): ranked results, no-results messaging, the author filter, the
+library dropdown being populated from the real database rather than
+hardcoded, and that a new search replaces rather than appends to the
+previous result set.
+
+**Two real bugs found and fixed by actually rendering the app against
+the production database and screenshotting it** (not just by running
+tests): (1) a first screenshot attempt used the Qt "offscreen" platform
+explicitly, which turned out to have no usable font database in this
+environment - even English rail labels rendered as blank boxes; letting
+Qt pick its default platform (`windows`, on this machine) fixed it, and
+confirmed the earlier offscreen test run was still valid since tests
+don't depend on visual text rendering. (2) search-result highlighting
+was semantically correct (`<mark>` tags, verified by tests) but
+**invisible** - Qt's rich-text engine has no default `<mark>` styling
+the way a browser does. Fixed in `shared/excerpt_highlighting.py` by
+emitting an inline `background-color` style instead of a bare tag,
+benefiting the web app too (previously relying on external CSS alone).
+
+Verified for real against the production database: searched "علی",
+got 30 correctly ranked, highlighted, real results (e.g. الأصل المعروف
+بالمبسوط للشيباني, العناية شرح الهداية) with correct titles, authors,
+libraries, and page numbers, screenshotted for visual confirmation.
+
