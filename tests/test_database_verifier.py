@@ -77,6 +77,36 @@ def test_detects_duplicate_page_numbers(tmp_path: Path) -> None:
     assert any(issue.category == "duplicate_pages" for issue in report.issues)
 
 
+def test_detects_orphaned_footnotes(tmp_path: Path) -> None:
+    """A Footnotes row referencing a nonexistent BookID is flagged as an error."""
+    database_path = tmp_path / "books.db"
+    _seed_valid_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            "INSERT INTO Footnotes (BookID, PageNo, FootnoteText) VALUES (9999, 1, 'orphaned')"
+        )
+
+    report = DatabaseVerifier(database_path).verify()
+
+    assert not report.is_healthy
+    assert any(
+        issue.category == "orphaned_rows" and "Footnotes" in issue.message
+        for issue in report.issues
+    )
+
+
+def test_orphan_check_skips_a_table_that_does_not_exist_yet(tmp_path: Path) -> None:
+    """A database predating a checked table (e.g. an old backup) doesn't crash the verifier."""
+    database_path = tmp_path / "books.db"
+    _seed_valid_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        connection.execute("DROP TABLE Footnotes")
+
+    report = DatabaseVerifier(database_path).verify()
+
+    assert report.is_healthy
+
+
 def test_detects_orphaned_library_reference(tmp_path: Path) -> None:
     """A Books row referencing a nonexistent LibraryID is flagged as an error."""
     database_path = tmp_path / "books.db"

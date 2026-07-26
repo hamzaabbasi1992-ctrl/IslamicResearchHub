@@ -116,6 +116,13 @@ class MasterBookRepository:
             );
             CREATE INDEX IF NOT EXISTS idx_pages_book_id ON Pages(BookID);
 
+            CREATE TABLE IF NOT EXISTS Footnotes (
+                BookID INTEGER NOT NULL REFERENCES Books(BookID),
+                PageNo INTEGER,
+                FootnoteText TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_footnotes_book_id ON Footnotes(BookID);
+
             CREATE VIRTUAL TABLE IF NOT EXISTS PagesFTS USING fts5(
                 Content,
                 content='Pages',
@@ -217,6 +224,7 @@ class MasterBookRepository:
             self._insert_categories(connection, book_id, book.categories)
             self._insert_chapters(connection, book_id, book.table_of_contents)
             self._insert_pages(connection, book_id, book.pages)
+            self._insert_footnotes(connection, book_id, book.pages)
 
     @staticmethod
     def _insert_categories(
@@ -280,6 +288,22 @@ class MasterBookRepository:
             (
                 (book_id, page.page_number, _page_content(page))
                 for page in pages
+            ),
+        )
+
+    @staticmethod
+    def _insert_footnotes(
+        connection: sqlite3.Connection,
+        book_id: int,
+        pages: tuple[Page, ...],
+    ) -> None:
+        """Insert one row per page that carries real footnote text."""
+        connection.executemany(
+            "INSERT INTO Footnotes (BookID, PageNo, FootnoteText) VALUES (?, ?, ?)",
+            (
+                (book_id, page.page_number, page.footnote)
+                for page in pages
+                if page.footnote is not None and page.footnote.strip()
             ),
         )
 

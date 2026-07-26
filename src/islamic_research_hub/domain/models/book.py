@@ -34,6 +34,7 @@ class Page:
     page_number: int | None
     content_f: str | None
     content_p: str | None
+    footnote: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

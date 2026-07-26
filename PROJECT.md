@@ -66,8 +66,11 @@ real-data validation behind every item below.
 - Categories normalized into a cross-library taxonomy (691 categories,
   shared MJCN scheme across the two Jibreel libraries).
 - Volumes modeled as a Series entity (412 series, 2,452 books).
-- Footnotes — evaluated, no source data exists in any current library
-  (checked the real `.mjbz` schema directly); not built.
+- Footnotes — a real `Footnotes` table (BookID, PageNo, FootnoteText) now
+  exists and is populated: originally closed as "no source data exists"
+  (true for every library at the time), reopened after Maktaba Shamila
+  Urdu was added, whose per-book format has real footnote content -
+  67,056 real footnote rows imported and verified.
 - Library IDs — in place since the multi-library work.
 
 ### Phase 3 — Search: **complete**
@@ -128,6 +131,25 @@ scaled to the full corpus.
   semantic fusion, built and validated on one subject (27 books) before
   the roadmap existed. Not scaled further until Phase 6.
 
+## Additional libraries added outside the Phase 1 sequence
+
+Phase 1 (above) covers the roadmap's original library list. Two more real
+sources were found and imported afterward, at the user's request, each
+checked for overlap before anything was imported:
+
+- **Maktaba Islam** (`F:\MaktabaIslam`, ~3 GB): 94% title overlap with
+  the existing corpus (same underlying platform as Maktaba Jibreel - same
+  `.mjbz` schema, zero new code needed). Imported only the non-
+  overlapping content: 48 books (12 of the 60 candidates were genuinely
+  corrupted source files, correctly skipped) + 81 PDFs (metadata-only).
+- **Maktaba Shamila Urdu** (shamilaurdu.com, downloaded and inspected):
+  a genuinely different platform - only 3/695 titles (0.4%) overlapped,
+  different scholarly tradition (Ahle Hadith/Salafi vs. the existing
+  corpus's mostly-Deobandi lean), own per-book SQLite schema (HTML-styled
+  content, stripped to plain text on import). 663 books imported. Its
+  `fnotes` column is the first real footnote data found in this corpus -
+  see the `Footnotes` table note under Phase 2 above.
+
 ## Not yet scheduled / future candidates
 
 - **OCR**: now the single highest-value future item — most of the corpus
@@ -135,7 +157,5 @@ scaled to the full corpus.
   metadata-only with no extracted text. Needs its own honest feasibility
   check (distinct from the native-text-extraction check already done for
   Phase 1) before any commitment.
-- **Android app data recovery** (e.g. Maktaba Islam): investigate the
-  app's on-device storage format before deciding whether/how to import.
 - Duplicate candidate review (27 remaining Mobile/Desktop pairs).
 - Performance index audit at the current, much larger corpus size.

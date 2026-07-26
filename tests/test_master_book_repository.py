@@ -39,6 +39,30 @@ def test_repository_imports_and_skips_an_existing_source(tmp_path: Path) -> None
         assert connection.execute("SELECT Content FROM Pages").fetchone()[0] == "Formatted"
 
 
+def test_repository_stores_footnotes_for_pages_that_have_them(tmp_path: Path) -> None:
+    """A page carrying real footnote text gets a Footnotes row; others don't."""
+    source = tmp_path / "book.db"
+    source.touch()
+    book = Book(
+        information={"Name": "Book title"},
+        categories=(),
+        table_of_contents=(),
+        pages=(
+            Page(1, 1, "Page with a note", "Plain", footnote="[1] Reference one"),
+            Page(2, 2, "Page with no note", "Plain", footnote=None),
+            Page(3, 3, "Page with blank note", "Plain", footnote="   "),
+        ),
+    )
+    database_path = tmp_path / "books.db"
+    MasterBookRepository().import_books(database_path, (book,), (source,))
+
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            "SELECT PageNo, FootnoteText FROM Footnotes ORDER BY PageNo"
+        ).fetchall()
+        assert rows == [(1, "[1] Reference one")]
+
+
 def test_repository_indexes_book_id_lookups(tmp_path: Path) -> None:
     """BookID indexes exist on the child tables to keep lookups fast."""
     database_path = tmp_path / "books.db"

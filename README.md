@@ -18,8 +18,9 @@ all share one full-text search index. Sources imported so far:
 | Jumma Bayanat | Raw PDFs (Friday sermons/general talks), no text extraction | ~2,718 (metadata only) |
 | Maktaba Islam | `.mjbz` (same schema as Jibreel Mobile) | 48 |
 | Maktaba Islam (PDF Archive) | Raw PDFs, no text extraction | 81 (metadata only) |
+| Maktaba Shamila Urdu | Per-book SQLite, own schema (HTML content, real footnotes) | 663 |
 
-**Total: ~14,464 books.** OCR and full PDF text extraction are still out
+**Total: ~15,127 books.** OCR and full PDF text extraction are still out
 of scope — the metadata-only libraries above are cataloged by title/path
 only, not full text. Search also normalizes Arabic/Urdu spelling variants
 (diacritics, letter forms) so e.g. "علی" and "علي" match each other - see
@@ -79,8 +80,13 @@ every page.
   Skips placeholder-only files (scanned PDFs Maknoon's own indexer could not OCR).
 - **PDF collections with no extracted text**: `python -m islamic_research_hub.interfaces.pdf_metadata_import_cli <folder> --library "Name"`.
   Catalogs title + path only, no content, no search index entry.
+- **Maktaba Shamila Urdu** (per-book SQLite, own schema): `python -m islamic_research_hub.interfaces.shamila_urdu_import_cli <data-folder>`.
+  Point it at the collection's `data` folder (contains `Books/<category>/*.db`
+  and `library.db`, which is skipped - it's a catalog index, not a book).
+  HTML-styled content is stripped to plain text; real footnotes (where
+  present) are imported into a `Footnotes` table.
 
-Both reuse the same master database, library tagging, and dedup logic as the
+All reuse the same master database, library tagging, and dedup logic as the
 main scan command.
 
 ## Search the library

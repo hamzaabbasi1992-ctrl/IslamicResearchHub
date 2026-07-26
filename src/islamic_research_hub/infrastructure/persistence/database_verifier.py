@@ -21,6 +21,7 @@ _ORPHAN_CHECKS = (
     ("Categories", "BookID", "Books", "BookID"),
     ("Chapters", "BookID", "Books", "BookID"),
     ("Pages", "BookID", "Books", "BookID"),
+    ("Footnotes", "BookID", "Books", "BookID"),
 )
 
 
@@ -54,9 +55,21 @@ class DatabaseVerifier:
 
     @staticmethod
     def _check_orphaned_rows(connection: sqlite3.Connection) -> list[VerificationIssue]:
-        """Find child rows whose foreign key points at a row that no longer exists."""
+        """Find child rows whose foreign key points at a row that no longer exists.
+
+        Skips a check silently when the child table doesn't exist yet - a
+        database created before a table was added (e.g. `Footnotes`) isn't
+        broken, it just predates that table, and gets it automatically on
+        its next import.
+        """
         issues: list[VerificationIssue] = []
         for child_table, child_column, parent_table, parent_column in _ORPHAN_CHECKS:
+            table_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                (child_table,),
+            ).fetchone()
+            if table_exists is None:
+                continue
             count = connection.execute(
                 f"""
                 SELECT COUNT(*) FROM {child_table}

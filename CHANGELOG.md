@@ -1004,4 +1004,59 @@ audited rather than assumed clean. Found and fixed:
   documented-intentional empty placeholders, `installation/` is not
   accidentally tracked in git.
 
+## Maktaba Shamila Urdu: new importer, and the first real Footnotes data
+
+User-directed investigation, done before writing any code: researched
+Maktaba Shamila Urdu online (shamilaurdu.com - a dedicated Urdu product,
+separate from the main Arabic Shamela that stays excluded), downloaded
+its Windows portable build (297.4 MB; the first download attempt
+silently truncated at 172 MB with no error - caught by comparing the
+downloaded size against the server's real `Content-Length`, not assumed
+complete), and inspected its actual data format before deciding whether
+it was worth building anything for.
+
+Found a genuinely different, genuinely valuable source: only 3 of 695
+titles (0.4%) overlap with the existing corpus - a different scholarly
+tradition (Ahle Hadith/Salafi authors, e.g. Ibn Baz, Ibn Uthaymeen) from
+this corpus's mostly-Deobandi lean, not a repackaged duplicate. Each book
+is its own self-contained SQLite file (`Book`, `tableOfContents`,
+`metadata` tables) - a different schema from Jibreel's, discovered to
+also carry real footnote content (`fnotes` column, Quranic ayah
+citations), which is data this corpus has never had.
+
+Given the real, high-overlap difference from Maktaba Islam (which reused
+the existing `.mjbz` pipeline unchanged), this genuinely needed new code:
+
+- `Page.footnote: str | None = None` - additive field on the existing
+  domain model.
+- `Footnotes` table added to `MasterBookRepository`'s schema (same
+  additive `CREATE TABLE IF NOT EXISTS` pattern already used for
+  `Libraries`/`PagesFTS`), populated during page insert.
+- `DatabaseVerifier`'s orphan checks extended to cover `Footnotes` -
+  and, while doing that, found and fixed a real robustness gap: the
+  orphan-check loop had no guard for a table not existing yet, meaning
+  running the verifier against an older database (predating a newly
+  added table) would crash instead of just skipping that check.
+- `ShamilaUrduBookReader` (new): reads a book's own metadata/content/TOC
+  tables, strips the HTML-styled content to plain text (stdlib
+  `html.parser`, no new dependency - every other library's content is
+  plain text and search/display already assume that).
+- `shamila_urdu_import_cli.py` (new): walks `Books/<category>/*.db`,
+  skips `library.db` (the catalog index, not a book), same
+  survives-corrupted-files resilience as every other importer.
+
+13 new tests (171/171 total): reader tests (HTML stripping, footnote
+extraction, translator-fallback-when-no-author, blank TOC entries
+skipped, corrupted-file error handling), CLI tests (real import, corrupted
+file survived, missing folder), repository tests (footnotes stored only
+for pages that have them), and verifier tests (orphaned footnotes
+detected, missing-table case doesn't crash).
+
+Ran for real against the actual downloaded corpus (fresh backup taken
+first): **663/663 books imported, 0 failures, 67,056 real footnote rows**.
+Verified with a real search ("زکوۃ" against the new library) returning
+correctly ranked, highlighted results with real Salafi-tradition author
+names. Verified healthy afterward (0 errors, 0 warnings) on the full,
+now 15,127-book database.
+
 
