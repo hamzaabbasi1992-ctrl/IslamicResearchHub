@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
@@ -34,6 +34,8 @@ ALL_LIBRARIES_LABEL = "All libraries"
 
 class SearchScreen(QWidget):
     """Search the master database and browse ranked, highlighted results."""
+
+    open_in_viewer_requested = Signal(int, int)  # book_id, page_number
 
     def __init__(
         self,
@@ -179,13 +181,18 @@ class SearchScreen(QWidget):
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 4, 0, 0)
         if pdf_path is not None:
-            button = QPushButton("Open PDF")
-            button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
-            row_layout.addWidget(button)
-        else:
-            note = QLabel("In-app viewer not built yet - see the Viewer tab.")
-            note.setStyleSheet("color: #a89a80; font-size: 11px;")
-            row_layout.addWidget(note)
+            pdf_button = QPushButton("Open PDF")
+            pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
+            row_layout.addWidget(pdf_button)
+
+        book_id = result.book_id
+        page_number = result.page_number or 1
+        read_button = QPushButton("Read in app")
+        read_button.clicked.connect(
+            lambda: self.open_in_viewer_requested.emit(book_id, page_number)
+        )
+        row_layout.addWidget(read_button)
+
         row_layout.addStretch(1)
         return row
 

@@ -100,10 +100,15 @@ real-data validation behind every item below.
   `--onedir`) that runs without a separate Python install. README in
   English/Urdu/Arabic included. Not an installer/uninstaller yet - a
   portable folder.
-- Viewer, Import Manager, Settings, Logs, Book Details, Duplicate
-  Review tabs - **not started**, shown as honest "coming in a future
-  update" placeholders (verified to have zero interactive controls)
-  rather than pretending to be built.
+- Viewer - **done** (page reading, no TOC yet): `ViewerScreen`, wired to
+  the real `BookBrowserRepository.get_book_detail()`. Reachable from a
+  search result's "Read in app" button, which jumps straight to the
+  matched page. Verified for real: searched the production database,
+  opened a real 324-page book at the exact matched page, screenshotted.
+- Import Manager, Settings, Logs, Book Details, Duplicate Review tabs -
+  **not started**, shown as honest "coming in a future update"
+  placeholders (verified to have zero interactive controls) rather than
+  pretending to be built.
 
 ### Phase 5 — Book Viewer: **not started**
 

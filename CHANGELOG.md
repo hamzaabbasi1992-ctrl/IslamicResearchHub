@@ -1059,4 +1059,35 @@ correctly ranked, highlighted results with real Salafi-tradition author
 names. Verified healthy afterward (0 errors, 0 warnings) on the full,
 now 15,127-book database.
 
+## Phase 4, step 3: Viewer screen (in-app page reading)
+
+Second Phase 4 GUI milestone. Until now, search results without a PDF
+just showed "In-app viewer not built yet" - Search could find a book but
+not let you read it. `interfaces/desktop_app/viewer_screen.py` (new):
+loads one book's real pages via the existing, already-tested
+`BookBrowserRepository.get_book_detail()` (no new query logic), shows
+one page at a time with Prev/Next, a page-number jump box, and A-/A+
+font-size controls - deliberately no table-of-contents yet, to keep this
+milestone shippable; that can be added later without redesigning
+anything here.
+
+`SearchScreen` gained a `Read in app` button on every result (alongside
+`Open PDF` when one exists, not instead of it) that emits
+`open_in_viewer_requested(book_id, page_number)`. `MainWindow` wires this
+to the real `ViewerScreen` instance: switches the rail to the Viewer tab
+and jumps straight to the matched page, not just page one - so clicking
+a result actually takes you to what you searched for.
+
+10 new tests (177/177 total): page loading and metadata, Prev/Next
+navigation through real page content, jump-to-page, font size bounds, an
+unknown book id returning `False` instead of raising, and a `MainWindow`
+integration test proving the signal correctly switches screens and loads
+the right book/page.
+
+Verified for real against the production database: searched "زکوۃ",
+clicked "Read in app" on the first result, and the Viewer opened showing
+the correct real book (کتاب الفتاوی جلد 3, real author, 324 real pages)
+already scrolled to the exact page the search matched (14, not 1) -
+screenshotted for visual confirmation.
+
 

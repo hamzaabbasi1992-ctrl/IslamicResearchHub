@@ -14,14 +14,14 @@ from PySide6.QtWidgets import (
 )
 
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
+from islamic_research_hub.interfaces.desktop_app.viewer_screen import ViewerScreen
 
 RAIL_WIDTH = 130
-_SCREENS: tuple[tuple[str, str], ...] = (
-    ("Search", ""),
-    ("Viewer", "The book viewer is coming in a future update."),
-    ("Import", "The import manager is coming in a future update."),
-    ("Settings", "Settings are coming in a future update."),
-)
+_RAIL_TITLES = ("Search", "Viewer", "Import", "Settings")
+_PLACEHOLDER_MESSAGES = {
+    "Import": "The import manager is coming in a future update.",
+    "Settings": "Settings are coming in a future update.",
+}
 
 
 class MainWindow(QMainWindow):
@@ -34,17 +34,24 @@ class MainWindow(QMainWindow):
 
         self._stack = QStackedWidget()
         if database_path.is_file():
-            self._stack.addWidget(SearchScreen(database_path, maknoon_pdf_folder))
-        else:
-            self._stack.addWidget(
-                _placeholder_screen(
-                    "Database not found",
-                    f"Expected data\\books.db next to the app, at:\n{database_path}\n\n"
-                    "Copy or link your master database there and restart.",
+            search_screen = SearchScreen(database_path, maknoon_pdf_folder)
+            viewer_screen = ViewerScreen(database_path)
+            search_screen.open_in_viewer_requested.connect(
+                lambda book_id, page_number: self._open_in_viewer(
+                    viewer_screen, book_id, page_number
                 )
             )
-        for title, message in _SCREENS[1:]:
-            self._stack.addWidget(_placeholder_screen(title, message))
+            self._stack.addWidget(search_screen)
+            self._stack.addWidget(viewer_screen)
+        else:
+            missing_database_message = (
+                f"Expected data\\books.db next to the app, at:\n{database_path}\n\n"
+                "Copy or link your master database there and restart."
+            )
+            self._stack.addWidget(_placeholder_screen("Database not found", missing_database_message))
+            self._stack.addWidget(_placeholder_screen("Viewer", missing_database_message))
+        for title in _RAIL_TITLES[2:]:
+            self._stack.addWidget(_placeholder_screen(title, _PLACEHOLDER_MESSAGES[title]))
 
         rail = self._build_rail()
 
@@ -65,7 +72,7 @@ class MainWindow(QMainWindow):
         rail_layout.setSpacing(4)
 
         self._rail_buttons: list[QPushButton] = []
-        for index, (title, _message) in enumerate(_SCREENS):
+        for index, title in enumerate(_RAIL_TITLES):
             button = QPushButton(title)
             button.setCheckable(True)
             button.setChecked(index == 0)
@@ -79,6 +86,12 @@ class MainWindow(QMainWindow):
         self._stack.setCurrentIndex(index)
         for button_index, button in enumerate(self._rail_buttons):
             button.setChecked(button_index == index)
+
+    def _open_in_viewer(self, viewer_screen: ViewerScreen, book_id: int, page_number: int) -> None:
+        """Load the requested book/page into the Viewer and switch to it."""
+        if viewer_screen.load_book(book_id):
+            viewer_screen.jump_to_page_number(page_number)
+            self._show_screen(1)
 
 
 def _placeholder_screen(title: str, message: str) -> QWidget:
