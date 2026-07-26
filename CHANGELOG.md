@@ -1131,4 +1131,59 @@ between Maktaba Shamila Urdu and Jibreel Mobile - one of only 3 exact
 title overlaps found during that library's original investigation).
 Verified healthy afterward (0 errors, 0 warnings).
 
+## Phase 4, step 5: Settings screen - real language switching, RTL/LTR
+
+Final Phase 4 GUI milestone for this round. User had explicitly asked
+for Urdu/Arabic/English app-language options with automatic RTL/LTR back
+when the Phase 4 design preview was built - this makes it real, not a
+mockup.
+
+`interfaces/desktop_app/i18n.py` (new): `Translator(QObject)`, backed by
+`QSettings` for persistence across restarts, with a `language_changed`
+signal so every screen can react. `QApplication.setLayoutDirection()` is
+set from the *current* language, which mirrors the *entire* app's layout
+automatically (rail moves to the correct side, etc.) - a real Qt
+capability, more powerful than the CSS-based direction flip in the
+earlier HTML preview. Only the app's own chrome translates; book content
+always stays in its original script, exactly as promised in that
+preview. Scope kept honest: only the rail labels and Settings' own
+labels are wired to translation keys this round, not every screen's
+strings - a deliberate, incremental boundary, not an oversight.
+
+`SettingsScreen` (new): language selector, a default reading font size
+(persisted via `QSettings`, read by `ViewerScreen` at construction via a
+new `initial_font_px` parameter - applies to newly opened books, not a
+live override of an already-open one), and a real About section (actual
+database path, actual book/library counts).
+
+**A real bug found by testing, not by inspection - and a more serious
+one than usual:** `MainWindow` always constructed the *real*
+`QSettings(SETTINGS_ORGANIZATION, ...)`, which on Windows writes to the
+actual registry. Every existing `MainWindow` test was silently reading
+and writing the real, persistent app settings for the actual packaged
+exe - and the language-switching test had already left a stray
+`language=ur` value in the real registry before this was caught. Fixed
+by adding an injectable `settings` parameter to `MainWindow` (same
+pattern already used for `Translator`), updating every test to use an
+isolated temp-file-backed `QSettings`, and manually removing the
+already-polluted real registry key. Also fixed a real Qt Style Sheet
+gotcha: a `QFrame` type-selector stylesheet was cascading into child
+widgets' internal frames (e.g. a `QComboBox`'s popup), drawing a border
+around every label instead of just the intended block - fixed with a
+scoped `#settingsBlock` ID selector, the standard Qt fix for this.
+
+14 new tests (202/202 total): 8 for `Translator` (default language,
+switching, RTL for both Urdu and Arabic, signal emission - including a
+no-op-does-not-emit case, unknown language code rejected, English
+fallback for a missing key, persistence across instances) and 6 for
+`SettingsScreen` (font size default/persistence, language combo reflects
+and updates the shared translator, self-retranslation, real About data).
+
+Verified for real against the production database (read-only, no
+database writes this round - only `QSettings` - so no backup/verify
+cycle needed): screenshotted Settings in English, then after switching
+to Urdu - rail correctly moved to the right and retranslated (Search ->
+تلاش), the whole app confirmed `LayoutDirection.RightToLeft`, and the
+real 15,127-books/9-libraries About text stayed correct throughout.
+
 

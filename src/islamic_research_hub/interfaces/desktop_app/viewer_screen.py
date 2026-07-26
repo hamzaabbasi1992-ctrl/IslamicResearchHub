@@ -30,13 +30,14 @@ class ViewerScreen(QWidget):
         self,
         database_path: Path,
         browser: BookBrowserRepository | None = None,
+        initial_font_px: float | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._browser = browser or BookBrowserRepository(database_path)
         self._pages: tuple = ()
         self._current_index = 0
-        self._font_px = DEFAULT_FONT_PX
+        self._font_px = initial_font_px or DEFAULT_FONT_PX
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

@@ -111,9 +111,19 @@ real-data validation behind every item below.
   (scan, and the safe empty-stub cleanup that never touches a pair with
   real content on both sides). Verified for real: all 9 libraries with
   correct counts (15,127 total), a fresh scan against the real database.
-- Settings, Logs, Book Details tabs - **not started**, shown as honest
-  "coming in a future update" placeholders (verified to have zero
-  interactive controls) rather than pretending to be built.
+- Settings - **done**: real language switching (English/Urdu/Arabic) via
+  a new `Translator`, with genuine whole-app RTL/LTR mirroring
+  (`QApplication.setLayoutDirection`) - fulfills what the design preview
+  promised. Only rail labels and Settings' own labels are translated so
+  far, not every screen - a deliberate incremental boundary. Also: a
+  persisted default reading font size, and a real About section. Found
+  and fixed a real bug in the process: `MainWindow` was using the *real*
+  Windows-registry-backed `QSettings` in every test, and had already
+  leaked a stray `language=ur` value into the real registry before that
+  was caught - fixed with dependency injection, same pattern as
+  everywhere else `QSettings`/`Translator` are used.
+- Logs, Book Details tabs - **not started**, shown as honest "coming in
+  a future update" placeholders rather than pretending to be built.
 
 ### Phase 5 — Book Viewer: **not started**
 
