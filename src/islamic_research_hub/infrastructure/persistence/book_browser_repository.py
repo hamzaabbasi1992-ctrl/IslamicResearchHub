@@ -19,6 +19,20 @@ class BookBrowserRepository:
             rows = connection.execute("SELECT Name FROM Libraries ORDER BY Name").fetchall()
         return tuple(row[0] for row in rows)
 
+    def list_libraries_with_counts(self) -> tuple[tuple[str, int], ...]:
+        """Return every library name paired with its real book count, alphabetically."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT l.Name, COUNT(b.BookID)
+                FROM Libraries l
+                LEFT JOIN Books b ON b.LibraryID = l.LibraryID
+                GROUP BY l.LibraryID
+                ORDER BY l.Name
+                """
+            ).fetchall()
+        return tuple((row[0], row[1]) for row in rows)
+
     def get_book_source(self, book_id: int) -> tuple[str, str | None] | None:
         """Return (source path, library name) for one book, or None if missing."""
         with closing(sqlite3.connect(self._database_path)) as connection:

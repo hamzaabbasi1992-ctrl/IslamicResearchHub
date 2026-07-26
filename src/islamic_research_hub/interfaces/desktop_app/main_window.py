@@ -13,13 +13,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import ViewerScreen
 
 RAIL_WIDTH = 130
 _RAIL_TITLES = ("Search", "Viewer", "Import", "Settings")
 _PLACEHOLDER_MESSAGES = {
-    "Import": "The import manager is coming in a future update.",
     "Settings": "Settings are coming in a future update.",
 }
 
@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
             )
             self._stack.addWidget(search_screen)
             self._stack.addWidget(viewer_screen)
+            self._stack.addWidget(ImportScreen(database_path))
         else:
             missing_database_message = (
                 f"Expected data\\books.db next to the app, at:\n{database_path}\n\n"
@@ -50,7 +51,8 @@ class MainWindow(QMainWindow):
             )
             self._stack.addWidget(_placeholder_screen("Database not found", missing_database_message))
             self._stack.addWidget(_placeholder_screen("Viewer", missing_database_message))
-        for title in _RAIL_TITLES[2:]:
+            self._stack.addWidget(_placeholder_screen("Import", missing_database_message))
+        for title in _RAIL_TITLES[3:]:
             self._stack.addWidget(_placeholder_screen(title, _PLACEHOLDER_MESSAGES[title]))
 
         rail = self._build_rail()

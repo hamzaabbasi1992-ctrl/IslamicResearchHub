@@ -105,10 +105,15 @@ real-data validation behind every item below.
   search result's "Read in app" button, which jumps straight to the
   matched page. Verified for real: searched the production database,
   opened a real 324-page book at the exact matched page, screenshotted.
-- Import Manager, Settings, Logs, Book Details, Duplicate Review tabs -
-  **not started**, shown as honest "coming in a future update"
-  placeholders (verified to have zero interactive controls) rather than
-  pretending to be built.
+- Import Manager + Duplicate Review - **done**, combined into one
+  `ImportScreen`: real library-sources table, and duplicate-candidate
+  review wired to the already-tested `DuplicateCandidateRepository`
+  (scan, and the safe empty-stub cleanup that never touches a pair with
+  real content on both sides). Verified for real: all 9 libraries with
+  correct counts (15,127 total), a fresh scan against the real database.
+- Settings, Logs, Book Details tabs - **not started**, shown as honest
+  "coming in a future update" placeholders (verified to have zero
+  interactive controls) rather than pretending to be built.
 
 ### Phase 5 — Book Viewer: **not started**
 

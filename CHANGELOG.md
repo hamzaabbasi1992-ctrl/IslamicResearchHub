@@ -1090,4 +1090,45 @@ the correct real book (کتاب الفتاوی جلد 3, real author, 324 real p
 already scrolled to the exact page the search matched (14, not 1) -
 screenshotted for visual confirmation.
 
+## Phase 4, step 4: Import screen (library sources + duplicate review)
+
+Third Phase 4 GUI milestone. `ImportScreen` (new): a real library-sources
+table (`BookBrowserRepository.list_libraries_with_counts()`, a small new
+method added to that repository) and real duplicate-candidate review,
+wired entirely to `DuplicateCandidateRepository` - already built and
+tested earlier this session, not new logic. "Scan for duplicates" calls
+its `detect_and_store()`; "Remove empty-stub duplicates" calls its
+`resolve_empty_stub_duplicates()`, which only ever deletes the zero-page
+side of a pair and never touches a pair where both sides have real
+content - the same safe behavior already covered by that repository's
+own tests, just exposed in the GUI now.
+
+While adding tests, found that `book_browser_repository.py` had no
+direct test file at all (only ever exercised indirectly through the web
+app and the newer desktop screens) - added one covering all four of its
+methods, not just the new one.
+
+**A real bug found by testing, not by inspection:** the "Removed N
+empty-stub duplicate(s)" confirmation message was being immediately
+overwritten by the table refresh's own status text, so the user would
+never actually see it. Fixed by composing both messages together after
+the reload, instead of setting one then letting the other clobber it.
+
+10 new tests (187/187 total): 4 for `ImportScreen` (library table
+reflects real counts, scanning finds a real cross-library title match,
+cleanup removes a real empty-stub duplicate and refreshes both tables,
+`refresh()` picks up an external change) plus 6 new
+`BookBrowserRepository` tests (filling the gap found above).
+
+Verified for real against the production database (fresh backup taken
+first, since "Scan for duplicates" writes to `DuplicateCandidates`):
+all 9 real libraries with correct real counts (summing to exactly
+15,127). Running a fresh scan for real found candidates had grown from
+27 (stale, computed at a much smaller corpus size) to 2,302 - expected
+at this scale for exact-title matching, not a regression, and the
+refreshed list correctly re-surfaced a genuine known overlap (تزکیہ نفس
+between Maktaba Shamila Urdu and Jibreel Mobile - one of only 3 exact
+title overlaps found during that library's original investigation).
+Verified healthy afterward (0 errors, 0 warnings).
+
 
