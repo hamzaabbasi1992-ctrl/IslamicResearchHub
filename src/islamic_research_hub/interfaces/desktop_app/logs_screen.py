@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
+
 LOG_FILE_NAME = "islamic_research_hub.log"
 MAX_LINES_SHOWN = 500
 
@@ -30,7 +32,7 @@ class LogsScreen(QWidget):
 
         header_row = QHBoxLayout()
         self._status_label = QLabel()
-        self._status_label.setStyleSheet("color: #7a7264;")
+        self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
         header_row.addWidget(self._status_label)
         header_row.addStretch(1)
         refresh_button = QPushButton("Refresh")

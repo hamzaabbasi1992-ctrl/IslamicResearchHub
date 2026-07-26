@@ -16,6 +16,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     BookBrowserRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import LANGUAGES, Translator
+from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FONT_PX
 
 FONT_SIZE_KEY = "viewer/font_size"
@@ -69,7 +70,7 @@ class SettingsScreen(QWidget):
         block_layout.addWidget(self._language_heading)
 
         self._language_note = QLabel(self._translator.tr("settings-language-note"))
-        self._language_note.setStyleSheet("color: #7a7264; font-size: 11px;")
+        self._language_note.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 11px;")
         block_layout.addWidget(self._language_note)
 
         row = QHBoxLayout()
@@ -123,7 +124,7 @@ class SettingsScreen(QWidget):
             f"Database: {self._database_path}\n"
             f"{total_books} books across {len(libraries)} libraries"
         )
-        info.setStyleSheet("color: #7a7264; font-size: 11px;")
+        info.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 11px;")
         info.setWordWrap(True)
         block_layout.addWidget(info)
         return block
@@ -145,9 +146,7 @@ def _block() -> QFrame:
     # Scoped to #settingsBlock (an ID selector), not the QFrame type selector -
     # a type selector would cascade into any QFrame-based internals of child
     # widgets (e.g. a QComboBox's popup frame), drawing a border around them too.
+    # The actual colors live in the shared app-wide stylesheet (theme.py).
     frame = QFrame()
     frame.setObjectName("settingsBlock")
-    frame.setStyleSheet(
-        "#settingsBlock { background: #ffffff; border: 1px solid #e6dfcc; border-radius: 8px; }"
-    )
     return frame

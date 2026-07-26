@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QFormLayout, QLabel, QPushButton, QVBoxLayout
 
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
+from islamic_research_hub.interfaces.desktop_app.theme import RTL_TEXT_STYLE
 
 
 class BookDetailsDialog(QDialog):
@@ -17,7 +18,7 @@ class BookDetailsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         title_label = QLabel(metadata.title or "(untitled)")
-        title_label.setStyleSheet("font-size: 16px; font-weight: 700;")
+        title_label.setStyleSheet(f"font-size: 16px; font-weight: 700; {RTL_TEXT_STYLE}")
         title_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title_label.setWordWrap(True)
         layout.addWidget(title_label)

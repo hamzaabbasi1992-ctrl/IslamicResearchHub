@@ -26,6 +26,7 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     FONT_SIZE_KEY,
     SettingsScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.theme import INK, MUTED_LABEL_STYLE
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
     DEFAULT_FONT_PX,
     ViewerScreen,
@@ -92,8 +93,8 @@ class MainWindow(QMainWindow):
 
     def _build_rail(self) -> QWidget:
         rail = QWidget()
+        rail.setObjectName("navRail")
         rail.setFixedWidth(RAIL_WIDTH)
-        rail.setStyleSheet("background: #f7f3e9; border-right: 1px solid #d9cfb8;")
         rail_layout = QVBoxLayout(rail)
         rail_layout.setContentsMargins(8, 14, 8, 14)
         rail_layout.setSpacing(4)
@@ -140,13 +141,13 @@ def _placeholder_screen(title: str, message: str) -> QWidget:
 
     heading = QLabel(title)
     heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    heading.setStyleSheet("font-size: 20px; font-weight: 600; color: #241f17;")
+    heading.setStyleSheet(f"font-size: 20px; font-weight: 600; color: {INK};")
     layout.addWidget(heading)
 
     body = QLabel(message)
     body.setAlignment(Qt.AlignmentFlag.AlignCenter)
     body.setWordWrap(True)
-    body.setStyleSheet("color: #7a7264;")
+    body.setStyleSheet(MUTED_LABEL_STYLE)
     layout.addWidget(body)
 
     layout.addStretch(1)

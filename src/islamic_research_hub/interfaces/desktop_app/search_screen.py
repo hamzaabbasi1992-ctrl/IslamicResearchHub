@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +28,7 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 
 DEFAULT_LIMIT = 30
@@ -80,13 +82,14 @@ class SearchScreen(QWidget):
         filter_row.addWidget(self._category_edit)
 
         search_button = QPushButton("Search")
+        search_button.setObjectName("primaryButton")
         search_button.setDefault(True)
         search_button.clicked.connect(self._run_search)
         filter_row.addWidget(search_button)
         layout.addLayout(filter_row)
 
         self._status_label = QLabel("")
-        self._status_label.setStyleSheet("color: #7a7264;")
+        self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
         layout.addWidget(self._status_label)
 
         self._results_area = QScrollArea()
@@ -140,14 +143,12 @@ class SearchScreen(QWidget):
 
     def _build_result_card(self, result: SearchResult) -> QFrame:
         card = QFrame()
+        card.setObjectName("resultCard")
         card.setFrameShape(QFrame.Shape.StyledPanel)
-        card.setStyleSheet(
-            "QFrame { background: #ffffff; border: 1px solid #e6dfcc; border-radius: 8px; }"
-        )
         card_layout = QVBoxLayout(card)
 
         title = QLabel(result.title or "(untitled)")
-        title.setStyleSheet("font-size: 15px; font-weight: 600;")
+        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
@@ -156,14 +157,15 @@ class SearchScreen(QWidget):
         if result.page_number is not None:
             meta_bits.append(f"page {result.page_number}")
         meta = QLabel(" · ".join(meta_bits))
-        meta.setStyleSheet("color: #7a7264; font-size: 12px;")
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
         card_layout.addWidget(meta)
 
         excerpt = QLabel(highlight_excerpt_html(result.excerpt))
         excerpt.setTextFormat(Qt.TextFormat.RichText)
         excerpt.setWordWrap(True)
         excerpt.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        excerpt.setStyleSheet("font-size: 13px; line-height: 150%;")
+        excerpt.setStyleSheet(f"font-size: 13px; line-height: 150%; {RTL_TEXT_STYLE}")
+        _enable_height_for_width(excerpt)
         card_layout.addWidget(excerpt)
 
         open_row = self._build_open_row(result)
@@ -209,3 +211,15 @@ class SearchScreen(QWidget):
 
 def _file_url(path: Path) -> QUrl:
     return QUrl.fromLocalFile(str(path))
+
+
+def _enable_height_for_width(label: QLabel) -> None:
+    """Make a word-wrapped rich-text QLabel report its real wrapped height to the layout.
+
+    Without this, Qt's QVBoxLayout sizes such a label using its unwrapped
+    sizeHint (a single line) instead of the multi-line height it actually
+    needs at its assigned width, clipping the excerpt to one line's height.
+    """
+    policy = label.sizePolicy()
+    policy.setHeightForWidth(True)
+    label.setSizePolicy(policy)

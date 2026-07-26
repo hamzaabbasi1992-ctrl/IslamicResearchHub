@@ -21,6 +21,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.duplicate_candidate_repository import (
     DuplicateCandidateRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.theme import INK, MUTED_LABEL_STYLE
 
 
 class ImportScreen(QWidget):
@@ -59,11 +60,12 @@ class ImportScreen(QWidget):
 
         layout.addWidget(_heading("Duplicate review"))
         self._duplicate_status_label = QLabel()
-        self._duplicate_status_label.setStyleSheet("color: #7a7264;")
+        self._duplicate_status_label.setStyleSheet(MUTED_LABEL_STYLE)
         layout.addWidget(self._duplicate_status_label)
 
         button_row = QHBoxLayout()
         scan_button = QPushButton("Scan for duplicates")
+        scan_button.setObjectName("primaryButton")
         scan_button.clicked.connect(self._run_scan)
         button_row.addWidget(scan_button)
 
@@ -139,7 +141,7 @@ class ImportScreen(QWidget):
 
 def _heading(text: str) -> QLabel:
     label = QLabel(text)
-    label.setStyleSheet("font-size: 15px; font-weight: 700; margin-top: 6px;")
+    label.setStyleSheet(f"font-size: 15px; font-weight: 700; margin-top: 6px; color: {INK};")
     return label
 
 

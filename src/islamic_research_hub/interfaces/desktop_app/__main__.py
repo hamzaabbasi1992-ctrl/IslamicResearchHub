@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QApplication
 
 from islamic_research_hub.interfaces.desktop_app.main_window import MainWindow
+from islamic_research_hub.interfaces.desktop_app.theme import GLOBAL_STYLESHEET
 from islamic_research_hub.shared.logging_config import configure_logging
 
 # A packaged exe's working directory depends on how it was launched (double
@@ -32,6 +33,7 @@ def main() -> int:
     configure_logging(DEFAULT_LOG_DIRECTORY)
     app = QApplication(sys.argv)
     app.setApplicationName("Islamic Research Hub")
+    app.setStyleSheet(GLOBAL_STYLESHEET)
     window = MainWindow(
         DEFAULT_DATABASE_PATH, DEFAULT_MAKNOON_PDF_FOLDER, log_directory=DEFAULT_LOG_DIRECTORY
     )

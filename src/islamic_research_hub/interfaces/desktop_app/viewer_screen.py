@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 
 MIN_FONT_PX = 13
 MAX_FONT_PX = 30
@@ -45,7 +46,7 @@ class ViewerScreen(QWidget):
 
         self._empty_label = QLabel("Open a book from Search to read it here.")
         self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_label.setStyleSheet("color: #7a7264; padding: 2rem;")
+        self._empty_label.setStyleSheet(f"{MUTED_LABEL_STYLE} padding: 2rem;")
         layout.addWidget(self._empty_label)
 
         self._reader = QWidget()
@@ -57,10 +58,10 @@ class ViewerScreen(QWidget):
         header = QVBoxLayout()
         header.setContentsMargins(16, 12, 16, 4)
         self._title_label = QLabel()
-        self._title_label.setStyleSheet("font-size: 16px; font-weight: 700;")
+        self._title_label.setStyleSheet(f"font-size: 16px; font-weight: 700; {RTL_TEXT_STYLE}")
         self._title_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._author_label = QLabel()
-        self._author_label.setStyleSheet("color: #7a7264; font-size: 12px;")
+        self._author_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
         self._author_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         header.addWidget(self._title_label)
         header.addWidget(self._author_label)
@@ -106,7 +107,7 @@ class ViewerScreen(QWidget):
         self._content_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._content_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self._content_label.setStyleSheet("padding: 16px 24px;")
+        self._content_label.setStyleSheet(f"padding: 16px 24px; {RTL_TEXT_STYLE}")
         scroll_area.setWidget(self._content_label)
         reader_layout.addWidget(scroll_area, stretch=1)
 
@@ -160,7 +161,8 @@ class ViewerScreen(QWidget):
 
     def _apply_font_size(self) -> None:
         self._content_label.setStyleSheet(
-            f"padding: 16px 24px; font-size: {self._font_px}px; line-height: 160%;"
+            f"padding: 16px 24px; font-size: {self._font_px}px; line-height: 160%; "
+            f"{RTL_TEXT_STYLE}"
         )
 
     def _render_current_page(self) -> None:

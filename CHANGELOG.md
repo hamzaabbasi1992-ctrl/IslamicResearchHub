@@ -1328,4 +1328,49 @@ tag - and general full-text search returns real Hadith/Quran content
 alongside the rest of the corpus. Verified healthy afterward with
 `DatabaseVerifier` on the now-15,162-book database.
 
+## Phase 4 visual polish: app-wide theme matching the design preview
+
+The desktop app was functionally complete but still used default Qt/
+Windows widget styling - grey buttons, no color palette - unlike the
+warm cream/green Phase 4 HTML design preview shown early in the
+project. Only a handful of labels had been given ad hoc inline colors
+(several files each independently hardcoding a slightly different
+"#7a7264" guess for muted text), which is why the running app looked
+noticeably plainer than that preview.
+
+`interfaces/desktop_app/theme.py` (new): the design preview's exact
+color tokens (`--bg`, `--surface`, `--ink`, `--accent`, etc. from its
+CSS `:root`), a `GLOBAL_STYLESHEET` Qt stylesheet applied once via
+`app.setStyleSheet()` in `__main__.py`, and two shared style-string
+constants (`MUTED_LABEL_STYLE`, `RTL_TEXT_STYLE`) so every screen
+references one source of truth instead of repeating hex codes. Covers
+buttons (including a primary/accent variant), inputs, dropdowns, the
+nav rail (with a real `:checked` active-state highlight, via Qt's
+native pseudo-state support - not previously used), cards, tables, and
+scrollbars. Every screen file updated to use these instead of its own
+inline hex strings; behavior unchanged, colors/fonts centralized.
+
+Real bug found and fixed during verification (screenshot comparison,
+not just code review): the first draft's blanket `QWidget { background:
+... }` rule painted an opaque background on every widget, including
+plain `QLabel`s sitting on top of white cards - each label rendered as
+a solid rectangle instead of transparent text, visually breaking every
+screen. Fixed by scoping `background` to `QMainWindow` only and making
+`QLabel`/`QScrollArea` explicitly transparent, letting cards' own
+backgrounds show through correctly.
+
+Also fixed, found while investigating what first looked like a search-
+result layout bug (turned out to be real, just not the bug it first
+appeared to be): `SearchScreen`'s excerpt label is word-wrapped rich
+text, which Qt's `QVBoxLayout` can under-size unless the label's size
+policy explicitly declares `heightForWidth` support - added a small
+`_enable_height_for_width()` helper so longer, multi-line excerpts get
+their full needed height instead of being clipped to one line.
+
+219/219 tests unaffected (no behavior changed, only `setObjectName`/
+`setStyleSheet` calls). Verified for real: screenshotted Search,
+Viewer, Import, and Settings against the production database - cream/
+white/green palette, working nav-rail active-state highlight, correctly
+laid out result cards with real Urdu text and highlighting, all
+matching the design preview's look.
 
