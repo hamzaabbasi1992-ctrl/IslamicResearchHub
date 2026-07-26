@@ -16,10 +16,15 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     BookBrowserRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import LANGUAGES, Translator
+from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
+    DEFAULT_FONT_CHOICE,
+    FONT_CHOICES,
+)
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FONT_PX
 
 FONT_SIZE_KEY = "viewer/font_size"
+FONT_FAMILY_KEY = "viewer/font_family"
 FONT_SIZE_CHOICES = (14, 16, 18, 20, 22, 24, 28)
 
 
@@ -58,6 +63,7 @@ class SettingsScreen(QWidget):
         self._language_note.setText(self._translator.tr("settings-language-note"))
         self._reading_heading.setText(self._translator.tr("settings-reading"))
         self._font_size_label.setText(self._translator.tr("settings-default-font-size"))
+        self._font_family_label.setText(self._translator.tr("settings-default-font-family"))
         self._about_heading.setText(self._translator.tr("settings-about"))
 
     def _build_language_block(self) -> QFrame:
@@ -107,6 +113,20 @@ class SettingsScreen(QWidget):
         self._font_size_combo.currentIndexChanged.connect(self._on_font_size_changed)
         row.addWidget(self._font_size_combo)
         block_layout.addLayout(row)
+
+        font_row = QHBoxLayout()
+        self._font_family_label = QLabel(self._translator.tr("settings-default-font-family"))
+        font_row.addWidget(self._font_family_label)
+        font_row.addStretch(1)
+        self._font_family_combo = QComboBox()
+        for display_name, _font_stack in FONT_CHOICES:
+            self._font_family_combo.addItem(display_name)
+        current_family = self.default_font_family()
+        family_index = self._font_family_combo.findText(current_family)
+        self._font_family_combo.setCurrentIndex(max(family_index, 0))
+        self._font_family_combo.currentTextChanged.connect(self._on_font_family_changed)
+        font_row.addWidget(self._font_family_combo)
+        block_layout.addLayout(font_row)
         return block
 
     def _build_about_block(self) -> QFrame:
@@ -133,6 +153,10 @@ class SettingsScreen(QWidget):
         """Return the persisted default reading font size, or the built-in default."""
         return int(self._settings.value(FONT_SIZE_KEY, DEFAULT_FONT_PX))
 
+    def default_font_family(self) -> str:
+        """Return the persisted default reading font family, or the built-in default."""
+        return str(self._settings.value(FONT_FAMILY_KEY, DEFAULT_FONT_CHOICE))
+
     def _on_language_changed(self, _index: int) -> None:
         code = self._language_combo.currentData()
         self._translator.set_language(code)
@@ -140,6 +164,9 @@ class SettingsScreen(QWidget):
     def _on_font_size_changed(self, _index: int) -> None:
         size = self._font_size_combo.currentData()
         self._settings.setValue(FONT_SIZE_KEY, size)
+
+    def _on_font_family_changed(self, display_name: str) -> None:
+        self._settings.setValue(FONT_FAMILY_KEY, display_name)
 
 
 def _block() -> QFrame:

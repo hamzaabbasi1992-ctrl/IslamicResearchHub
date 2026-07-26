@@ -1374,3 +1374,115 @@ white/green palette, working nav-rail active-state highlight, correctly
 laid out result cards with real Urdu text and highlighting, all
 matching the design preview's look.
 
+## Phase 4 structural rebuild: header bar, category/author browsing, add-library form, reading fonts
+
+The previous round only matched the design preview's *colors*. Comparing
+the running app side-by-side with the actual mockup surfaced real
+structural gaps: no header bar (wordmark/live stats/language switcher),
+no category/author browsing, Details opened a popup instead of an
+inline side panel, no way to add a library from the GUI, text-only nav
+buttons instead of icon+label, and no reading-font choice. None of
+these were regressions - each was a real, disclosed scoping decision
+made when that screen was originally built - but the user asked for
+full structural parity with the mockup, not just its palette.
+
+**New repository queries** (`BookBrowserRepository`, all with the same
+existence-guard pattern as `_has_series_support`, so a pre-migration
+database still works):
+- `get_header_stats()` - real book/library/author/category/series
+  counts. Verified against production: 15,162 books, 9 libraries, 650
+  authors, 691 categories, 412 series - matching the mockup's own
+  numbers almost exactly (an earlier snapshot of this same corpus).
+- `list_authors_with_counts()` - real authors, using the normalized
+  `Authors` table when migrated, `Books.Author` text otherwise.
+- `get_category_tree()` - the real category hierarchy with real book
+  counts, using `CategoryTaxonomy` when migrated. **Real bug found and
+  fixed**: root categories use MJCN sentinel `0` as `ParentMJCN` in this
+  corpus's actual data (not `NULL`, the more obvious assumption) - the
+  first version returned an empty tree against production until this
+  was caught and fixed.
+
+**`HeaderBar`** (new): wordmark + tagline, the five live stats above,
+and a language-pill switcher that writes through the same `Translator`
+Settings already uses - changing language from either place updates
+both.
+
+**Icon nav rail**: `icons.py` renders the mockup's own inline SVG paths
+(via `QSvgRenderer`) into per-state `QIcon`s (muted normally, accent
+when checked - `QIcon` natively supports a distinct pixmap per
+`QIcon.State`, no manual state-tracking needed). Rail buttons switched
+from `QPushButton` to `QToolButton` (`ToolButtonTextUnderIcon`), since
+plain `QPushButton` has no built-in icon-above-text layout.
+
+**`SearchScreen` rebuilt as three panes**, reusing the existing query/
+filter/result-card logic unchanged:
+- Left: Categories/Authors tabs. Categories is a real `QTreeWidget`
+  built from `get_category_tree()`; Authors is a scrollable list from
+  `list_authors_with_counts()`. Clicking either sets the existing
+  category/author filter field and re-runs the existing search - no
+  new filtering logic. A library-chips list (real counts) does the same
+  for the library filter. **Real bug found and fixed during
+  verification**: nesting the `QTreeWidget` (which already scrolls
+  internally) inside an outer `QScrollArea` produced a 21,452px-tall,
+  865px-wide tree - `QScrollArea` gives its content exactly its
+  `sizeHint`, and an unconstrained `QTreeWidget`'s `sizeHint` wants to
+  show every row at once. Fixed by making the left pane a plain
+  (non-scrolling) fixed-width widget instead, letting the tree scroll
+  itself and wrapping only the (non-self-scrolling) author list in its
+  own inner `QScrollArea`.
+- Right: an inline detail panel (title, author, publisher, language,
+  category, library, series/volume, pages, chapters, matched page,
+  Open in Viewer / Open source PDF) replacing the old `BookDetailsDialog`
+  popup - `book_details_dialog.py` removed as dead code, its logic
+  inlined into `SearchScreen._populate_detail_panel`.
+- Known, disclosed limitation carried over unchanged: category/author
+  filtering was already an exact-text match against the per-book
+  `Categories.Name`/`Books.Author` columns before this work: a tree/list
+  entry's canonical name (post-normalization) can occasionally miss a
+  book whose own stored spelling differs. Not new, not fixed here.
+- Also noticed, not fixed: `BookMetadata.category` shows the raw
+  internal MJCN code (e.g. "603") for standard `.mjbz` imports rather
+  than a resolved name, since `Books.Category` stores the MJCN badge
+  directly - a pre-existing data-modeling quirk, out of scope for this
+  structural-parity pass.
+
+**`ImportScreen` gets a real "Add new library" form**: folder picker
+(`QFileDialog`), format dropdown (auto-detect / `.mjbz` Mobile /
+pre-extracted text / PDF metadata-only), library name, and a real
+"Scan & import" that runs off the GUI thread
+(`LibraryImportWorker(QThread)`, new) using the exact same
+`MjbzFolderScanner`/`MasterDatabaseBuilder`/reader classes the CLI
+importers already use - no new import logic, just a Qt wrapper so a
+real scan doesn't freeze the window. Jibreel Desktop (`.mjbx`,
+encrypted) is deliberately not wired here - it needs extra
+configuration (SQLite DLL path, password) that doesn't fit this simple
+form, and stays CLI-only, same as before. A new `library_imported`
+signal refreshes the header's live stats after a real import completes.
+
+**Reading font choice** (new, `reading_fonts.py`): 10 real Urdu
+(Nastaliq-style: Noori Nastaleeq, Jameel Noori Nastaleeq, Noto Nastaliq
+Urdu, Alvi Nastaleeq, Nafees Nastaleeq) and Arabic (Naskh-style:
+Traditional Arabic, Simplified Arabic, Scheherazade New, Amiri, Sakkal
+Majalla) fonts, each a CSS-style fallback chain so Qt substitutes
+gracefully when a font isn't installed. A dropdown in the Viewer
+toolbar and a matching default-font picker in Settings, both persisted
+via `QSettings` the same way font size already was.
+
+Tests: 219 -> 230, all passing. 4 for the new repository queries (header
+stats pre/post migration, authors with counts, category tree with the
+real MJCN-`0` root convention); in `test_search_screen.py`, the old
+dialog-based Details test was replaced with 3 new ones (inline detail
+panel, clicking a category, clicking an author); 5 for reading-font
+selection (Viewer default/dropdown/persisted-initial-value, Settings
+default/persistence).
+
+Verified for real end-to-end against the production database: header
+stats match real counts; the real 16-top-level category tree (e.g.
+"فقہ اور اصول فقہ" 361, "حدیث شریف" 95) renders with real children;
+clicking a real author or library chip re-runs a real search; the
+detail panel shows a real book's real metadata; and switching to Urdu
+correctly mirrors the *entire* rebuilt layout right-to-left (header,
+rail with translated labels, all three search panes, button order) via
+the existing `QApplication.setLayoutDirection()` mechanism, with no
+additional RTL-specific code needed anywhere in the new UI.
+

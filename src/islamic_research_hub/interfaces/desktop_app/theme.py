@@ -45,11 +45,36 @@ QLabel, QScrollArea, QScrollArea > QWidget > QWidget {{
     background: transparent;
 }}
 
+#headerBar {{
+    background: {SURFACE};
+    border-bottom: 1px solid {LINE};
+}}
+#headerBar QLabel {{
+    color: {INK_SOFT};
+}}
+#langPill {{
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: {INK_SOFT};
+}}
+#langPill:hover {{
+    background: {LINE_SOFT};
+    color: {INK};
+}}
+#langPill:checked {{
+    background: {ACCENT};
+    color: {SURFACE_RAISED};
+}}
+
 #navRail {{
     background: {SURFACE};
     border-right: 1px solid {LINE};
 }}
-#navRail QPushButton {{
+#navRail QToolButton {{
     background: transparent;
     border: none;
     border-radius: {RADIUS}px;
@@ -58,11 +83,11 @@ QLabel, QScrollArea, QScrollArea > QWidget > QWidget {{
     font-size: 12px;
     font-weight: 600;
 }}
-#navRail QPushButton:hover {{
+#navRail QToolButton:hover {{
     background: {LINE_SOFT};
     color: {INK};
 }}
-#navRail QPushButton:checked {{
+#navRail QToolButton:checked {{
     background: {ACCENT_SOFT};
     color: {ACCENT_INK};
 }}
@@ -92,6 +117,55 @@ QPushButton:default:hover, QPushButton#primaryButton:hover {{
     background: {ACCENT_INK};
     border-color: {ACCENT_INK};
     color: {SURFACE_RAISED};
+}}
+
+#searchLeftPane {{
+    background: {SURFACE};
+    border: none;
+    border-right: 1px solid {LINE};
+}}
+#navTab {{
+    background: {BG};
+    border: none;
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: {INK_SOFT};
+}}
+#navTab:checked {{
+    background: {SURFACE_RAISED};
+    color: {ACCENT_INK};
+}}
+#authorRow, #libraryChip {{
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 6px;
+    text-align: left;
+    font-size: 11px;
+    color: {INK_SOFT};
+}}
+#authorRow:hover, #libraryChip:hover {{
+    background: {LINE_SOFT};
+    color: {INK};
+}}
+
+QTreeWidget {{
+    background: transparent;
+    border: none;
+    font-size: 12px;
+}}
+QTreeWidget::item {{
+    padding: 3px 2px;
+    border-radius: 4px;
+}}
+QTreeWidget::item:hover {{
+    background: {LINE_SOFT};
+}}
+QTreeWidget::item:selected {{
+    background: {ACCENT_SOFT};
+    color: {ACCENT_INK};
 }}
 
 QLineEdit, QComboBox {{

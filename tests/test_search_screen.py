@@ -108,28 +108,48 @@ def test_search_screen_clears_previous_results_on_new_search(qtbot, tmp_path: Pa
     assert screen._results_layout.count() == 1
 
 
-def test_details_button_opens_a_dialog_with_the_real_book_metadata(
-    qtbot, tmp_path: Path, monkeypatch
-) -> None:
-    """Clicking Details on a result opens a dialog built from the real catalog data."""
-    from islamic_research_hub.interfaces.desktop_app import search_screen as search_screen_module
-
+def test_details_button_populates_the_inline_detail_panel(qtbot, tmp_path: Path) -> None:
+    """Clicking Details on a result fills the right-hand panel with real catalog data."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
     qtbot.addWidget(screen)
 
-    captured = {}
-    original_init = search_screen_module.BookDetailsDialog.__init__
+    screen._show_details(1, page_number=1)
 
-    def fake_init(self, metadata, parent=None):
-        captured["metadata"] = metadata
-        original_init(self, metadata, parent)
+    all_labels_text = " ".join(
+        label.text()
+        for label in screen._detail_content.findChildren(type(screen._status_label))
+    )
+    assert "Book of Fiqh" in all_labels_text
+    assert "Author One" in all_labels_text
 
-    monkeypatch.setattr(search_screen_module.BookDetailsDialog, "__init__", fake_init)
-    monkeypatch.setattr(search_screen_module.BookDetailsDialog, "exec", lambda self: None)
 
-    screen._show_details(1)
+def test_clicking_a_category_in_the_tree_filters_and_searches(qtbot, tmp_path: Path) -> None:
+    """Clicking a real category node sets the category filter and runs a search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
 
-    assert captured["metadata"].title == "Book of Fiqh"
-    assert captured["metadata"].author == "Author One"
+    screen._query_edit.setText("jurisprudence")
+    top_item = screen._category_tree.topLevelItem(0)
+    assert top_item is not None
+    screen._on_category_clicked(top_item, 0)
+
+    assert screen._category_edit.text() == "Fiqh"
+    assert "1 result" in screen._status_label.text()
+
+
+def test_clicking_an_author_in_the_list_filters_and_searches(qtbot, tmp_path: Path) -> None:
+    """Clicking a real author row sets the author filter and runs a search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("jurisprudence")
+    screen._filter_by_author("Author One")
+
+    assert screen._author_edit.text() == "Author One"
+    assert "1 result" in screen._status_label.text()

@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
@@ -176,3 +176,81 @@ def test_get_book_metadata_returns_none_for_unknown_book(tmp_path: Path) -> None
     _seed_database(database_path)
 
     assert BookBrowserRepository(database_path).get_book_metadata(9999) is None
+
+
+def test_get_header_stats_returns_real_counts_pre_migration(tmp_path: Path) -> None:
+    """Book/library/author/category counts are real, even with no migration run."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    stats = BookBrowserRepository(database_path).get_header_stats()
+
+    assert stats.book_count == 2
+    assert stats.library_count == 3  # Library A, Library B, + the legacy default
+    assert stats.author_count == 1  # only book_one has a real author
+    assert stats.category_count == 0
+    assert stats.series_count == 0  # Series table doesn't exist pre-migration
+
+
+def test_get_header_stats_counts_authors_and_series_after_migration(tmp_path: Path) -> None:
+    """Author/series counts use the normalized tables once migrations have run."""
+    database_path = tmp_path / "books.db"
+    for volume in (1, 2):
+        book = Book(
+            information={"Name": f"کفایت المفتی جلد {volume}", "ANAME": "Author One"},
+            categories=(),
+            table_of_contents=(),
+            pages=(Page(1, 1, "Content", "Plain"),),
+        )
+        MasterBookRepository().import_books(
+            database_path, (book,), (database_path.parent / f"v{volume}.mjbz",)
+        )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    stats = BookBrowserRepository(database_path).get_header_stats()
+
+    assert stats.book_count == 2
+    assert stats.author_count == 1
+    assert stats.series_count == 1  # both volumes collapse into one real series
+
+
+def test_list_authors_with_counts_returns_real_names_and_counts(tmp_path: Path) -> None:
+    """Every real author is paired with their real book count, alphabetically."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    authors = BookBrowserRepository(database_path).list_authors_with_counts()
+
+    assert authors == (("Author One", 1),)
+
+
+def test_get_category_tree_builds_real_hierarchy_with_counts(tmp_path: Path) -> None:
+    """Top-level categories carry their real children and real book counts.
+
+    Root categories use MJCN sentinel `0` as ParentMJCN, not NULL - the
+    convention already used throughout this corpus's real data.
+    """
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(
+            Category(mjcn=9, name="Fiqh", parent_mjcn=0, sort_key=1),
+            Category(mjcn=90, name="Zakat", parent_mjcn=9, sort_key=1),
+        ),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    tree = BookBrowserRepository(database_path).get_category_tree()
+
+    assert len(tree) == 1
+    assert tree[0].mjcn == 9
+    assert tree[0].name == "Fiqh"
+    assert tree[0].book_count == 1
+    assert len(tree[0].children) == 1
+    assert tree[0].children[0].mjcn == 90
+    assert tree[0].children[0].book_count == 1

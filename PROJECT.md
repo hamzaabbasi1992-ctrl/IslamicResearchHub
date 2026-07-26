@@ -94,7 +94,15 @@ real-data validation behind every item below.
   `BookSearchService`/`BookBrowserRepository` - no new search logic.
   Verified for real: searched the production database from the actual
   packaged `.exe`, screenshotted, 30 correct results with visible
-  highlighting.
+  highlighting. Later rebuilt as a real 3-pane layout (category/author
+  browsing tree on the left, an inline detail panel on the right) to
+  match the Phase 4 design preview's actual structure, not just its
+  colors - see the CHANGELOG entry "Phase 4 structural rebuild".
+- Header bar - **done**: wordmark, five live corpus stats (books/
+  libraries/authors/categories/series), and a language switcher that
+  shares the same `Translator` as Settings. Icon+label nav rail
+  (`QToolButton`, icons rendered from the design preview's own SVG
+  paths).
 - Packaging - **done**: `build_installer.ps1` produces a standalone,
   portable `installation/IslamicResearchHub/` folder (PyInstaller
   `--onedir`) that runs without a separate Python install. README in
@@ -111,27 +119,31 @@ real-data validation behind every item below.
   (scan, and the safe empty-stub cleanup that never touches a pair with
   real content on both sides). Verified for real: all 9 libraries with
   correct counts (15,127 total), a fresh scan against the real database.
-  ("Library" as a distinct browsing tab was deliberately not built as a
-  separate item - this table's library-sources view plus Search's
-  library filter already cover its essential function.)
+  Later gained a real "Add new library" form (folder picker, format
+  dropdown, `LibraryImportWorker(QThread)` running the same scanner/
+  builder classes the CLI importers use, off the GUI thread) - see the
+  CHANGELOG entry "Phase 4 structural rebuild". Jibreel Desktop
+  (`.mjbx`, encrypted) stays CLI-only - it needs extra configuration
+  (SQLite DLL path, password) this simple form doesn't have fields for.
 - Settings - **done**: real language switching (English/Urdu/Arabic) via
   a new `Translator`, with genuine whole-app RTL/LTR mirroring
   (`QApplication.setLayoutDirection`) - fulfills what the design preview
-  promised. Only rail labels and Settings' own labels are translated so
-  far, not every screen - a deliberate incremental boundary. Also: a
-  persisted default reading font size, and a real About section. Found
-  and fixed a real bug in the process: `MainWindow` was using the *real*
+  promised, confirmed to still mirror correctly (header, rail, all three
+  search panes) after the later structural rebuild. Also: a persisted
+  default reading font size *and font family* (10 real Urdu/Arabic
+  fonts, `reading_fonts.py`), and a real About section. Found and fixed
+  a real bug in the process: `MainWindow` was using the *real*
   Windows-registry-backed `QSettings` in every test, and had already
   leaked a stray `language=ur` value into the real registry before that
   was caught - fixed with dependency injection, same pattern as
   everywhere else `QSettings`/`Translator` are used.
 - Logs, Book Details - **done**: `LogsScreen` reads the real application
-  log (newest 500 lines); `BookDetailsDialog` shows a search result's
-  full real catalog record via a new
-  `BookBrowserRepository.get_book_metadata()`, reachable from a new
-  "Details" button on every result card. Verified for real: screenshotted
-  against the actual 19,776-line production log and a real search
-  result's metadata. Closes out the original 8-tab Phase 4 list.
+  log (newest 500 lines). Details was originally a popup dialog
+  (`BookDetailsDialog`); later replaced with the inline detail panel in
+  Search's 3-pane rebuild (the dialog file was removed as dead code).
+  Both wired to real data, verified for real against the actual
+  production log and real search results. Closes out the original
+  8-tab Phase 4 list.
 
 ### Phase 5 — Book Viewer: **not started**
 

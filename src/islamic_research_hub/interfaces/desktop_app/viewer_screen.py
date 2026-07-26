@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -15,6 +16,10 @@ from PySide6.QtWidgets import (
 
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
+)
+from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
+    DEFAULT_FONT_CHOICE,
+    FONT_CHOICES,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 
@@ -32,6 +37,7 @@ class ViewerScreen(QWidget):
         database_path: Path,
         browser: BookBrowserRepository | None = None,
         initial_font_px: float | None = None,
+        initial_font_family: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -39,6 +45,7 @@ class ViewerScreen(QWidget):
         self._pages: tuple = ()
         self._current_index = 0
         self._font_px = initial_font_px or DEFAULT_FONT_PX
+        self._font_family = initial_font_family or DEFAULT_FONT_CHOICE
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -87,6 +94,14 @@ class ViewerScreen(QWidget):
         toolbar.addWidget(self._next_button)
 
         toolbar.addStretch(1)
+
+        self._font_family_combo = QComboBox()
+        for display_name, _font_stack in FONT_CHOICES:
+            self._font_family_combo.addItem(display_name)
+        initial_index = self._font_family_combo.findText(self._font_family)
+        self._font_family_combo.setCurrentIndex(max(initial_index, 0))
+        self._font_family_combo.currentTextChanged.connect(self._change_font_family)
+        toolbar.addWidget(self._font_family_combo)
 
         smaller_button = QPushButton("A-")
         smaller_button.setFixedWidth(32)
@@ -159,11 +174,20 @@ class ViewerScreen(QWidget):
         self._font_px = max(MIN_FONT_PX, min(MAX_FONT_PX, self._font_px + delta))
         self._apply_font_size()
 
+    def _change_font_family(self, display_name: str) -> None:
+        self._font_family = display_name
+        self._apply_font_size()
+
     def _apply_font_size(self) -> None:
+        font_stack = _font_stack_for(self._font_family)
         self._content_label.setStyleSheet(
             f"padding: 16px 24px; font-size: {self._font_px}px; line-height: 160%; "
-            f"{RTL_TEXT_STYLE}"
+            f"font-family: {font_stack};"
         )
+
+    def selected_font_family(self) -> str:
+        """Return the currently selected reading font's display name."""
+        return self._font_family
 
     def _render_current_page(self) -> None:
         if not self._pages:
@@ -174,3 +198,11 @@ class ViewerScreen(QWidget):
         self._page_count_label.setText(f"/ {len(self._pages)}")
         self._prev_button.setEnabled(self._current_index > 0)
         self._next_button.setEnabled(self._current_index < len(self._pages) - 1)
+
+
+def _font_stack_for(display_name: str) -> str:
+    """Return the CSS-style font-family fallback chain for a chosen font's display name."""
+    for name, font_stack in FONT_CHOICES:
+        if name == display_name:
+            return font_stack
+    return FONT_CHOICES[0][1]

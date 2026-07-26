@@ -14,6 +14,7 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (  # noqa: E402
+    FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
     SettingsScreen,
 )
@@ -60,6 +61,31 @@ def test_changing_font_size_persists_to_settings(qtbot, tmp_path: Path) -> None:
 
     assert int(settings.value(FONT_SIZE_KEY)) == 24
     assert screen.default_font_size() == 24
+
+
+def test_default_font_family_falls_back_when_nothing_is_stored(qtbot, tmp_path: Path) -> None:
+    """With no stored preference, the built-in default reading font is used."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    assert screen.default_font_family() == "Noori Nastaleeq"
+
+
+def test_changing_font_family_persists_to_settings(qtbot, tmp_path: Path) -> None:
+    """Picking a new reading font writes it to the shared QSettings."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._font_family_combo.setCurrentText("Amiri")
+
+    assert settings.value(FONT_FAMILY_KEY) == "Amiri"
+    assert screen.default_font_family() == "Amiri"
 
 
 def test_language_combo_reflects_the_translators_current_language(qtbot, tmp_path: Path) -> None:

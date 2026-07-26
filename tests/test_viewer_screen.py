@@ -105,3 +105,39 @@ def test_font_size_controls_change_the_stylesheet(qtbot, tmp_path: Path) -> None
     screen._change_font_size(1.5)
     assert screen._font_px == starting_size + 1.5
     assert f"font-size: {screen._font_px}px" in screen._content_label.styleSheet()
+
+
+def test_font_family_choice_defaults_to_noori_nastaleeq(qtbot, tmp_path: Path) -> None:
+    """With no persisted choice, the reading font defaults to Noori Nastaleeq."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    assert screen.selected_font_family() == "Noori Nastaleeq"
+    assert "Noori Nastaleeq" in screen._content_label.styleSheet()
+
+
+def test_font_family_dropdown_changes_the_applied_font(qtbot, tmp_path: Path) -> None:
+    """Picking a different font from the dropdown updates the page content's font-family."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    screen._font_family_combo.setCurrentText("Amiri")
+
+    assert screen.selected_font_family() == "Amiri"
+    assert "Amiri" in screen._content_label.styleSheet()
+
+
+def test_initial_font_family_is_honored(qtbot, tmp_path: Path) -> None:
+    """A persisted default reading font is applied from construction, not just the built-in default."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, initial_font_family="Scheherazade New")
+    qtbot.addWidget(screen)
+
+    assert screen.selected_font_family() == "Scheherazade New"
+    assert screen._font_family_combo.currentText() == "Scheherazade New"
