@@ -13,10 +13,10 @@ text and search/display already assume that.
 import logging
 import sqlite3
 from contextlib import closing
-from html.parser import HTMLParser
 from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Book, Chapter, Page
+from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
 
 LOGGER = logging.getLogger(__name__)
 
@@ -76,9 +76,9 @@ class ShamilaUrduBookReader:
             Page(
                 content_id=row["ID"],
                 page_number=row["ID"],
-                content_f=_strip_html(row["txt"]),
+                content_f=strip_html_to_text(row["txt"]),
                 content_p=None,
-                footnote=_strip_html(row["fnotes"]) if row["fnotes"] else None,
+                footnote=strip_html_to_text(row["fnotes"]) if row["fnotes"] else None,
             )
             for row in rows
         )
@@ -100,27 +100,3 @@ class ShamilaUrduBookReader:
             for row in rows
             if row["txt"] and row["txt"].strip()
         )
-
-
-class _TextExtractingParser(HTMLParser):
-    """Collect the visible text content of an HTML fragment."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._parts: list[str] = []
-
-    def handle_data(self, data: str) -> None:
-        self._parts.append(data)
-
-    def text(self) -> str:
-        return "".join(self._parts)
-
-
-def _strip_html(html_text: str | None) -> str | None:
-    """Return the plain-text content of an HTML fragment, whitespace-collapsed."""
-    if html_text is None:
-        return None
-    parser = _TextExtractingParser()
-    parser.feed(html_text)
-    text = " ".join(parser.text().split())
-    return text or None

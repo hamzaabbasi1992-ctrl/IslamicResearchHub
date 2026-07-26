@@ -173,15 +173,17 @@ checked for overlap before anything was imported:
 - **Maktaba Shamila Urdu** (shamilaurdu.com, downloaded and inspected):
   a genuinely different platform - only 3/695 titles (0.4%) overlapped,
   different scholarly tradition (Ahle Hadith/Salafi vs. the existing
-  corpus's mostly-Deobandi lean), own per-book SQLite schema (HTML-styled
-  content, stripped to plain text on import). 663 books imported (the
-  `Books/` folder only). Its `fnotes` column is the first real footnote
+  corpus's mostly-Deobandi lean). 698 books imported in total: 663 from
+  `Books/` (own per-book SQLite schema, HTML-styled content stripped to
+  plain text) plus, in a second pass after an initial report undercounted
+  this collection (see the CHANGELOG correction entry), 15 real Hadith
+  collections from `Hadith/` (Sahih al-Bukhari, Sahih Muslim, Sunan Abi
+  Dawud, and 12 more) and 20 Quran-folder resources from `Quran/` (the
+  base Arabic text, 7 translations, 12 tafsirs) - each its own schema,
+  each with a dedicated reader. Its `fnotes` column (Books/) and
+  `HadithHashiaText` commentary (Hadith/) are the first real footnote
   data found in this corpus - see the `Footnotes` table note under
-  Phase 2 above. **Correction:** the collection also has `Hadith/` (15
-  files) and `Quran/` (20 files) subfolders using three different
-  schemas, not yet supported - real Hadith and Quran content currently
-  entirely absent from the corpus. See the CHANGELOG correction entry;
-  building these is planned next.
+  Phase 2 above.
 
 ## Not yet scheduled / future candidates
 

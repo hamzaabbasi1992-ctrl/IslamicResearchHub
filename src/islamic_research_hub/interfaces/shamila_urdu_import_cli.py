@@ -1,8 +1,17 @@
-"""Command-line interface for importing a Maktaba Shamila Urdu book collection.
+"""Command-line interface for importing a Maktaba Shamila Urdu collection.
 
-Each book is its own self-contained SQLite file under `Books/<category>/`;
+The collection's `data` folder has three real sub-collections, each with its
+own database schema, dispatched here by top-level folder name:
+
+- `Books/<category>/*.db` - individual books (`ShamilaUrduBookReader`).
+- `Hadith/*.db` - hadith collections (`ShamilaUrduHadithReader`).
+- `Quran/*.db` - the base Arabic text plus translations/tafsirs
+  (`ShamilaUrduQuranReader`).
+
 `library.db` at the collection root is a separate catalog index, not a
-book, and is skipped.
+book, and is skipped. (`Hadith`/`Quran` support was added after the original
+import silently failed to read either folder at all, having only one reader
+- see the CHANGELOG correction note.)
 """
 
 import argparse
@@ -14,12 +23,21 @@ from pathlib import Path
 from islamic_research_hub.application.library_analyzer import LibraryAnalyzer
 from islamic_research_hub.application.master_database_builder import MasterDatabaseBuilder
 from islamic_research_hub.application.mjbz_folder_scanner import FolderScanResult
+from islamic_research_hub.domain.models.book import Book
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
 from islamic_research_hub.infrastructure.persistence.shamila_urdu_book_reader import (
     ShamilaUrduBookReadError,
     ShamilaUrduBookReader,
+)
+from islamic_research_hub.infrastructure.persistence.shamila_urdu_hadith_reader import (
+    ShamilaUrduHadithReadError,
+    ShamilaUrduHadithReader,
+)
+from islamic_research_hub.infrastructure.persistence.shamila_urdu_quran_reader import (
+    ShamilaUrduQuranReadError,
+    ShamilaUrduQuranReader,
 )
 from islamic_research_hub.infrastructure.reporting.library_report_exporter import (
     LibraryReportExporter,
@@ -31,6 +49,8 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_DATABASE_PATH = Path("data/books.db")
 DEFAULT_LIBRARY_NAME = "Maktaba Shamila Urdu"
 CATALOG_FILE_NAME = "library.db"
+_HADITH_FOLDER_NAME = "Hadith"
+_QURAN_FOLDER_NAME = "Quran"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -70,16 +90,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
         if path.is_file() and path.name != CATALOG_FILE_NAME
     )
 
-    reader = ShamilaUrduBookReader()
     books = []
     sources = []
     failed_count = 0
     for completed_count, file_path in enumerate(files, start=1):
         try:
-            book = reader.read(file_path, category_name=file_path.parent.name)
-        except ShamilaUrduBookReadError:
+            book = _read_book(file_path, folder)
+        except (ShamilaUrduBookReadError, ShamilaUrduHadithReadError, ShamilaUrduQuranReadError):
             failed_count += 1
-            LOGGER.exception("Failed to read Shamila Urdu book: %s", file_path)
+            LOGGER.exception("Failed to read Shamila Urdu file: %s", file_path)
         else:
             books.append(book)
             sources.append(file_path.resolve())
@@ -115,6 +134,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
     print(f"Books failed: {database_result.failed_count}")
 
     return 0
+
+
+def _read_book(file_path: Path, data_folder: Path) -> Book:
+    """Dispatch to the reader matching this file's top-level sub-collection."""
+    top_folder = file_path.relative_to(data_folder).parts[0]
+    if top_folder == _HADITH_FOLDER_NAME:
+        return ShamilaUrduHadithReader().read(file_path, category_name=_HADITH_FOLDER_NAME)
+    if top_folder == _QURAN_FOLDER_NAME:
+        return ShamilaUrduQuranReader().read(file_path, category_name=_QURAN_FOLDER_NAME)
+    return ShamilaUrduBookReader().read(file_path, category_name=file_path.parent.name)
 
 
 def _configure_unicode_output() -> None:

@@ -1266,4 +1266,66 @@ search result ("زکوۃ") showing its real author/publisher/category. No
 database schema change this round, so no backup/verify cycle was
 needed - `BookMetadata`/`get_book_metadata` are read-only additions.
 
+## Maktaba Shamila Urdu: Hadith and Quran folders imported (closes the correction above)
+
+Follow-up to the correction entry above. Inspected the 35 previously-
+failing files directly rather than guessing: three real, consistent
+schemas, none matching `Books/`'s `Book`/`tableOfContents` format -
+which is why the original single reader silently failed on all of them.
+
+- **15 Hadith collections** (`Hadith/*.db` - Sahih al-Bukhari, Sahih
+  Muslim, Sunan Abi Dawud, Jami' at-Tirmidhi, Sunan Ibn Majah, Sunan
+  an-Nasa'i, Bulugh al-Maram, and 8 more): a `hadith` table with Arabic
+  text, Urdu translation, `Kitab`/`Baab` chapter hierarchy, per-hadith
+  grading, and HTML-styled commentary. One real-world variant found and
+  handled: `tirmizi.db` has a small extra `hadith5` table (63 hadith
+  outside the main numbering) - included as its own trailing chapters
+  rather than silently dropped.
+- **20 Quran-folder files** (`Quran/*.db`): one base Arabic text
+  (`Quran.db`), 7 Urdu translations (`Tarjuma*.db`), and 12 tafsirs
+  (`Tafseer*.db` - Ibn Kathir, As-Sa'di, and 10 more), all ayah-by-ayah
+  with a shared surah/ayah shape despite differing table names.
+  `Quran.db`'s own metadata is vendor placeholder junk ("dsddd"/"AAAA"),
+  the one case in this corpus where a source's stated title/author is
+  known-garbage rather than merely absent - overridden with an honest
+  label instead of propagated, and disclosed here rather than done
+  silently.
+
+New code, reusing the existing `Book`/`Page`/`Chapter`/`Footnotes`
+pipeline unchanged - no schema or importer-framework changes needed:
+
+- `shared/html_text_extraction.py` (new): the HTML-to-text stripping
+  logic, extracted out of `shamila_urdu_book_reader.py` (which now
+  imports it) so the two new readers below don't duplicate it.
+- `ShamilaUrduHadithReader` (new): one hadith row -> one `Page` (Arabic
+  + Urdu + a `[grade]` tag as the searchable content); `HadithHashiaText`
+  commentary -> the page's footnote; Kitab/Baab -> a two-level table of
+  contents.
+- `ShamilaUrduQuranReader` (new): one ayah row -> one `Page`; detects
+  which of the three table names (`Quran`/`Tarjuma`/`Tafseer`) a given
+  file actually has; surahs -> the table of contents.
+- `shamila_urdu_import_cli.py`: now dispatches each file to the reader
+  matching its top-level folder (`Books/` / `Hadith/` / `Quran/`)
+  instead of assuming every file is a `Books/`-shaped book. `Books/`
+  behavior is unchanged.
+
+9 new tests (219/219 total): 4 for the Hadith reader (Kitab/Baab
+hierarchy, HTML-stripped commentary as footnote, the real `hadith5`
+edge case, corrupted-file error handling), 4 for the Quran reader
+(placeholder-metadata override, HTML-stripped translation, Tafseer
+recognized like Tarjuma, corrupted-file error handling), and a CLI test
+confirming Hadith/Quran files import alongside `Books/` files in one run.
+
+Ran for real against the actual downloaded corpus (fresh backup taken
+first): all **698 files now processed with 0 failures** (663 already-
+imported `Books/` files correctly skipped as duplicates via the
+existing source-path check, 35 new Hadith/Quran files imported, 0
+failed) - **181,717 new searchable pages** (hadith + ayahs) across the
+35 new books. Verified with a real search: Sahih al-Bukhari's opening
+hadith ("Actions are judged by intentions") reads correctly end-to-end
+- Arabic, Urdu translation, full commentary, and the `[صحيح]` grading
+tag - and general full-text search returns real Hadith/Quran content
+alongside the rest of the corpus. Verified healthy afterward with
+`DatabaseVerifier` on the now-15,162-book database.
+
 
