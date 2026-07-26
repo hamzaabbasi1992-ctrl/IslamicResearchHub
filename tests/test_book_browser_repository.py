@@ -1,5 +1,6 @@
 """Tests for the read-only book browsing/reading repository."""
 
+import sqlite3
 from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Book, Page
@@ -9,6 +10,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
+from islamic_research_hub.infrastructure.persistence.migration_runner import MigrationRunner
 
 
 def _seed_database(database_path: Path) -> None:
@@ -109,3 +111,68 @@ def test_get_book_detail_returns_none_for_unknown_book(tmp_path: Path) -> None:
     _seed_database(database_path)
 
     assert BookBrowserRepository(database_path).get_book_detail(9999) is None
+
+
+def test_get_book_metadata_returns_full_real_details(tmp_path: Path) -> None:
+    """Every real catalog field is returned for a known book."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={
+            "Name": "Book of Fiqh",
+            "ANAME": "Author One",
+            "PNAME": "Publisher One",
+            "Language": "Urdu",
+            "MJCN": "Fiqh",
+        },
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",), library_name="Library A"
+    )
+
+    metadata = BookBrowserRepository(database_path).get_book_metadata(1)
+
+    assert metadata is not None
+    assert metadata.title == "Book of Fiqh"
+    assert metadata.author == "Author One"
+    assert metadata.publisher == "Publisher One"
+    assert metadata.language == "Urdu"
+    assert metadata.category == "Fiqh"
+    assert metadata.library == "Library A"
+    assert metadata.page_count == 1
+    # No migration has run on this database - Series support isn't there yet.
+    assert metadata.series_title is None
+    assert metadata.volume_number is None
+
+
+def test_get_book_metadata_includes_series_after_migration(tmp_path: Path) -> None:
+    """Once migration 4 has run, real series/volume info is included too."""
+    database_path = tmp_path / "books.db"
+    for volume in (1, 2):
+        book = Book(
+            information={"Name": f"کفایت المفتی جلد {volume}"},
+            categories=(),
+            table_of_contents=(),
+            pages=(Page(1, 1, "Content", "Plain"),),
+        )
+        MasterBookRepository().import_books(
+            database_path, (book,), (database_path.parent / f"v{volume}.mjbz",)
+        )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    metadata = BookBrowserRepository(database_path).get_book_metadata(1)
+
+    assert metadata is not None
+    assert metadata.series_title == "کفایت المفتی"
+    assert metadata.volume_number == 1
+
+
+def test_get_book_metadata_returns_none_for_unknown_book(tmp_path: Path) -> None:
+    """A nonexistent book id returns None instead of raising."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    assert BookBrowserRepository(database_path).get_book_metadata(9999) is None

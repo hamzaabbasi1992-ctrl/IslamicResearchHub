@@ -20,6 +20,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
     Translator,
 )
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
+from islamic_research_hub.interfaces.desktop_app.logs_screen import LogsScreen
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     FONT_SIZE_KEY,
@@ -31,8 +32,8 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
 )
 
 RAIL_WIDTH = 130
-_RAIL_KEYS = ("rail-search", "rail-viewer", "rail-import", "rail-settings")
-_PLACEHOLDER_TITLES = ("Database not found", "Viewer", "Import", "Settings")
+_RAIL_KEYS = ("rail-search", "rail-viewer", "rail-import", "rail-logs", "rail-settings")
+_PLACEHOLDER_TITLES = ("Database not found", "Viewer", "Import", "Logs", "Settings")
 
 
 class MainWindow(QMainWindow):
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         database_path: Path,
         maknoon_pdf_folder: Path,
         settings: QSettings | None = None,
+        log_directory: Path = Path("logs"),
     ) -> None:
         super().__init__()
         self.setWindowTitle("Islamic Research Hub")
@@ -65,6 +67,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(search_screen)
             self._stack.addWidget(viewer_screen)
             self._stack.addWidget(ImportScreen(database_path))
+            self._stack.addWidget(LogsScreen(log_directory))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
             )

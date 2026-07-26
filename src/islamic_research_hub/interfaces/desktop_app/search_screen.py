@@ -22,6 +22,7 @@ from islamic_research_hub.domain.models.search_result import SearchResult
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.book_details_dialog import BookDetailsDialog
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
     BookSearchError,
     SqliteBookSearchRepository,
@@ -193,8 +194,17 @@ class SearchScreen(QWidget):
         )
         row_layout.addWidget(read_button)
 
+        details_button = QPushButton("Details")
+        details_button.clicked.connect(lambda: self._show_details(book_id))
+        row_layout.addWidget(details_button)
+
         row_layout.addStretch(1)
         return row
+
+    def _show_details(self, book_id: int) -> None:
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is not None:
+            BookDetailsDialog(metadata, self).exec()
 
 
 def _file_url(path: Path) -> QUrl:

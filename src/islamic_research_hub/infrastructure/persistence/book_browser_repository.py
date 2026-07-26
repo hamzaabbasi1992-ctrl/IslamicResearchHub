@@ -5,6 +5,7 @@ from contextlib import closing
 from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Page
+from islamic_research_hub.domain.models.book_metadata import BookMetadata
 
 
 class BookBrowserRepository:
@@ -71,3 +72,67 @@ class BookBrowserRepository:
             for index, row in enumerate(page_rows, start=1)
         )
         return (book_row["Title"], book_row["Author"], pages)
+
+    def get_book_metadata(self, book_id: int) -> BookMetadata | None:
+        """Return one book's full catalog metadata, or None if it doesn't exist.
+
+        `Series`/`Books.SeriesID`/`Books.VolumeNumber` only exist on a
+        database that has run migration 4 - a freshly imported database
+        (before any migration) won't have them yet, so this falls back to
+        a query without them rather than raising.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            connection.row_factory = sqlite3.Row
+            if self._has_series_support(connection):
+                row = connection.execute(
+                    """
+                    SELECT
+                        b.BookID, b.Title, b.Author, b.Publisher, b.Language, b.Category,
+                        l.Name AS Library, b.PageCount, b.ChapterCount,
+                        s.Title AS SeriesTitle, b.VolumeNumber
+                    FROM Books b
+                    LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                    LEFT JOIN Series s ON s.SeriesID = b.SeriesID
+                    WHERE b.BookID = ?
+                    """,
+                    (book_id,),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """
+                    SELECT
+                        b.BookID, b.Title, b.Author, b.Publisher, b.Language, b.Category,
+                        l.Name AS Library, b.PageCount, b.ChapterCount
+                    FROM Books b
+                    LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                    WHERE b.BookID = ?
+                    """,
+                    (book_id,),
+                ).fetchone()
+        if row is None:
+            return None
+        row_keys = row.keys()
+        return BookMetadata(
+            book_id=row["BookID"],
+            title=row["Title"],
+            author=row["Author"],
+            publisher=row["Publisher"],
+            language=row["Language"],
+            category=row["Category"],
+            library=row["Library"],
+            page_count=row["PageCount"],
+            chapter_count=row["ChapterCount"],
+            series_title=row["SeriesTitle"] if "SeriesTitle" in row_keys else None,
+            volume_number=row["VolumeNumber"] if "VolumeNumber" in row_keys else None,
+        )
+
+    @staticmethod
+    def _has_series_support(connection: sqlite3.Connection) -> bool:
+        """Return whether the Series table and Books.SeriesID column exist."""
+        series_table = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Series'"
+        ).fetchone()
+        if series_table is None:
+            return False
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)")}
+        return "SeriesID" in columns

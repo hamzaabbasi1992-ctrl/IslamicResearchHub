@@ -106,3 +106,30 @@ def test_search_screen_clears_previous_results_on_new_search(qtbot, tmp_path: Pa
     qtbot.keyClicks(screen._query_edit, "nonexistentterm")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
     assert screen._results_layout.count() == 1
+
+
+def test_details_button_opens_a_dialog_with_the_real_book_metadata(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Clicking Details on a result opens a dialog built from the real catalog data."""
+    from islamic_research_hub.interfaces.desktop_app import search_screen as search_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    captured = {}
+    original_init = search_screen_module.BookDetailsDialog.__init__
+
+    def fake_init(self, metadata, parent=None):
+        captured["metadata"] = metadata
+        original_init(self, metadata, parent)
+
+    monkeypatch.setattr(search_screen_module.BookDetailsDialog, "__init__", fake_init)
+    monkeypatch.setattr(search_screen_module.BookDetailsDialog, "exec", lambda self: None)
+
+    screen._show_details(1)
+
+    assert captured["metadata"].title == "Book of Fiqh"
+    assert captured["metadata"].author == "Author One"

@@ -1186,4 +1186,84 @@ to Urdu - rail correctly moved to the right and retranslated (Search ->
 تلاش), the whole app confirmed `LayoutDirection.RightToLeft`, and the
 real 15,127-books/9-libraries About text stayed correct throughout.
 
+## Correction: Maktaba Shamila Urdu import report was wrong - Hadith/Quran content never imported
+
+Found while screenshotting the new Logs screen (below) against the real
+production log: it showed real `ERROR` entries, at the exact same
+timestamp as the original Shamila Urdu import run, for files under
+`Hadith/` and `Quran/` subfolders failing with `no such table: Book`.
+This contradicts the "663/663 books imported, 0 failures" reported
+above.
+
+Investigated rather than assumed: `shamila_urdu_import_cli.py`'s own
+file-discovery (`folder.rglob("*.db")`, excluding `library.db`) finds
+**698** files under the full `data` folder, not 663 - 663 under
+`Books/`, 15 under `Hadith/`, 20 under `Quran/`. The CLI does track and
+print a `Books failed` count separately from `Books processed`; the
+earlier report simply repeated the wrong number instead of the real
+one. Confirmed directly against the live database: **zero** Hadith or
+Quran-folder books are present - the 663 imported are exactly and only
+the `Books/` folder content.
+
+Inspected the 35 failing files directly (not guessed): they use three
+schemas distinct from `Books/`'s `Book`/`tableOfContents`/`metadata`
+tables, which is why `ShamilaUrduBookReader` couldn't read them:
+
+- **15 Hadith collections** (e.g. `abu-dawood.db` = Sunan Abi Dawud):
+  `hadith` table with Arabic + Urdu text, `Kitab`/`Baab` chapter
+  hierarchy, per-hadith grading (`HadithHukamAjmali`, e.g. `صحیح`/
+  `ضعیف`), and commentary (`HadithHashiaText`).
+- **1 base Quran text** (`Quran.db`): `surahs` + `Quran` tables, ayah by
+  ayah, Arabic text only.
+- **~19 Quran translations/tafsirs** (`Tarjuma*.db`, `Tafseer*.db`):
+  ayah-by-ayah Urdu text (HTML-styled, same stripping approach as
+  `Books/`), surah/ayah references, no chapter hierarchy.
+
+No data has been lost - this content was never imported in the first
+place, and the source files are still present in the downloaded corpus.
+Real Hadith and Quran content, currently entirely absent from the
+corpus, is the next planned import work (see below/upcoming entry).
+
+## Phase 4, step 6: Logs and Book Details
+
+Closes out the original 8-tab Phase 4 list. Both wired to real data,
+no new domain logic - just surfacing what already exists.
+
+`LogsScreen` (new): reads the real, already-configured application log
+file (`islamic_research_hub.log`), shows the most recent 500 lines
+newest-first (the file itself can run to tens of thousands of lines - a
+production run this session produced 19,776), with an honest "No log
+file yet" message rather than a blank screen when nothing has been
+logged. Reused the same CWD-relative-path bug already fixed once for
+the database path: `__main__.py` called `configure_logging()` with no
+arguments (default `Path("logs")`, resolved against the process's
+current working directory - fragile for a double-clicked exe). Fixed
+the same way, with a `DEFAULT_LOG_DIRECTORY` resolved from the frozen
+exe's own folder via the existing `sys.frozen` check.
+
+`BookDetailsDialog` (new) + `BookMetadata` domain model (new,
+`domain/models/book_metadata.py`): a `QFormLayout` showing a book's full
+catalog record (author, publisher, language, category, library, page/
+chapter counts, series/volume if present) from a new
+`BookBrowserRepository.get_book_metadata()` method. Reachable from a new
+always-present "Details" button on every search result card (previously
+only "Open PDF"/"Read in app" were shown, and only when a PDF existed).
+Series/volume support is conditional on migration 4 having run
+(`_has_series_support()` existence check) - a freshly-imported,
+not-yet-migrated database has neither a `Series` table nor a
+`Books.SeriesID` column, and would otherwise crash with "no such table:
+Series" instead of just omitting that field.
+
+8 new tests (210/210 total): 4 for `LogsScreen` (real content shown,
+line cap honored, missing-file message, refresh picks up new lines) and
+4 across `test_book_browser_repository.py`/`test_search_screen.py` for
+`get_book_metadata` (full real details, series after migration, unknown
+book returns `None`, dialog opens with the real metadata from a click).
+
+Verified for real: screenshotted the Logs screen against the actual
+19,776-line production log, and the Details dialog opened from a real
+search result ("زکوۃ") showing its real author/publisher/category. No
+database schema change this round, so no backup/verify cycle was
+needed - `BookMetadata`/`get_book_metadata` are read-only additions.
+
 

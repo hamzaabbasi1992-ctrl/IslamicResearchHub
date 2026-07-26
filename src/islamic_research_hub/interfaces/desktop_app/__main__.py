@@ -21,6 +21,7 @@ else:
     _BASE_DIR = Path.cwd()
 
 DEFAULT_DATABASE_PATH = _BASE_DIR / "data" / "books.db"
+DEFAULT_LOG_DIRECTORY = _BASE_DIR / "logs"
 DEFAULT_MAKNOON_PDF_FOLDER = Path(
     r"F:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data"
 )
@@ -28,10 +29,12 @@ DEFAULT_MAKNOON_PDF_FOLDER = Path(
 
 def main() -> int:
     """Launch the desktop app and run its event loop."""
-    configure_logging()
+    configure_logging(DEFAULT_LOG_DIRECTORY)
     app = QApplication(sys.argv)
     app.setApplicationName("Islamic Research Hub")
-    window = MainWindow(DEFAULT_DATABASE_PATH, DEFAULT_MAKNOON_PDF_FOLDER)
+    window = MainWindow(
+        DEFAULT_DATABASE_PATH, DEFAULT_MAKNOON_PDF_FOLDER, log_directory=DEFAULT_LOG_DIRECTORY
+    )
     window.show()
     return app.exec()
 

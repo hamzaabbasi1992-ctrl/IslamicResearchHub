@@ -87,7 +87,7 @@ real-data validation behind every item below.
   deliberately not built per explicit decision.
 - Page navigation - confirmed working (PDF `#page=N`, in-app `?page=N`).
 
-### Phase 4 — Desktop GUI (PySide6): **in progress**
+### Phase 4 — Desktop GUI (PySide6): **done**
 
 - Search screen - **done**: `interfaces/desktop_app/` (`MainWindow` nav
   rail + `SearchScreen`), wired to the real, already-tested
@@ -111,6 +111,9 @@ real-data validation behind every item below.
   (scan, and the safe empty-stub cleanup that never touches a pair with
   real content on both sides). Verified for real: all 9 libraries with
   correct counts (15,127 total), a fresh scan against the real database.
+  ("Library" as a distinct browsing tab was deliberately not built as a
+  separate item - this table's library-sources view plus Search's
+  library filter already cover its essential function.)
 - Settings - **done**: real language switching (English/Urdu/Arabic) via
   a new `Translator`, with genuine whole-app RTL/LTR mirroring
   (`QApplication.setLayoutDirection`) - fulfills what the design preview
@@ -122,8 +125,13 @@ real-data validation behind every item below.
   leaked a stray `language=ur` value into the real registry before that
   was caught - fixed with dependency injection, same pattern as
   everywhere else `QSettings`/`Translator` are used.
-- Logs, Book Details tabs - **not started**, shown as honest "coming in
-  a future update" placeholders rather than pretending to be built.
+- Logs, Book Details - **done**: `LogsScreen` reads the real application
+  log (newest 500 lines); `BookDetailsDialog` shows a search result's
+  full real catalog record via a new
+  `BookBrowserRepository.get_book_metadata()`, reachable from a new
+  "Details" button on every result card. Verified for real: screenshotted
+  against the actual 19,776-line production log and a real search
+  result's metadata. Closes out the original 8-tab Phase 4 list.
 
 ### Phase 5 — Book Viewer: **not started**
 
@@ -166,9 +174,14 @@ checked for overlap before anything was imported:
   a genuinely different platform - only 3/695 titles (0.4%) overlapped,
   different scholarly tradition (Ahle Hadith/Salafi vs. the existing
   corpus's mostly-Deobandi lean), own per-book SQLite schema (HTML-styled
-  content, stripped to plain text on import). 663 books imported. Its
-  `fnotes` column is the first real footnote data found in this corpus -
-  see the `Footnotes` table note under Phase 2 above.
+  content, stripped to plain text on import). 663 books imported (the
+  `Books/` folder only). Its `fnotes` column is the first real footnote
+  data found in this corpus - see the `Footnotes` table note under
+  Phase 2 above. **Correction:** the collection also has `Hadith/` (15
+  files) and `Quran/` (20 files) subfolders using three different
+  schemas, not yet supported - real Hadith and Quran content currently
+  entirely absent from the corpus. See the CHANGELOG correction entry;
+  building these is planned next.
 
 ## Not yet scheduled / future candidates
 
