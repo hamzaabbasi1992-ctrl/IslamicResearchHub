@@ -948,4 +948,60 @@ folder to another machine needs `data/books.db` copied separately if a
 hard link was used. Main `README.md` and `PROJECT.md` updated to point
 at it and reflect Phase 4's real (in-progress) status.
 
+## Maktaba Islam: real overlap check, then genuinely new content imported
+
+User-requested audit of `F:\MaktabaIslam` (~3 GB, a different Islamic
+library app already on disk). Real comparison, not a guess: of 1,860
+actual `.mjbz` files present, 1,745 titles (94%) exactly matched what we
+already have - strong evidence of a shared underlying publisher/platform,
+confirmed by a second finding: the individual `.mjbz` files use the
+*exact same schema* (`Content`/`Title`/`Information`/`Category`) as
+Maktaba Jibreel Mobile, so the existing importer reads them with zero new
+code. Of the PDF collection (297 files), 216 also overlapped by filename.
+
+Imported only the genuinely new content, not the whole folder (which
+would have created ~1,960 duplicate catalog entries): staged the 60
+non-overlapping `.mjbz` files and ran the existing scan CLI against just
+that folder (`--library "Maktaba Islam"`); catalogued the 81 non-
+overlapping PDFs by their original `F:\MaktabaIslam\pdf\` paths (not
+copied - metadata-only entries need a stable permanent path for "Open
+PDF" to keep working later), reusing `read_pdf_metadata` +
+`MasterBookRepository` directly, matching the existing PDF-Archive
+pattern exactly.
+
+**Real, not silent, data-quality finding:** only 48 of the 60 staged
+`.mjbz` files actually imported - the other 12 failed with SQLite's own
+"database disk image is malformed" error, i.e. genuinely corrupted source
+files. This is the exact resilience behavior built earlier this session
+for Maknoon (skip and log, don't stop the batch) working correctly on a
+new, unrelated library, not a bug. Diagnosed by reading the actual
+extraction log, not assumed.
+
+Total books: 14,335 -> 14,464 (48 full-text books in `Maktaba Islam`, 81
+metadata-only in `Maktaba Islam (PDF Archive)`). Fresh backup taken
+first, verified healthy afterward (0 errors, 0 warnings).
+
+## Housekeeping: dead files removed, gitignore gap fixed
+
+User asked directly whether there were dead/useless files in the repo -
+audited rather than assumed clean. Found and fixed:
+
+- `docs/pdf_catalog_maktaba_islam/` (a new generated report folder from
+  the import above) wasn't covered by `.gitignore` - only the exact name
+  `docs/pdf_catalog/` was. Generalized to `docs/pdf_catalog_*/`.
+- `requirements.txt` was stale - a comment-only file pointing at
+  `pyproject.toml`'s extras, left over from before those extras existed.
+  Deleted; `README.md`'s "Getting started" no longer references it.
+- `PROJECT_REVIEW.md` was a dated, one-off audit snapshot (2026-07-22)
+  whose findings are now either resolved or superseded by `CHANGELOG.md`/
+  `PROJECT.md`. Deleted rather than left to mislead a future reader.
+- `interfaces/web_app_cli.py` and `Open Islamic Research Hub.bat` were
+  real and actively used (the batch file is the one-click way to start
+  the web app) but undocumented - added to `README.md` rather than
+  removed.
+- Confirmed clean, no action needed: no dead/unimported source modules,
+  no orphaned tests, `config/`/`domain/repositories/` are still the
+  documented-intentional empty placeholders, `installation/` is not
+  accidentally tracked in git.
+
 

@@ -16,8 +16,10 @@ all share one full-text search index. Sources imported so far:
 | Maktaba Jibreel (PDF Archive) | Raw PDFs, no text extraction | ~3,115 (metadata only) |
 | Maktaba Al-Maknoon (PDF Archive) | Raw PDFs, no text extraction | ~3,258 (metadata only) |
 | Jumma Bayanat | Raw PDFs (Friday sermons/general talks), no text extraction | ~2,718 (metadata only) |
+| Maktaba Islam | `.mjbz` (same schema as Jibreel Mobile) | 48 |
+| Maktaba Islam (PDF Archive) | Raw PDFs, no text extraction | 81 (metadata only) |
 
-**Total: ~14,335 books.** OCR and full PDF text extraction are still out
+**Total: ~14,464 books.** OCR and full PDF text extraction are still out
 of scope — the metadata-only libraries above are cataloged by title/path
 only, not full text. Search also normalizes Arabic/Urdu spelling variants
 (diacritics, letter forms) so e.g. "علی" and "علي" match each other - see
@@ -35,9 +37,16 @@ only, not full text. Search also normalizes Arabic/Urdu spelling variants
 ```powershell
 python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
-python -m pip install -r requirements.txt
 python -m pip install -e .[dev]  # adds pytest for running the test suite
 ```
+
+Other optional extras: `.[web]` (the local web app), `.[ai]` (semantic
+search pilot), `.[gui]` (the PySide6 desktop app), `.[build]` (packaging
+it into an exe) — combine as needed, e.g. `pip install -e .[gui,build]`.
+
+Double-click **`Open Islamic Research Hub.bat`** for the fastest way to
+try the web app locally: it starts the server and opens your browser to
+it automatically (`interfaces/web_app_cli.py` under the hood).
 
 See [PROJECT.md](PROJECT.md) for the planned architecture and roadmap, and
 [CHANGELOG.md](CHANGELOG.md) for a detailed history of what's been imported
