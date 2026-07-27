@@ -6,8 +6,16 @@ from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Page
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
+from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
 from islamic_research_hub.domain.models.header_stats import HeaderStats
+from islamic_research_hub.shared.arabic_text_normalization import (
+    build_sql_normalize_expression,
+    normalize_search_text,
+)
+
+MAX_BROWSE_RESULTS = 200
+"""Cap on books returned per browse call, so a large library/category stays usable."""
 
 
 class BookBrowserRepository:
@@ -35,6 +43,109 @@ class BookBrowserRepository:
                 """
             ).fetchall()
         return tuple((row[0], row[1]) for row in rows)
+
+    def list_books_in_category(self, category_name: str) -> tuple[BookSummary, ...]:
+        """Return real books whose per-book Categories entry matches this exact name."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT DISTINCT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                JOIN Categories c ON c.BookID = b.BookID
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE c.Name = ?
+                ORDER BY b.Title
+                LIMIT ?
+                """,
+                (category_name, MAX_BROWSE_RESULTS),
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    def list_books_by_author(self, author_name: str) -> tuple[BookSummary, ...]:
+        """Return real books by this exact author name."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE b.Author = ?
+                ORDER BY b.Title
+                LIMIT ?
+                """,
+                (author_name, MAX_BROWSE_RESULTS),
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    def list_books_in_library(self, library_name: str) -> tuple[BookSummary, ...]:
+        """Return real books in this exact library."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                """
+                SELECT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE l.Name = ?
+                ORDER BY b.Title
+                LIMIT ?
+                """,
+                (library_name, MAX_BROWSE_RESULTS),
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    def search_by_title(
+        self,
+        query: str,
+        limit: int = 30,
+        library: str | None = None,
+        author: str | None = None,
+        category: str | None = None,
+    ) -> tuple[BookSummary, ...]:
+        """Return real books whose title contains this query, script/diacritic-tolerant.
+
+        Uses the same diacritic/letter-form normalization search already
+        applies to page content (e.g. Arabic yeh "ي" vs Urdu yeh "ی") so a
+        title search is just as tolerant of real spelling variation - typed
+        in whichever script the book's own title is actually in. This does
+        not translate/transliterate between scripts (typing "Bukhari" won't
+        find "صحيح البخاري") - only real spelling-variant tolerance within
+        the same script, same as content search. `library`/`author`/
+        `category` are the same exact-match filters content search uses.
+        """
+        query = query.strip()
+        if not query:
+            return ()
+        normalized_title = build_sql_normalize_expression("b.Title")
+        normalized_query = normalize_search_text(query)
+
+        conditions = [f"b.Title IS NOT NULL AND {normalized_title} LIKE ?"]
+        parameters: list[object] = [f"%{normalized_query}%"]
+        if library is not None:
+            conditions.append("l.Name = ?")
+            parameters.append(library)
+        if author is not None:
+            conditions.append("b.Author = ?")
+            parameters.append(author)
+        if category is not None:
+            conditions.append(
+                "EXISTS (SELECT 1 FROM Categories c WHERE c.BookID = b.BookID AND c.Name = ?)"
+            )
+            parameters.append(category)
+        parameters.append(limit)
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE {" AND ".join(conditions)}
+                ORDER BY b.Title
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
 
     def get_book_source(self, book_id: int) -> tuple[str, str | None] | None:
         """Return (source path, library name) for one book, or None if missing."""

@@ -179,6 +179,11 @@ QLineEdit, QComboBox {{
 QLineEdit:focus, QComboBox:focus {{
     border: 1px solid {ACCENT};
 }}
+#mainSearchBox {{
+    font-size: 16px;
+    padding: 8px 12px;
+    border-radius: 8px;
+}}
 QComboBox::drop-down {{
     border: none;
     width: 20px;

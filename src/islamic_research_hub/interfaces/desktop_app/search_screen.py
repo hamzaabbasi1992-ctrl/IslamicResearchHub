@@ -23,9 +23,11 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.application.book_search import BookSearchService
 from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
+from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
 from islamic_research_hub.domain.models.search_result import SearchResult
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
+    MAX_BROWSE_RESULTS,
     BookBrowserRepository,
 )
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
@@ -33,6 +35,7 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     SqliteBookSearchRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
+from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 
 DEFAULT_LIMIT = 30
@@ -99,10 +102,17 @@ class SearchScreen(QWidget):
         tab_row.addWidget(self._authors_tab_button)
         layout.addLayout(tab_row)
 
+        # 691 real categories and 650 real authors are too many to scroll
+        # through blindly - a live filter narrows either list as you type.
+        self._browse_filter_edit = QLineEdit()
+        self._browse_filter_edit.setPlaceholderText("Filter...")
+        self._browse_filter_edit.textChanged.connect(self._apply_browse_filter)
+        layout.addWidget(self._browse_filter_edit)
+
         self._browse_stack = QStackedWidget()
         self._category_tree = self._build_category_tree()
         self._browse_stack.addWidget(self._category_tree)
-        self._author_list = self._build_author_list()
+        self._author_list, self._author_row_buttons = self._build_author_list()
         self._browse_stack.addWidget(self._author_list)
         layout.addWidget(self._browse_stack, stretch=1)
 
@@ -123,7 +133,7 @@ class SearchScreen(QWidget):
         tree.itemClicked.connect(self._on_category_clicked)
         return tree
 
-    def _build_author_list(self) -> QScrollArea:
+    def _build_author_list(self) -> tuple[QScrollArea, list[tuple[str, QPushButton]]]:
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
@@ -132,16 +142,18 @@ class SearchScreen(QWidget):
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 4, 0, 0)
         layout.setSpacing(2)
+        row_buttons: list[tuple[str, QPushButton]] = []
         for name, count in self._browser.list_authors_with_counts():
             button = QPushButton(f"{name}  ({count})")
             button.setObjectName("authorRow")
             button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             button.clicked.connect(lambda _checked, n=name: self._filter_by_author(n))
             layout.addWidget(button)
+            row_buttons.append((name, button))
         layout.addStretch(1)
 
         scroll_area.setWidget(container)
-        return scroll_area
+        return scroll_area, row_buttons
 
     def _rebuild_library_chips(self) -> None:
         while self._library_chip_layout.count():
@@ -165,22 +177,76 @@ class SearchScreen(QWidget):
         self._browse_stack.setCurrentIndex(index)
         self._categories_tab_button.setChecked(index == 0)
         self._authors_tab_button.setChecked(index == 1)
+        self._browse_filter_edit.clear()
+
+    def _apply_browse_filter(self, text: str) -> None:
+        """Narrow whichever browse list (categories or authors) is currently shown."""
+        needle = (normalize_search_text(text.strip()) or "").casefold()
+        if self._browse_stack.currentIndex() == 0:
+            root = self._category_tree.invisibleRootItem()
+            for index in range(root.childCount()):
+                self._filter_category_item(root.child(index), needle)
+        else:
+            for name, button in self._author_row_buttons:
+                button.setVisible(needle in (normalize_search_text(name) or "").casefold())
+
+    def _filter_category_item(self, item: QTreeWidgetItem, needle: str) -> bool:
+        """Hide a category node unless it or a real descendant matches; return match state."""
+        own_name = normalize_search_text(item.data(0, Qt.ItemDataRole.UserRole) or "") or ""
+        self_matches = needle in own_name.casefold()
+        child_matches = False
+        for index in range(item.childCount()):
+            if self._filter_category_item(item.child(index), needle):
+                child_matches = True
+        visible = not needle or self_matches or child_matches
+        item.setHidden(not visible)
+        if child_matches and needle:
+            item.setExpanded(True)
+        return visible
 
     def _on_category_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
         name = item.data(0, Qt.ItemDataRole.UserRole)
-        if name:
-            self._category_edit.setText(name)
+        if not name:
+            return
+        self._category_edit.setText(name)
+        if self._query_edit.text().strip():
             self._run_search()
+        else:
+            self._browse(self._browser.list_books_in_category(name), f'Books in "{name}"')
 
     def _filter_by_author(self, name: str) -> None:
         self._author_edit.setText(name)
-        self._run_search()
+        if self._query_edit.text().strip():
+            self._run_search()
+        else:
+            self._browse(self._browser.list_books_by_author(name), f"Books by {name}")
 
     def _filter_by_library(self, name: str) -> None:
         index = self._library_combo.findText(name)
         if index >= 0:
             self._library_combo.setCurrentIndex(index)
-        self._run_search()
+        if self._query_edit.text().strip():
+            self._run_search()
+        elif name != ALL_LIBRARIES_LABEL:
+            self._browse(self._browser.list_books_in_library(name), f"Books in {name}")
+        else:
+            self._clear_results()
+            self._status_label.setText(
+                "Type a search, or pick a specific category/author/library to browse."
+            )
+
+    def _browse(self, summaries: tuple[BookSummary, ...], heading: str) -> None:
+        """Show a directly-openable list of books - no search query, no excerpts."""
+        self._clear_results()
+        if not summaries:
+            self._status_label.setText(f"{heading}: no books found.")
+            return
+        suffix = f" (showing first {len(summaries)})" if len(summaries) == MAX_BROWSE_RESULTS else ""
+        self._status_label.setText(f"{heading} - {len(summaries)} book(s){suffix}")
+        for summary in summaries:
+            self._results_layout.insertWidget(
+                self._results_layout.count() - 1, self._build_summary_card(summary)
+            )
 
     # -------------------------------------------------------------- middle
 
@@ -190,14 +256,30 @@ class SearchScreen(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        filter_row = QHBoxLayout()
+        # The query box is the primary action on this screen, so it gets its
+        # own full-width row with a visibly larger height/font, instead of
+        # competing for space in a single crowded row with every filter.
+        search_row = QHBoxLayout()
+        search_row.setSpacing(8)
         self._query_edit = QLineEdit()
         self._query_edit.setPlaceholderText(
-            'Search the library... (supports AND / OR / NOT, "phrases")'
+            "Search by content, title, author... "
+            '(content search supports AND / OR / NOT, "phrases")'
         )
+        self._query_edit.setObjectName("mainSearchBox")
+        self._query_edit.setMinimumHeight(40)
         self._query_edit.returnPressed.connect(self._run_search)
-        filter_row.addWidget(self._query_edit, stretch=1)
+        search_row.addWidget(self._query_edit, stretch=1)
 
+        search_button = QPushButton("Search")
+        search_button.setObjectName("primaryButton")
+        search_button.setMinimumHeight(40)
+        search_button.setDefault(True)
+        search_button.clicked.connect(self._run_search)
+        search_row.addWidget(search_button)
+        layout.addLayout(search_row)
+
+        filter_row = QHBoxLayout()
         self._library_combo = QComboBox()
         self._library_combo.addItem(ALL_LIBRARIES_LABEL)
         for library in self._browser.list_libraries():
@@ -206,19 +288,11 @@ class SearchScreen(QWidget):
 
         self._author_edit = QLineEdit()
         self._author_edit.setPlaceholderText("Author (exact)")
-        self._author_edit.setMaximumWidth(200)
         filter_row.addWidget(self._author_edit)
 
         self._category_edit = QLineEdit()
         self._category_edit.setPlaceholderText("Category (exact)")
-        self._category_edit.setMaximumWidth(200)
         filter_row.addWidget(self._category_edit)
-
-        search_button = QPushButton("Search")
-        search_button.setObjectName("primaryButton")
-        search_button.setDefault(True)
-        search_button.clicked.connect(self._run_search)
-        filter_row.addWidget(search_button)
         layout.addLayout(filter_row)
 
         self._status_label = QLabel("")
@@ -247,6 +321,14 @@ class SearchScreen(QWidget):
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
 
+        # Book-name search runs alongside content search (not instead of it):
+        # the same query can be a real title match, a real content match, or
+        # both - shown as two clearly labeled groups, title matches first
+        # since that's usually what a name-shaped query means.
+        title_matches = self._browser.search_by_title(
+            query, DEFAULT_LIMIT, library, author, category
+        )
+
         try:
             results = self._search_service.search(
                 query, DEFAULT_LIMIT, library, author, category
@@ -258,11 +340,24 @@ class SearchScreen(QWidget):
             self._status_label.setText("Enter a search term.")
             return
 
-        if not results:
+        if not results and not title_matches:
             self._status_label.setText(f'No matches found for "{query}".')
             return
 
-        self._status_label.setText(f"{len(results)} result(s)")
+        status_bits = []
+        if title_matches:
+            status_bits.append(f"{len(title_matches)} title match(es)")
+        status_bits.append(f"{len(results)} content result(s)")
+        self._status_label.setText(", ".join(status_bits))
+
+        if title_matches:
+            self._results_layout.insertWidget(
+                self._results_layout.count() - 1, _pane_title("Matching titles")
+            )
+            for summary in title_matches:
+                self._results_layout.insertWidget(
+                    self._results_layout.count() - 1, self._build_summary_card(summary)
+                )
         for result in results:
             self._results_layout.insertWidget(
                 self._results_layout.count() - 1, self._build_result_card(result)
@@ -304,14 +399,40 @@ class SearchScreen(QWidget):
 
         card.mousePressEvent = lambda _event, r=result: self._show_details(r.book_id, r.page_number)
 
-        open_row = self._build_open_row(result)
+        open_row = self._build_open_row(result.book_id, result.page_number)
         if open_row is not None:
             card_layout.addWidget(open_row)
 
         return card
 
-    def _build_open_row(self, result: SearchResult) -> QWidget | None:
-        source = self._browser.get_book_source(result.book_id)
+    def _build_summary_card(self, summary: BookSummary) -> QFrame:
+        """A directly-openable book card for browse results - no search excerpt."""
+        card = QFrame()
+        card.setObjectName("resultCard")
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        card_layout = QVBoxLayout(card)
+
+        title = QLabel(summary.title or "(untitled)")
+        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
+        title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        card_layout.addWidget(title)
+
+        meta_bits = [summary.author or "Unknown author", summary.library or "Unknown library"]
+        meta = QLabel(" · ".join(meta_bits))
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        card_layout.addWidget(meta)
+
+        card.mousePressEvent = lambda _event, s=summary: self._show_details(s.book_id)
+
+        open_row = self._build_open_row(summary.book_id, None)
+        if open_row is not None:
+            card_layout.addWidget(open_row)
+
+        return card
+
+    def _build_open_row(self, book_id: int, page_number: int | None) -> QWidget | None:
+        source = self._browser.get_book_source(book_id)
         if source is None:
             return None
         pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
@@ -324,11 +445,10 @@ class SearchScreen(QWidget):
             pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
             row_layout.addWidget(pdf_button)
 
-        book_id = result.book_id
-        page_number = result.page_number or 1
+        target_page = page_number or 1
         read_button = QPushButton("Read in app")
         read_button.clicked.connect(
-            lambda: self.open_in_viewer_requested.emit(book_id, page_number)
+            lambda: self.open_in_viewer_requested.emit(book_id, target_page)
         )
         row_layout.addWidget(read_button)
 

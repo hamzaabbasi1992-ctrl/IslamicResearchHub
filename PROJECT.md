@@ -206,3 +206,15 @@ checked for overlap before anything was imported:
   Phase 1) before any commitment.
 - Duplicate candidate review (27 remaining Mobile/Desktop pairs).
 - Performance index audit at the current, much larger corpus size.
+- **Maktaba Shamela** (`F:\المكتبة الشاملة`, 113 GB, 30,662 real books,
+  99.5% new vs. the existing corpus): investigated at the user's request
+  (see CHANGELOG), reversing the earlier "excluded, explicit standing
+  instruction" note above. Real blocker found: the books are Jet 3/
+  Access-97 `.mdb` files the installed ACE ODBC driver can't open.
+  Building the actual importer (needs `.mdb`-reading tooling, e.g.
+  `mdbtools`) is its own separate project, not started.
+- **Taxonomy dimension browsing UI**: migration 6 added a general
+  nine-dimension taxonomy schema + `TaxonomyRepository` (subject,
+  author, madhhab, language, publisher, region, personality, event,
+  tag - see CHANGELOG). No data has been migrated into it yet and no
+  GUI browses it yet; both are deliberately separate future steps.

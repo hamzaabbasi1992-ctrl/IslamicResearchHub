@@ -1486,3 +1486,145 @@ rail with translated labels, all three search panes, button order) via
 the existing `QApplication.setLayoutDirection()` mechanism, with no
 additional RTL-specific code needed anywhere in the new UI.
 
+## General multi-dimensional taxonomy system (migration 6), additive
+
+User-requested design: a scalable taxonomy covering nine dimensions
+(subject, author, madhhab, language, publisher, region, personality,
+event, tag), every book able to carry unlimited terms per dimension
+(many-to-many), subject/region/personality/event hierarchical, real
+alias/duplicate-merge support, language-independent stable IDs with
+multilingual names, scaling to 100k+ books without schema changes -
+explicitly not a redesign of the existing project.
+
+One generic pattern - `TaxonomyDimensions` -> `TaxonomyTerms` (with
+`ParentTermID` for the four hierarchical dimensions) -> per-language
+`TaxonomyTermNames`/`TaxonomyAliases`, plus a single `BookTaxonomyTerms`
+many-to-many join - covers all nine dimensions uniformly instead of nine
+bespoke tables; adding a tenth dimension later needs zero schema
+changes. `BookPublicationDetails` holds the scalar publication fields
+(year, edition) that don't fit a "term" shape, alongside `publisher` as
+a genuine many-to-many term dimension. Migration 6
+(`_add_taxonomy_system` in `migration_runner.py`) is purely additive -
+the existing `Categories`/`CategoryTaxonomy`/`Authors` tables are
+completely untouched, and migrating their real data into this system is
+a deliberate later step, not part of this migration.
+
+`TaxonomyRepository` (new, `infrastructure/persistence/`):
+`get_or_create_term()` (matches an existing term by exact name or by a
+recorded alias - via the same diacritic/letter-form normalization
+search already uses - before creating a new one, so re-importing the
+same real-world entity under a spelling variant doesn't silently
+duplicate it), `add_name()`/`add_alias()`, `link_book()`,
+`list_terms()`/`get_term_tree()`, `list_books_for_term()`/
+`list_terms_for_book()`, and `merge_duplicate_terms()` (real automatic
+duplicate merging: groups terms by normalized name, the term linked to
+the most books wins - the same deterministic `_pick_canonical` pattern
+already used for category/author normalization - repoints every book
+link to the survivor, and logs the merge to `TaxonomyTermMerges`).
+
+Real bug found and fixed during verification: root categories in this
+corpus's real data use MJCN sentinel `0` as `ParentMJCN` (an existing,
+established convention - see `Category(mjcn=9, parent_mjcn=0, ...)` in
+tests), not `NULL` - the first version of `get_term_tree()`-equivalent
+logic silently returned nothing until this was caught.
+
+12 new tests (242/242 total at that point): 3 for the migration itself
+(seeds all nine real dimensions, leaves existing tables untouched, a
+real hierarchical term with multilingual names and a book link works
+end-to-end) and 9 for `TaxonomyRepository` (create/dedupe/alias-resolve/
+link/tree/merge, each against a real migrated database).
+
+Applied for real to the production database (fresh backup taken first):
+`Version before: 5` -> `Version after: 6`, verified healthy afterward
+(`DatabaseVerifier`: 0 errors, 0 warnings) on the real 15,162-book
+corpus. No GUI wired to this yet (deliberately) - this milestone is the
+schema/repository foundation; dimension-specific browsing (subjects
+beyond the existing MJCN system, madhhab, regions, etc.) is future work
+on top of it, the same incremental pattern used for every other Phase 4
+feature.
+
+### Maktaba Shamela investigated, not yet imported
+
+Checked `F:\المكتبة الشاملة` (the main Arabic Shamela desktop app,
+previously excluded per an explicit standing instruction) for useful
+content, at the user's request. Real findings: 113 GB total, a real
+catalog of 36,042 books (`book_index.db`, 30,662 actual `.mdb` files
+found on disk - the gap is broken/missing catalog references, normal
+for these bulk redistributions), only 0.5% exact title overlap with the
+existing corpus (161 of 29,782 distinct titles) - genuinely almost
+entirely new content that would more than double the current 15,162-book
+corpus. Each book is its own MS Access `.mdb` file (confirmed via the
+file header: Jet 3 / Access-97 format) with `book`+`title` tables.
+**Real blocker found**: the installed Access ODBC driver refuses to
+open these files ("Cannot open a database created with a previous
+version") - ACE dropped Jet 3 support; reading them needs different
+tooling (e.g. `mdbtools`), not yet set up. Given the scale (this would
+become the single largest library by far) and that exclusion was a
+prior explicit instruction, building the actual importer is scoped as
+its own separate project, not started here.
+
+## Search UX: direct book-opening from browsing, book-name search, bigger search box
+
+Real gaps found once the 3-pane Search rebuild was in real use (not
+issues in the earlier rebuild's own tests, which only checked that
+clicking populated the filter fields, not that anything visible
+happened when the query box was empty - the actual real-world case):
+clicking a category/author/library with no search query typed did
+nothing at all (`_run_search()` returns immediately on an empty query,
+by design, for content search - but browsing was routed through it
+too), there was no way to search by book name/title (only page-content
+full-text search existed), and the main query box was one of five
+same-sized fields in a single row rather than the primary action.
+
+- `BookBrowserRepository` gains `list_books_in_category()`/
+  `list_books_by_author()`/`list_books_in_library()` (capped at
+  `MAX_BROWSE_RESULTS = 200` per call, with a "showing first 200" note,
+  so a 2,718-book library click stays usable) and `search_by_title()` -
+  a real title search using the same diacritic/letter-form
+  normalization already applied to page content, so it's tolerant of
+  real spelling variants in whichever script the title/query actually
+  uses (this does not translate between scripts - typing "Bukhari"
+  won't find "صحيح البخاري", only real same-script spelling variance,
+  same honest boundary as content search).
+- Clicking a category/author/library now shows that list of real books
+  directly as open-able cards (Open PDF/Read in app/Details, no search
+  excerpt needed) when the query box is empty, instead of doing
+  nothing; still runs a filtered search when a query is present, same
+  as before. "All libraries" with no query shows a prompt instead of
+  dumping all 15,162 books as cards.
+- `_run_search()` now runs title search alongside content search (not
+  instead of it) and shows real title matches in their own "Matching
+  titles" group above the content-match results, since the same query
+  can be a real title match, a real content match, or both.
+- The query box is now on its own full-width row with a visibly larger
+  height/font (`#mainSearchBox`); library/author/category filters moved
+  to a secondary row below it.
+- A live filter box above the Categories/Authors panes narrows either
+  list as you type (691 categories and 650 authors are too many to
+  scroll through blindly) - category filtering keeps a matching child's
+  ancestors visible and auto-expands them; both use the same diacritic/
+  letter-form-normalized, case-folded matching as everywhere else.
+
+Real bug found while writing the filter's own test: the filter's search
+text wasn't casefolded (only the list being filtered was), so typing an
+exact-cased name like "Author One" matched nothing - fixed before
+shipping.
+
+12 new tests (254/254 total): 6 for the new repository methods
+(category/author/library book listings, title search matching/
+letter-form tolerance/empty-query handling) and 6 for `SearchScreen`
+(browsing-on-click for category/author/specific-library - previously
+silent, now shows real book cards - "All libraries" showing a prompt
+instead of everything, title-match section, browse-filter narrowing the
+real author list). Four existing tests' status-label assertions updated
+for the new "N content result(s)" wording (a real, intentional format
+change, not a regression).
+
+Verified for real against the production database: clicking "اصلاحی
+کتب" (819 books) with an empty query lists real, directly-openable
+books; clicking the Shamila Urdu library chip lists its real 698 books;
+searching "بخاری" shows real title matches (e.g. "آفتاب بخارا سوانح
+حضرت امام بخاری") in their own group above real content matches; typing
+"محمد" into the author filter narrows 650 real authors down to matching
+ones live.
+

@@ -254,3 +254,91 @@ def test_get_category_tree_builds_real_hierarchy_with_counts(tmp_path: Path) -> 
     assert len(tree[0].children) == 1
     assert tree[0].children[0].mjcn == 90
     assert tree[0].children[0].book_count == 1
+
+
+def test_list_books_in_category_returns_real_matching_books(tmp_path: Path) -> None:
+    """Only books with a real Categories entry matching this exact name are returned."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(Category(mjcn=9, name="Fiqh", parent_mjcn=0, sort_key=1),),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    other = Book(
+        information={"Name": "Book of Hadith"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (other,), (database_path.parent / "two.mjbz",)
+    )
+
+    summaries = BookBrowserRepository(database_path).list_books_in_category("Fiqh")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Fiqh"
+
+
+def test_list_books_by_author_returns_real_matching_books(tmp_path: Path) -> None:
+    """Only books by this exact author are returned."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_by_author("Author One")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Fiqh"
+
+
+def test_list_books_in_library_returns_real_matching_books(tmp_path: Path) -> None:
+    """Only books in this exact library are returned."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_in_library("Library B")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Hadith"
+
+
+def test_search_by_title_matches_a_real_substring(tmp_path: Path) -> None:
+    """A partial, exact-script title match finds the real book."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).search_by_title("Hadith")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Hadith"
+
+
+def test_search_by_title_tolerates_real_letter_form_variants(tmp_path: Path) -> None:
+    """A query using one Arabic/Urdu letter-form variant matches a title using another."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "كتاب علی الفقه"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    summaries = BookBrowserRepository(database_path).search_by_title("علي")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "كتاب علی الفقه"
+
+
+def test_search_by_title_returns_nothing_for_an_empty_query(tmp_path: Path) -> None:
+    """An empty/whitespace-only query returns no results instead of every book."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    assert BookBrowserRepository(database_path).search_by_title("   ") == ()

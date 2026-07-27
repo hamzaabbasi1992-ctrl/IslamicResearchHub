@@ -38,7 +38,7 @@ def test_search_screen_shows_ranked_results(qtbot, tmp_path: Path) -> None:
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
 
-    assert "1 result" in screen._status_label.text()
+    assert "1 content result" in screen._status_label.text()
     assert screen._results_layout.count() == 2  # one card + the trailing stretch
 
 
@@ -76,7 +76,7 @@ def test_search_screen_respects_author_filter(qtbot, tmp_path: Path) -> None:
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
 
-    assert "1 result" in screen._status_label.text()
+    assert "1 content result" in screen._status_label.text()
 
 
 def test_search_screen_library_dropdown_lists_real_libraries(qtbot, tmp_path: Path) -> None:
@@ -138,7 +138,7 @@ def test_clicking_a_category_in_the_tree_filters_and_searches(qtbot, tmp_path: P
     screen._on_category_clicked(top_item, 0)
 
     assert screen._category_edit.text() == "Fiqh"
-    assert "1 result" in screen._status_label.text()
+    assert "1 content result" in screen._status_label.text()
 
 
 def test_clicking_an_author_in_the_list_filters_and_searches(qtbot, tmp_path: Path) -> None:
@@ -152,4 +152,108 @@ def test_clicking_an_author_in_the_list_filters_and_searches(qtbot, tmp_path: Pa
     screen._filter_by_author("Author One")
 
     assert screen._author_edit.text() == "Author One"
-    assert "1 result" in screen._status_label.text()
+    assert "1 content result" in screen._status_label.text()
+
+
+def test_clicking_a_category_with_no_query_browses_its_books_directly(
+    qtbot, tmp_path: Path
+) -> None:
+    """With an empty search box, clicking a category lists its real books directly
+    (previously did nothing - see the CHANGELOG fix for this exact gap)."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    top_item = screen._category_tree.topLevelItem(0)
+    assert top_item is not None
+    screen._on_category_clicked(top_item, 0)
+
+    assert "1 book" in screen._status_label.text()
+    assert screen._results_layout.count() == 2  # one book card + trailing stretch
+
+
+def test_clicking_an_author_with_no_query_browses_their_books_directly(
+    qtbot, tmp_path: Path
+) -> None:
+    """With an empty search box, clicking an author lists their real books directly."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._filter_by_author("Author One")
+
+    assert screen._results_layout.count() == 2  # one book card + trailing stretch
+
+
+def test_clicking_a_library_chip_with_no_query_browses_its_books_directly(
+    qtbot, tmp_path: Path
+) -> None:
+    """With an empty search box, clicking a specific library chip lists its real books."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._filter_by_library("Maktaba Jibreel (Mobile)")
+
+    assert screen._results_layout.count() == 2  # one book card + trailing stretch
+
+
+def test_clicking_all_libraries_with_no_query_prompts_instead_of_listing_everything(
+    qtbot, tmp_path: Path
+) -> None:
+    """"All libraries" with no query doesn't dump the whole corpus as cards."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._filter_by_library("All libraries")
+
+    assert screen._results_layout.count() == 1  # only the trailing stretch
+    assert "Type a search" in screen._status_label.text()
+
+
+def test_search_shows_real_title_matches_separately_from_content_matches(
+    qtbot, tmp_path: Path
+) -> None:
+    """A query matching a real book title shows a distinct "Matching titles" group."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    qtbot.keyClicks(screen._query_edit, "Fiqh")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+
+    assert "1 title match" in screen._status_label.text()
+
+
+def test_browse_filter_narrows_the_real_author_list(qtbot, tmp_path: Path) -> None:
+    """Typing into the browse filter hides authors that don't match, in real time."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    other_book = Book(
+        information={"Name": "Other Book", "ANAME": "Someone Else"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Other content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (other_book,), (database_path.parent / "other.mjbz",)
+    )
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    screen._show_browse_tab(1)
+
+    screen._browse_filter_edit.setText("Author One")
+
+    # isHidden() reflects the widget's own explicit visibility flag (set by
+    # our filter's setVisible() calls) regardless of whether the top-level
+    # window is actually on-screen - unlike isVisible(), which also depends
+    # on the whole ancestor chain being shown, unreliable in a headless test.
+    buttons_by_name = dict(screen._author_row_buttons)
+    assert buttons_by_name["Someone Else"].isHidden() is True
+    assert buttons_by_name["Author One"].isHidden() is False
