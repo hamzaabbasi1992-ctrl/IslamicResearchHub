@@ -205,11 +205,121 @@ def _add_normalized_search_index(connection: sqlite3.Connection) -> None:
     )
 
 
+TAXONOMY_DIMENSIONS: tuple[str, ...] = (
+    "subject",
+    "author",
+    "madhhab",
+    "language",
+    "publisher",
+    "region",
+    "personality",
+    "event",
+    "tag",
+)
+"""The nine taxonomy dimensions, as stable, language-independent codes."""
+
+_HIERARCHICAL_DIMENSIONS = frozenset({"subject", "region", "personality", "event"})
+
+
+def _add_taxonomy_system(connection: sqlite3.Connection) -> None:
+    """Add a general, multi-dimensional taxonomy system, additive and empty.
+
+    One generic pattern (Dimensions -> Terms -> per-language Names/Aliases,
+    plus a single Book<->Term many-to-many join) covers all nine requested
+    dimensions (subject, author, madhhab, language, publisher, region,
+    personality, event, tag) rather than nine bespoke tables - adding a
+    tenth dimension later needs zero schema changes, just one new
+    `TaxonomyDimensions` row. `ParentTermID` gives subject/region/
+    personality/event their required hierarchy; other dimensions simply
+    leave it NULL. This is entirely separate from and does not touch the
+    existing per-book `Categories`/`CategoryTaxonomy`/`Authors` tables -
+    those keep working completely unmodified. Migrating their real data
+    into this system (e.g. `CategoryTaxonomy` -> the `subject` dimension)
+    is a deliberate later step, not part of this migration, so this one
+    carries zero risk to already-working search/browsing.
+
+    "Publication Information" is modelled as two things: `publisher` is a
+    real many-to-many dimension (a book can genuinely have more than one
+    publisher across print runs), while the scalar, one-per-book fields
+    (year, edition) that don't fit a "term" shape live in the separate
+    `BookPublicationDetails` satellite table instead of being forced into
+    the term model.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS TaxonomyDimensions (
+            DimensionID INTEGER PRIMARY KEY,
+            Code TEXT NOT NULL UNIQUE
+        );
+
+        CREATE TABLE IF NOT EXISTS TaxonomyTerms (
+            TermID INTEGER PRIMARY KEY,
+            DimensionID INTEGER NOT NULL REFERENCES TaxonomyDimensions(DimensionID),
+            ParentTermID INTEGER REFERENCES TaxonomyTerms(TermID),
+            StableKey TEXT,
+            SortKey INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_taxonomy_terms_dimension
+            ON TaxonomyTerms(DimensionID);
+        CREATE INDEX IF NOT EXISTS idx_taxonomy_terms_parent
+            ON TaxonomyTerms(ParentTermID);
+
+        CREATE TABLE IF NOT EXISTS TaxonomyTermNames (
+            TermID INTEGER NOT NULL REFERENCES TaxonomyTerms(TermID),
+            LanguageCode TEXT NOT NULL,
+            Name TEXT NOT NULL,
+            IsPrimary INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (TermID, LanguageCode, Name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_taxonomy_term_names_lookup
+            ON TaxonomyTermNames(LanguageCode, Name);
+
+        CREATE TABLE IF NOT EXISTS TaxonomyAliases (
+            AliasID INTEGER PRIMARY KEY,
+            TermID INTEGER NOT NULL REFERENCES TaxonomyTerms(TermID),
+            LanguageCode TEXT,
+            AliasText TEXT NOT NULL,
+            NormalizedAliasText TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_taxonomy_aliases_normalized
+            ON TaxonomyAliases(NormalizedAliasText);
+        CREATE INDEX IF NOT EXISTS idx_taxonomy_aliases_term
+            ON TaxonomyAliases(TermID);
+
+        CREATE TABLE IF NOT EXISTS BookTaxonomyTerms (
+            BookID INTEGER NOT NULL REFERENCES Books(BookID),
+            TermID INTEGER NOT NULL REFERENCES TaxonomyTerms(TermID),
+            PRIMARY KEY (BookID, TermID)
+        );
+        CREATE INDEX IF NOT EXISTS idx_book_taxonomy_terms_term
+            ON BookTaxonomyTerms(TermID);
+
+        CREATE TABLE IF NOT EXISTS TaxonomyTermMerges (
+            MergedFromTermID INTEGER PRIMARY KEY,
+            MergedIntoTermID INTEGER NOT NULL REFERENCES TaxonomyTerms(TermID),
+            MergedAt TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS BookPublicationDetails (
+            BookID INTEGER PRIMARY KEY REFERENCES Books(BookID),
+            PublicationYear TEXT,
+            Edition TEXT,
+            PublicationPlaceTermID INTEGER REFERENCES TaxonomyTerms(TermID)
+        );
+        """
+    )
+    connection.executemany(
+        "INSERT OR IGNORE INTO TaxonomyDimensions (Code) VALUES (?)",
+        ((code,) for code in TAXONOMY_DIMENSIONS),
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
 VOLUMES_VERSION = 4
 NORMALIZED_SEARCH_VERSION = 5
+TAXONOMY_VERSION = 6
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -241,6 +351,13 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add PagesFTSNormalized, a diacritic/letter-form-normalized full-text "
         "index for Arabic/Urdu search, kept in sync automatically.",
         _add_normalized_search_index,
+    ),
+    Migration(
+        TAXONOMY_VERSION,
+        "Add a general multi-dimensional taxonomy system (subject, author, "
+        "madhhab, language, publisher, region, personality, event, tag), "
+        "additive and empty - existing Categories/Authors are untouched.",
+        _add_taxonomy_system,
     ),
 )
 

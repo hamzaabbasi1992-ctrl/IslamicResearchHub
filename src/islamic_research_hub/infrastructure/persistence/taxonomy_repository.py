@@ -1,0 +1,326 @@
+"""Read/write SQLite adapter for the general multi-dimensional taxonomy system.
+
+Works against the tables added by migration 6 (`_add_taxonomy_system` in
+`migration_runner.py`): one generic Dimensions -> Terms -> Names/Aliases
+pattern shared by all nine dimensions (subject, author, madhhab, language,
+publisher, region, personality, event, tag), plus a single `BookTaxonomyTerms`
+many-to-many join. Every write path here is additive and never touches the
+existing `Categories`/`CategoryTaxonomy`/`Authors` tables.
+"""
+
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+
+from islamic_research_hub.domain.models.taxonomy import TaxonomyTerm
+from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
+
+
+class UnknownDimensionError(Exception):
+    """Raised when a dimension code isn't one of the nine real taxonomy dimensions."""
+
+
+class TaxonomyRepository:
+    """Create/link/query real taxonomy terms against the master database."""
+
+    def __init__(self, database_path: Path) -> None:
+        self._database_path = database_path
+
+    def get_or_create_term(
+        self,
+        dimension_code: str,
+        name: str,
+        language_code: str,
+        parent_term_id: int | None = None,
+        stable_key: str | None = None,
+    ) -> int:
+        """Return an existing term's id (matched by name or alias), or create one.
+
+        Matching checks the exact primary name first, then aliases (via the
+        same diacritic/letter-form normalization search already uses), so
+        importing "الزكاة" twice - or once as "الزكاة" and once as an
+        alternate spelling already recorded as an alias - resolves to the
+        same real term instead of silently creating a duplicate.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            with connection:
+                dimension_id = self._dimension_id(connection, dimension_code)
+                existing = connection.execute(
+                    """
+                    SELECT t.TermID FROM TaxonomyTerms t
+                    JOIN TaxonomyTermNames n ON n.TermID = t.TermID
+                    WHERE t.DimensionID = ? AND n.LanguageCode = ? AND n.Name = ?
+                    """,
+                    (dimension_id, language_code, name),
+                ).fetchone()
+                if existing is not None:
+                    return existing[0]
+
+                normalized = normalize_search_text(name)
+                alias_match = connection.execute(
+                    """
+                    SELECT t.TermID FROM TaxonomyTerms t
+                    JOIN TaxonomyAliases a ON a.TermID = t.TermID
+                    WHERE t.DimensionID = ? AND a.NormalizedAliasText = ?
+                    """,
+                    (dimension_id, normalized),
+                ).fetchone()
+                if alias_match is not None:
+                    return alias_match[0]
+
+                cursor = connection.execute(
+                    "INSERT INTO TaxonomyTerms (DimensionID, ParentTermID, StableKey) "
+                    "VALUES (?, ?, ?)",
+                    (dimension_id, parent_term_id, stable_key),
+                )
+                term_id = cursor.lastrowid
+                connection.execute(
+                    "INSERT INTO TaxonomyTermNames (TermID, LanguageCode, Name, IsPrimary) "
+                    "VALUES (?, ?, ?, 1)",
+                    (term_id, language_code, name),
+                )
+                return term_id
+
+    def add_name(self, term_id: int, language_code: str, name: str, is_primary: bool = False) -> None:
+        """Add (or replace) a display name for a term in a given language."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            with connection:
+                connection.execute(
+                    "INSERT OR REPLACE INTO TaxonomyTermNames "
+                    "(TermID, LanguageCode, Name, IsPrimary) VALUES (?, ?, ?, ?)",
+                    (term_id, language_code, name, int(is_primary)),
+                )
+
+    def add_alias(self, term_id: int, alias_text: str, language_code: str | None = None) -> None:
+        """Record an alternate spelling/name for a term, used to resolve future duplicates."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            with connection:
+                connection.execute(
+                    "INSERT INTO TaxonomyAliases "
+                    "(TermID, LanguageCode, AliasText, NormalizedAliasText) VALUES (?, ?, ?, ?)",
+                    (term_id, language_code, alias_text, normalize_search_text(alias_text)),
+                )
+
+    def link_book(self, book_id: int, term_id: int) -> None:
+        """Associate a book with a term (many-to-many, safe to call more than once)."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            with connection:
+                connection.execute(
+                    "INSERT OR IGNORE INTO BookTaxonomyTerms (BookID, TermID) VALUES (?, ?)",
+                    (book_id, term_id),
+                )
+
+    def list_terms(self, dimension_code: str) -> tuple[TaxonomyTerm, ...]:
+        """Return every real term in a dimension, flat (no hierarchy applied)."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            dimension_id = self._dimension_id(connection, dimension_code)
+            return self._load_terms(connection, dimension_id)
+
+    def get_term_tree(self, dimension_code: str) -> tuple[TaxonomyTerm, ...]:
+        """Return a dimension's real top-level terms, each with its real children attached."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            dimension_id = self._dimension_id(connection, dimension_code)
+            flat_terms = self._load_terms(connection, dimension_id)
+        return _build_tree(flat_terms)
+
+    def list_books_for_term(self, term_id: int) -> tuple[int, ...]:
+        """Return every real book id linked to a term."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                "SELECT BookID FROM BookTaxonomyTerms WHERE TermID = ? ORDER BY BookID",
+                (term_id,),
+            ).fetchall()
+        return tuple(row[0] for row in rows)
+
+    def list_terms_for_book(
+        self, book_id: int, dimension_code: str | None = None
+    ) -> tuple[TaxonomyTerm, ...]:
+        """Return every real term a book is linked to, optionally filtered to one dimension."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            if dimension_code is not None:
+                dimension_id = self._dimension_id(connection, dimension_code)
+                term_ids = connection.execute(
+                    """
+                    SELECT t.TermID FROM TaxonomyTerms t
+                    JOIN BookTaxonomyTerms bt ON bt.TermID = t.TermID
+                    WHERE bt.BookID = ? AND t.DimensionID = ?
+                    """,
+                    (book_id, dimension_id),
+                ).fetchall()
+            else:
+                term_ids = connection.execute(
+                    "SELECT TermID FROM BookTaxonomyTerms WHERE BookID = ?", (book_id,)
+                ).fetchall()
+            terms = []
+            for (term_id,) in term_ids:
+                term = self._load_term(connection, term_id)
+                if term is not None:
+                    terms.append(term)
+        return tuple(terms)
+
+    @staticmethod
+    def _dimension_id(connection: sqlite3.Connection, dimension_code: str) -> int:
+        row = connection.execute(
+            "SELECT DimensionID FROM TaxonomyDimensions WHERE Code = ?", (dimension_code,)
+        ).fetchone()
+        if row is None:
+            raise UnknownDimensionError(f"Unknown taxonomy dimension: {dimension_code!r}")
+        return row[0]
+
+    @staticmethod
+    def _load_term(connection: sqlite3.Connection, term_id: int) -> TaxonomyTerm | None:
+        row = connection.execute(
+            """
+            SELECT t.TermID, d.Code, t.ParentTermID, t.StableKey
+            FROM TaxonomyTerms t
+            JOIN TaxonomyDimensions d ON d.DimensionID = t.DimensionID
+            WHERE t.TermID = ?
+            """,
+            (term_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        names = dict(
+            connection.execute(
+                "SELECT LanguageCode, Name FROM TaxonomyTermNames "
+                "WHERE TermID = ? AND IsPrimary = 1",
+                (term_id,),
+            ).fetchall()
+        )
+        return TaxonomyTerm(
+            term_id=row[0], dimension_code=row[1], parent_term_id=row[2],
+            stable_key=row[3], names=names,
+        )
+
+    @classmethod
+    def _load_terms(
+        cls, connection: sqlite3.Connection, dimension_id: int
+    ) -> tuple[TaxonomyTerm, ...]:
+        term_rows = connection.execute(
+            "SELECT TermID, ParentTermID, StableKey FROM TaxonomyTerms "
+            "WHERE DimensionID = ? ORDER BY SortKey, TermID",
+            (dimension_id,),
+        ).fetchall()
+        name_rows = connection.execute(
+            """
+            SELECT n.TermID, n.LanguageCode, n.Name FROM TaxonomyTermNames n
+            JOIN TaxonomyTerms t ON t.TermID = n.TermID
+            WHERE t.DimensionID = ? AND n.IsPrimary = 1
+            """,
+            (dimension_id,),
+        ).fetchall()
+        names_by_term: dict[int, dict[str, str]] = {}
+        for term_id, language_code, name in name_rows:
+            names_by_term.setdefault(term_id, {})[language_code] = name
+
+        dimension_code_row = connection.execute(
+            "SELECT Code FROM TaxonomyDimensions WHERE DimensionID = ?", (dimension_id,)
+        ).fetchone()
+        dimension_code = dimension_code_row[0]
+
+        return tuple(
+            TaxonomyTerm(
+                term_id=term_id,
+                dimension_code=dimension_code,
+                parent_term_id=parent_term_id,
+                stable_key=stable_key,
+                names=names_by_term.get(term_id, {}),
+            )
+            for term_id, parent_term_id, stable_key in term_rows
+        )
+
+    def merge_duplicate_terms(self, dimension_code: str) -> int:
+        """Merge terms in a dimension whose normalized names/aliases collide.
+
+        The term linked to the most books wins (tie-broken by the smallest
+        TermID, the same deterministic pattern already used for category/
+        author normalization in `migration_runner.py`). Every book link on
+        a losing term is repointed to the survivor, the merge is logged to
+        `TaxonomyTermMerges`, and the losing term's names/aliases/rows are
+        removed. Returns the number of terms merged away.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            with connection:
+                dimension_id = self._dimension_id(connection, dimension_code)
+                groups = self._group_terms_by_normalized_identity(connection, dimension_id)
+                merged_count = 0
+                for term_ids in groups:
+                    if len(term_ids) < 2:
+                        continue
+                    survivor = self._pick_survivor(connection, term_ids)
+                    for loser in term_ids:
+                        if loser == survivor:
+                            continue
+                        self._merge_term(connection, loser, survivor)
+                        merged_count += 1
+        return merged_count
+
+    @staticmethod
+    def _group_terms_by_normalized_identity(
+        connection: sqlite3.Connection, dimension_id: int
+    ) -> list[list[int]]:
+        rows = connection.execute(
+            """
+            SELECT n.TermID, n.Name FROM TaxonomyTermNames n
+            JOIN TaxonomyTerms t ON t.TermID = n.TermID
+            WHERE t.DimensionID = ?
+            """,
+            (dimension_id,),
+        ).fetchall()
+        term_ids_by_normalized: dict[str, set[int]] = {}
+        for term_id, name in rows:
+            key = normalize_search_text(name) or ""
+            term_ids_by_normalized.setdefault(key, set()).add(term_id)
+        return [sorted(ids) for ids in term_ids_by_normalized.values()]
+
+    @staticmethod
+    def _pick_survivor(connection: sqlite3.Connection, term_ids: list[int]) -> int:
+        counts = {
+            term_id: connection.execute(
+                "SELECT COUNT(*) FROM BookTaxonomyTerms WHERE TermID = ?", (term_id,)
+            ).fetchone()[0]
+            for term_id in term_ids
+        }
+        max_count = max(counts.values())
+        candidates = sorted(term_id for term_id, count in counts.items() if count == max_count)
+        return candidates[0]
+
+    @staticmethod
+    def _merge_term(connection: sqlite3.Connection, loser: int, survivor: int) -> None:
+        connection.execute(
+            "INSERT OR IGNORE INTO BookTaxonomyTerms (BookID, TermID) "
+            "SELECT BookID, ? FROM BookTaxonomyTerms WHERE TermID = ?",
+            (survivor, loser),
+        )
+        connection.execute("DELETE FROM BookTaxonomyTerms WHERE TermID = ?", (loser,))
+        connection.execute("DELETE FROM TaxonomyTermNames WHERE TermID = ?", (loser,))
+        connection.execute("DELETE FROM TaxonomyAliases WHERE TermID = ?", (loser,))
+        connection.execute(
+            "UPDATE TaxonomyTerms SET ParentTermID = ? WHERE ParentTermID = ?",
+            (survivor, loser),
+        )
+        connection.execute("DELETE FROM TaxonomyTerms WHERE TermID = ?", (loser,))
+        connection.execute(
+            "INSERT OR REPLACE INTO TaxonomyTermMerges "
+            "(MergedFromTermID, MergedIntoTermID, MergedAt) VALUES (?, ?, datetime('now'))",
+            (loser, survivor),
+        )
+
+
+def _build_tree(flat_terms: tuple[TaxonomyTerm, ...]) -> tuple[TaxonomyTerm, ...]:
+    """Assemble a flat list of terms (with ParentTermID) into a real tree."""
+    by_parent: dict[int | None, list[TaxonomyTerm]] = {}
+    by_id = {term.term_id: term for term in flat_terms}
+    for term in flat_terms:
+        parent_id = term.parent_term_id if term.parent_term_id in by_id else None
+        by_parent.setdefault(parent_id, []).append(term)
+
+    def attach(term: TaxonomyTerm) -> TaxonomyTerm:
+        children = tuple(attach(child) for child in by_parent.get(term.term_id, ()))
+        return TaxonomyTerm(
+            term_id=term.term_id, dimension_code=term.dimension_code,
+            parent_term_id=term.parent_term_id, stable_key=term.stable_key,
+            names=term.names, children=children,
+        )
+
+    return tuple(attach(term) for term in by_parent.get(None, ()))

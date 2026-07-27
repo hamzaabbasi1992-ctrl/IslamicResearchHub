@@ -16,6 +16,8 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     CATEGORIES_VERSION,
     MIGRATIONS,
     NORMALIZED_SEARCH_VERSION,
+    TAXONOMY_DIMENSIONS,
+    TAXONOMY_VERSION,
     VOLUMES_VERSION,
     MigrationRunner,
 )
@@ -123,8 +125,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
+            TAXONOMY_VERSION,
         ]
-        assert runner.current_version(connection) == NORMALIZED_SEARCH_VERSION
+        assert runner.current_version(connection) == TAXONOMY_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -160,6 +163,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
+            TAXONOMY_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -208,6 +212,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
+            TAXONOMY_VERSION,
         ]
 
         rows = connection.execute(
@@ -268,6 +273,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             CATEGORIES_VERSION,
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
+            TAXONOMY_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -378,6 +384,87 @@ def test_normalized_search_migration_matches_variant_spellings(tmp_path: Path) -
             (normalize_search_text("علي"),),
         ).fetchone()[0]
         assert match == 1
+
+
+def test_taxonomy_migration_seeds_all_nine_dimensions(tmp_path: Path) -> None:
+    """Migration 6 creates the taxonomy tables and seeds all nine real dimensions."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", "Imam Al-Ghazali", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        codes = {
+            row[0] for row in connection.execute("SELECT Code FROM TaxonomyDimensions")
+        }
+        assert codes == set(TAXONOMY_DIMENSIONS)
+
+
+def test_taxonomy_migration_leaves_existing_categories_and_authors_untouched(
+    tmp_path: Path,
+) -> None:
+    """Migration 6 is purely additive - the existing normalized tables are unaffected."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", "Imam Al-Ghazali", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        authors = connection.execute("SELECT Name FROM Authors").fetchall()
+        assert authors == [("Imam Al-Ghazali",)]
+
+        term_count = connection.execute("SELECT COUNT(*) FROM TaxonomyTerms").fetchone()[0]
+        assert term_count == 0
+
+
+def test_taxonomy_tables_support_a_real_hierarchical_term_and_a_book_link(
+    tmp_path: Path,
+) -> None:
+    """A real term, its multilingual names, and a book link all work end-to-end."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", "Imam Al-Ghazali", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        subject_dimension_id = connection.execute(
+            "SELECT DimensionID FROM TaxonomyDimensions WHERE Code = 'subject'"
+        ).fetchone()[0]
+        connection.execute(
+            "INSERT INTO TaxonomyTerms (TermID, DimensionID, ParentTermID) VALUES (1, ?, NULL)",
+            (subject_dimension_id,),
+        )
+        connection.execute(
+            "INSERT INTO TaxonomyTerms (TermID, DimensionID, ParentTermID) VALUES (2, ?, 1)",
+            (subject_dimension_id,),
+        )
+        connection.execute(
+            "INSERT INTO TaxonomyTermNames (TermID, LanguageCode, Name, IsPrimary) "
+            "VALUES (2, 'ar', 'الزكاة', 1)"
+        )
+        connection.execute(
+            "INSERT INTO TaxonomyTermNames (TermID, LanguageCode, Name, IsPrimary) "
+            "VALUES (2, 'en', 'Zakat', 1)"
+        )
+        connection.execute("INSERT INTO BookTaxonomyTerms (BookID, TermID) VALUES (1, 2)")
+        connection.commit()
+
+        child_row = connection.execute(
+            "SELECT ParentTermID FROM TaxonomyTerms WHERE TermID = 2"
+        ).fetchone()
+        assert child_row == (1,)
+
+        names = dict(
+            connection.execute(
+                "SELECT LanguageCode, Name FROM TaxonomyTermNames WHERE TermID = 2"
+            ).fetchall()
+        )
+        assert names == {"ar": "الزكاة", "en": "Zakat"}
+
+        linked_books = connection.execute(
+            "SELECT BookID FROM BookTaxonomyTerms WHERE TermID = 2"
+        ).fetchall()
+        assert linked_books == [(1,)]
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:
