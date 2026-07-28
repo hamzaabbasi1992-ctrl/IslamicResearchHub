@@ -36,7 +36,8 @@ def test_main_applies_pending_migrations_and_reports_them(tmp_path: Path, capsys
     assert "Applied 4:" in captured.out
     assert "Applied 5:" in captured.out
     assert "Applied 6:" in captured.out
-    assert "Version after: 6" in captured.out
+    assert "Applied 7:" in captured.out
+    assert "Version after: 7" in captured.out
 
 
 def test_main_reports_up_to_date_on_second_run(tmp_path: Path, capsys) -> None:

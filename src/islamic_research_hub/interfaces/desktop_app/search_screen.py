@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -293,6 +294,16 @@ class SearchScreen(QWidget):
         self._category_edit = QLineEdit()
         self._category_edit.setPlaceholderText("Category (exact)")
         filter_row.addWidget(self._category_edit)
+
+        filter_row.addStretch(1)
+        self._exact_match_checkbox = QCheckBox("Exact match")
+        self._exact_match_checkbox.setToolTip(
+            "On: literal spelling only.\n"
+            "Off (default): tolerant of real spelling/keyboard variants "
+            "(e.g. علي/علی, ك/ک)."
+        )
+        self._exact_match_checkbox.toggled.connect(self._on_exact_match_toggled)
+        filter_row.addWidget(self._exact_match_checkbox)
         layout.addLayout(filter_row)
 
         self._status_label = QLabel("")
@@ -309,6 +320,10 @@ class SearchScreen(QWidget):
         layout.addWidget(self._results_area, stretch=1)
         return pane
 
+    def _on_exact_match_toggled(self, _checked: bool) -> None:
+        if self._query_edit.text().strip():
+            self._run_search()
+
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
@@ -320,18 +335,19 @@ class SearchScreen(QWidget):
         library = None if library == ALL_LIBRARIES_LABEL else library
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
+        exact = self._exact_match_checkbox.isChecked()
 
         # Book-name search runs alongside content search (not instead of it):
         # the same query can be a real title match, a real content match, or
         # both - shown as two clearly labeled groups, title matches first
         # since that's usually what a name-shaped query means.
         title_matches = self._browser.search_by_title(
-            query, DEFAULT_LIMIT, library, author, category
+            query, DEFAULT_LIMIT, library, author, category, exact
         )
 
         try:
             results = self._search_service.search(
-                query, DEFAULT_LIMIT, library, author, category
+                query, DEFAULT_LIMIT, library, author, category, exact
             )
         except BookSearchError:
             self._status_label.setText("That search couldn't be run - check your query and try again.")

@@ -18,12 +18,14 @@ class BookSearchError(Exception):
 class SqliteBookSearchRepository:
     """Query the full-text index built by MasterBookRepository/the migration system.
 
-    Prefers `PagesFTSNormalized` (diacritic/letter-form-normalized text, see
-    `shared/arabic_text_normalization.py`, added by migration 5) so spelling
-    variants like "علی" and "علي" match each other, normalizing the query the
-    same way. Falls back to the plain `PagesFTS` index (literal matching) for
-    a database that's been imported but not yet migrated. Excerpts are drawn
-    from whichever index matched - stored page content itself (and the book
+    Prefers `PagesFTSNormalized` (diacritic/letter-form/cross-keyboard-
+    normalized text, see `shared/arabic_text_normalization.py`, added by
+    migration 5) so spelling variants like "علی"/"علي" and keyboard
+    variants like "کتاب"/"كتاب" match each other, normalizing the query
+    the same way. Falls back to the plain `PagesFTS` index (literal
+    matching) for a database that's been imported but not yet migrated,
+    or whenever the caller passes `exact=True`. Excerpts are drawn from
+    whichever index matched - stored page content itself (and the book
     viewer) is never touched either way.
     """
 
@@ -37,24 +39,30 @@ class SqliteBookSearchRepository:
         library: str | None = None,
         author: str | None = None,
         category: str | None = None,
+        exact: bool = False,
     ) -> tuple[SearchResult, ...]:
         """Return the top matching pages, ranked by full-text relevance.
 
         `library` restricts to one library name, `author` to one exact
         `Books.Author` value, and `category` to books linked (in the
         per-book `Categories` table) to a category with that exact name.
+        `exact=True` requires literal spelling and always searches the
+        plain `PagesFTS` index; the default (`False`) prefers the
+        diacritic/letter-form/cross-keyboard-normalized `PagesFTSNormalized`
+        index when available, same as before this parameter existed.
         """
         LOGGER.info(
-            "Searching library for: %s (library=%s, author=%s, category=%s)",
+            "Searching library for: %s (library=%s, author=%s, category=%s, exact=%s)",
             query,
             library,
             author,
             category,
+            exact,
         )
         try:
             with closing(self._connect_read_only(self._database_path)) as connection:
                 connection.row_factory = sqlite3.Row
-                use_normalized_index = self._normalized_index_exists(connection)
+                use_normalized_index = not exact and self._normalized_index_exists(connection)
                 fts_table = "PagesFTSNormalized" if use_normalized_index else "PagesFTS"
                 match_query = normalize_search_text(query) if use_normalized_index else query
                 sql = f"""

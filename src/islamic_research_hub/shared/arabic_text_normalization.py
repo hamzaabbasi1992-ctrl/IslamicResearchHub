@@ -33,6 +33,9 @@ _NORMALIZATION_PAIRS: tuple[tuple[str, str], ...] = (
     ("ى", "ي"),
     ("ی", "ي"),
     ("ة", "ه"),
+    ("ک", "ك"),  # URDU/FARSI KEHEH -> ARABIC KAF (real cross-keyboard mismatch)
+    ("ہ", "ه"),  # URDU GOAL HEH -> ARABIC HEH
+    ("ھ", "ه"),  # URDU DOACHASHMEE HEH -> ARABIC HEH
 )
 
 

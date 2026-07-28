@@ -1,5 +1,6 @@
 """Tests for the desktop app's Search screen, wired to a real master database."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,9 @@ from PySide6.QtCore import Qt  # noqa: E402
 from islamic_research_hub.domain.models.book import Book, Category, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
+)
+from islamic_research_hub.infrastructure.persistence.migration_runner import (  # noqa: E402
+    MigrationRunner,
 )
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen  # noqa: E402
 
@@ -229,6 +233,33 @@ def test_search_shows_real_title_matches_separately_from_content_matches(
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
 
     assert "1 title match" in screen._status_label.text()
+
+
+def test_exact_match_checkbox_requires_literal_spelling(qtbot, tmp_path: Path) -> None:
+    """With Exact match checked, a spelling-variant query finds nothing, even
+    though the same query finds a real match with it unchecked."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book About Ali"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "كتاب علی الفقه", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("علي")
+    screen._run_search()
+    assert "1 content result" in screen._status_label.text()
+
+    screen._exact_match_checkbox.setChecked(True)
+
+    assert "No matches found" in screen._status_label.text()
 
 
 def test_browse_filter_narrows_the_real_author_list(qtbot, tmp_path: Path) -> None:

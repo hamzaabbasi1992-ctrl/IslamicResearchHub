@@ -336,6 +336,28 @@ def test_search_by_title_tolerates_real_letter_form_variants(tmp_path: Path) -> 
     assert summaries[0].title == "كتاب علی الفقه"
 
 
+def test_search_by_title_with_exact_true_does_not_match_a_letter_form_variant(
+    tmp_path: Path,
+) -> None:
+    """With exact=True, a spelling-variant query does NOT match the real title."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "كتاب علی الفقه"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    tolerant = BookBrowserRepository(database_path).search_by_title("علي")
+    exact = BookBrowserRepository(database_path).search_by_title("علي", exact=True)
+
+    assert len(tolerant) == 1
+    assert exact == ()
+
+
 def test_search_by_title_returns_nothing_for_an_empty_query(tmp_path: Path) -> None:
     """An empty/whitespace-only query returns no results instead of every book."""
     database_path = tmp_path / "books.db"

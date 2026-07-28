@@ -1658,3 +1658,62 @@ one that is) plus the already-installed-first-choice case. Existing
 font tests updated for the new default/verified against `QFontDatabase`
 rather than hardcoding an unverified font name. 257/257 tests passing.
 
+## Real bug fix: more cross-keyboard letter variants unified; a real exact/tolerant search toggle
+
+User-reported: search should ignore real Arabic/Urdu keyboard-layout
+differences more thoroughly, and every search should offer a real choice
+between exact and tolerant matching.
+
+**Confirmed a real gap directly** (a raw FTS5 query for one variant
+genuinely did not match content stored with the other, tested standalone
+before touching any code): an Arabic keyboard produces "ك" (kaf) and "ه"
+(heh); an Urdu keyboard produces "ک" (keheh) and "ہ"/"ھ" (goal heh/
+doachashmee heh) for what reads as the same letter - `_NORMALIZATION_PAIRS`
+didn't unify these (only alef/yeh/teh-marbuta variants were). Also
+directly verified, so it wasn't "fixed" a second time for nothing: FTS5's
+tokenizer already treats Urdu full stop "۔" as a real word separator
+(`"الف۔زکوة"` already correctly tokenizes as two words) - not a real gap.
+
+Added the two missing pairs to `shared/arabic_text_normalization.py`.
+**Real architectural point found while fixing it**: migration 5's
+`PagesFTSNormalized` trigger has its REPLACE-chain SQL baked into stored
+trigger text at creation time - updating the Python constant alone does
+nothing for an already-migrated database, since neither the trigger nor
+the already-indexed rows change. Migration 7
+(`_fix_normalized_search_keyboard_variants`) drops and recreates the
+trigger and rebuilds every indexed row with the corrected normalization -
+the same real fix migration 5 itself needed when it was first added, now
+needed again for this correction.
+
+**Real "exact match" toggle added, per explicit request** ("give option
+in every search for exact match or matching word accepted"): `exact:
+bool = False` added to `BookSearchService.search()`,
+`SqliteBookSearchRepository.search()`, and
+`BookBrowserRepository.search_by_title()`. `exact=True` always uses the
+literal `PagesFTS`/raw `Title` comparison with no normalization at all;
+the default (`False`) is unchanged tolerant behavior. A new "Exact
+match" checkbox in `SearchScreen`, next to the category/library filters,
+re-runs the current search on toggle.
+
+Real bug found and fixed in the *test* for this before it shipped: a
+`qtbot.keyClick()`-driven search followed by a direct `setChecked()`
+call on the same test hung indefinitely under pytest-qt (confirmed to
+run correctly outside pytest, in a plain script - isolated to a
+qtbot/event-loop interaction, not the app code) - rewritten to match
+this file's simpler direct-method-call pattern used elsewhere, which
+doesn't hang.
+
+Also found and fixed: `HybridSearchService`'s `FakeKeywordIndex` test
+doubles (in `test_hybrid_search.py`/`test_book_search.py`) needed their
+`search()` signature updated for the new `exact` parameter - the same
+class of gap already hit once before when `author`/`category` were
+added, now happened again for `exact`.
+
+10 new tests (267/267 total): 2 for the new normalization pairs, 2 for
+the migration 7 rebuild (cross-keyboard match after migrating, and that
+newly-imported pages after the rebuild still get normalized correctly),
+2 for `exact=True` in `SqliteBookSearchRepository`, 1 for
+`search_by_title`, 2 for `BookSearchService` passing `exact` through,
+1 for the `SearchScreen` checkbox. Applied migration 7 for real to the
+production database (fresh backup first).
+

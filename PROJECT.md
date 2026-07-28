@@ -1,6 +1,6 @@
 # Islamic Research Hub AI — Project Plan
 
-Last updated: 2026-07-25 (kept in sync with `CHANGELOG.md`, which is the
+Last updated: 2026-07-28 (kept in sync with `CHANGELOG.md`, which is the
 authoritative detailed history — this file is the current-status summary).
 
 ## Goal
@@ -55,13 +55,16 @@ real-data validation behind every item below.
 - Generic PDF (native-text-layer only) — evaluated (1.7-5% real yield across
   the corpus, almost entirely scanned images), deliberately not built;
   PDF collections stay metadata-only (title/path, no text).
-- Shamela — excluded, explicit standing instruction.
+- Shamela — importer not yet built (see Phase 7); the earlier "excluded,
+  explicit standing instruction" was reversed at the user's request.
 - Calibre — not started, optional/low priority.
 
 ### Phase 2 — Master Database: **complete**
 
 - Database verification tool, backup/restore tooling, versioned migration
-  system (`PRAGMA user_version`, 5 real migrations applied to production).
+  system (`PRAGMA user_version`, 7 real migrations applied to production
+  - migrations 6/7 added a general multi-dimensional taxonomy schema and
+  a cross-keyboard search-normalization fix, both after Phase 4).
 - Authors normalized (650 authors, 4,466 books).
 - Categories normalized into a cross-library taxonomy (691 categories,
   shared MJCN scheme across the two Jibreel libraries).
@@ -86,6 +89,13 @@ real-data validation behind every item below.
 - Root search - evaluated (no reliable offline Arabic morphology option),
   deliberately not built per explicit decision.
 - Page navigation - confirmed working (PDF `#page=N`, in-app `?page=N`).
+- Search-normalization enhanced after Phase 4 (migration 7, real bug
+  found and fixed): real Arabic/Urdu cross-keyboard letter variants now
+  unified too (kaf ك/ک, heh ه/ہ/ھ), not just diacritics/alef/yeh. A real
+  exact-vs-tolerant match toggle was added to every search entry point
+  (`exact=` parameter + a Search-screen checkbox) per explicit request.
+  Book-name/title search (script-tolerant, not just page-content search)
+  added alongside content search in the same Phase 4 rebuild.
 
 ### Phase 4 — Desktop GUI (PySide6): **done**
 
@@ -161,6 +171,23 @@ exists, built before the phased roadmap was adopted and kept as-is per
 explicit decision - it is not formally "Phase 6 work" and hasn't been
 scaled to the full corpus.
 
+### Phase 7 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 6, not started**
+
+Explicitly scheduled by the user to come after Phase 6, not before -
+both items below are real, scoped, but deliberately deferred:
+
+- **Maktaba Shamela importer**: `F:\المكتبة الشاملة`, 113 GB, 30,662
+  real books, 99.5% new vs. the existing corpus (would more than double
+  it). Investigated, not yet built - see CHANGELOG. Real blocker: the
+  books are Jet 3/Access-97 `.mdb` files the installed ACE ODBC driver
+  refuses to open; needs different tooling (e.g. `mdbtools`) before an
+  importer can be written.
+- **Taxonomy dimension browsing/tagging GUI**: migration 6 added the
+  general nine-dimension schema (subject, author, madhhab, language,
+  publisher, region, personality, event, tag) and `TaxonomyRepository` -
+  see CHANGELOG. No data has been migrated into it and no GUI browses it
+  yet; both are this phase's real work, not migration 6's.
+
 ## Items existing outside phase discipline (frozen, by explicit decision)
 
 - **Local web app** (`web_app.py`, Flask): search, PDF page-jump, in-app
@@ -206,15 +233,7 @@ checked for overlap before anything was imported:
   Phase 1) before any commitment.
 - Duplicate candidate review (27 remaining Mobile/Desktop pairs).
 - Performance index audit at the current, much larger corpus size.
-- **Maktaba Shamela** (`F:\المكتبة الشاملة`, 113 GB, 30,662 real books,
-  99.5% new vs. the existing corpus): investigated at the user's request
-  (see CHANGELOG), reversing the earlier "excluded, explicit standing
-  instruction" note above. Real blocker found: the books are Jet 3/
-  Access-97 `.mdb` files the installed ACE ODBC driver can't open.
-  Building the actual importer (needs `.mdb`-reading tooling, e.g.
-  `mdbtools`) is its own separate project, not started.
-- **Taxonomy dimension browsing UI**: migration 6 added a general
-  nine-dimension taxonomy schema + `TaxonomyRepository` (subject,
-  author, madhhab, language, publisher, region, personality, event,
-  tag - see CHANGELOG). No data has been migrated into it yet and no
-  GUI browses it yet; both are deliberately separate future steps.
+
+(Maktaba Shamela and the taxonomy GUI - previously listed here - are
+now formally Phase 7, above; scheduled after Phase 6 per the user's
+explicit instruction.)

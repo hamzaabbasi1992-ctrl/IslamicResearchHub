@@ -15,8 +15,14 @@ class SearchIndex(Protocol):
         library: str | None = None,
         author: str | None = None,
         category: str | None = None,
+        exact: bool = False,
     ) -> tuple[SearchResult, ...]:
-        """Return the top matching pages for a free-text query."""
+        """Return the top matching pages for a free-text query.
+
+        `exact=True` requires literal spelling (no diacritic/letter-form/
+        cross-keyboard normalization); `exact=False` (the default) is
+        tolerant of real spelling variants, as before.
+        """
 
 
 class BookSearchService:
@@ -32,14 +38,18 @@ class BookSearchService:
         library: str | None = None,
         author: str | None = None,
         category: str | None = None,
+        exact: bool = False,
     ) -> tuple[SearchResult, ...]:
         """Search the library, rejecting blank queries and non-positive limits.
 
         `library`, `author`, and `category` each restrict results when given.
+        `exact=True` requires literal spelling; the default (`False`) is
+        tolerant of real spelling/keyboard variants (see
+        `shared/arabic_text_normalization.py`).
         """
         normalized_query = query.strip()
         if not normalized_query:
             raise ValueError("Search query must not be empty.")
         if limit < 1:
             raise ValueError("Search limit must be at least 1.")
-        return self._index.search(normalized_query, limit, library, author, category)
+        return self._index.search(normalized_query, limit, library, author, category, exact)

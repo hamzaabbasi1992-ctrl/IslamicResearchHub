@@ -110,6 +110,54 @@ def test_search_matches_letter_form_variants_after_migration(tmp_path: Path) -> 
     assert results[0].title == "Book About Ali"
 
 
+def test_exact_true_does_not_match_a_letter_form_variant_after_migration(
+    tmp_path: Path,
+) -> None:
+    """With exact=True, a spelling-variant query does NOT match, even though it
+    would under the default tolerant search - proving exact mode is real,
+    literal matching, not just tolerant matching that happens to work."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book About Ali"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "كتاب علی الفقه", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    tolerant_results = SqliteBookSearchRepository(database_path).search("علي", limit=10)
+    exact_results = SqliteBookSearchRepository(database_path).search(
+        "علي", limit=10, exact=True
+    )
+
+    assert len(tolerant_results) == 1
+    assert exact_results == ()
+
+
+def test_exact_true_matches_the_real_literal_spelling(tmp_path: Path) -> None:
+    """With exact=True, the literal spelling actually present still matches."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book About Ali"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "كتاب علی الفقه", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    results = SqliteBookSearchRepository(database_path).search("علی", limit=10, exact=True)
+
+    assert len(results) == 1
+
+
 def test_search_falls_back_to_plain_index_before_migration(tmp_path: Path) -> None:
     """Before migration 5 runs, search still works via the plain PagesFTS index."""
     database_path = tmp_path / "books.db"

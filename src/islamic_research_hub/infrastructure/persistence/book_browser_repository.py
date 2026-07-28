@@ -100,26 +100,33 @@ class BookBrowserRepository:
         library: str | None = None,
         author: str | None = None,
         category: str | None = None,
+        exact: bool = False,
     ) -> tuple[BookSummary, ...]:
         """Return real books whose title contains this query, script/diacritic-tolerant.
 
-        Uses the same diacritic/letter-form normalization search already
-        applies to page content (e.g. Arabic yeh "ي" vs Urdu yeh "ی") so a
-        title search is just as tolerant of real spelling variation - typed
-        in whichever script the book's own title is actually in. This does
-        not translate/transliterate between scripts (typing "Bukhari" won't
+        Uses the same diacritic/letter-form/cross-keyboard normalization
+        search already applies to page content (e.g. Arabic yeh "ي" vs
+        Urdu yeh "ی", Arabic kaf "ك" vs Urdu keheh "ک") so a title search
+        is just as tolerant of real spelling variation - typed in whichever
+        script the book's own title is actually in. This does not
+        translate/transliterate between scripts (typing "Bukhari" won't
         find "صحيح البخاري") - only real spelling-variant tolerance within
         the same script, same as content search. `library`/`author`/
         `category` are the same exact-match filters content search uses.
+        `exact=True` requires literal spelling (no normalization at all).
         """
         query = query.strip()
         if not query:
             return ()
-        normalized_title = build_sql_normalize_expression("b.Title")
-        normalized_query = normalize_search_text(query)
+        if exact:
+            title_match_expression = "b.Title"
+            match_value = query
+        else:
+            title_match_expression = build_sql_normalize_expression("b.Title")
+            match_value = normalize_search_text(query)
 
-        conditions = [f"b.Title IS NOT NULL AND {normalized_title} LIKE ?"]
-        parameters: list[object] = [f"%{normalized_query}%"]
+        conditions = [f"b.Title IS NOT NULL AND {title_match_expression} LIKE ?"]
+        parameters: list[object] = [f"%{match_value}%"]
         if library is not None:
             conditions.append("l.Name = ?")
             parameters.append(library)

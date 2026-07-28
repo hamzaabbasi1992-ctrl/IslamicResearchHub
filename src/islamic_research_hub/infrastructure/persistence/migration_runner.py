@@ -205,6 +205,45 @@ def _add_normalized_search_index(connection: sqlite3.Connection) -> None:
     )
 
 
+def _fix_normalized_search_keyboard_variants(connection: sqlite3.Connection) -> None:
+    """Rebuild PagesFTSNormalized/its trigger with real cross-keyboard letter unification.
+
+    Real gap found and confirmed directly (a raw FTS5 query for one
+    variant genuinely does not match content stored with the other): an
+    Arabic keyboard produces "ك" (kaf) and "ه" (heh); an Urdu keyboard
+    produces "ک" (keheh) and "ہ"/"ھ" (goal heh/doachashmee heh) for what
+    reads as the same letter. `shared/arabic_text_normalization.py` now
+    unifies these too (same file `_add_normalized_search_index`/migration
+    5 already used), but that migration's trigger has the *old* REPLACE
+    chain permanently baked into its stored SQL text - updating the
+    Python-side normalization function alone does not change a trigger
+    that already exists in an already-migrated database, and the already-
+    indexed `PagesFTSNormalized` rows were built with the old chain too.
+    Both need a real rebuild, not just a code change - this migration is
+    that rebuild, applied via the normal versioned-migration path so it
+    runs exactly once per real database.
+    """
+    normalize_new_content = build_sql_normalize_expression("new.Content")
+    normalize_existing_content = build_sql_normalize_expression("Content")
+
+    connection.execute("DROP TRIGGER IF EXISTS pages_after_insert_normalized")
+    connection.execute("DELETE FROM PagesFTSNormalized")
+    connection.execute(
+        f"""
+        CREATE TRIGGER pages_after_insert_normalized AFTER INSERT ON Pages BEGIN
+            INSERT INTO PagesFTSNormalized (rowid, Content)
+            VALUES (new.rowid, {normalize_new_content});
+        END
+        """
+    )
+    connection.execute(
+        f"""
+        INSERT INTO PagesFTSNormalized (rowid, Content)
+        SELECT rowid, {normalize_existing_content} FROM Pages
+        """
+    )
+
+
 TAXONOMY_DIMENSIONS: tuple[str, ...] = (
     "subject",
     "author",
@@ -320,6 +359,7 @@ CATEGORIES_VERSION = 3
 VOLUMES_VERSION = 4
 NORMALIZED_SEARCH_VERSION = 5
 TAXONOMY_VERSION = 6
+NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION = 7
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -358,6 +398,13 @@ MIGRATIONS: tuple[Migration, ...] = (
         "madhhab, language, publisher, region, personality, event, tag), "
         "additive and empty - existing Categories/Authors are untouched.",
         _add_taxonomy_system,
+    ),
+    Migration(
+        NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
+        "Rebuild PagesFTSNormalized/its trigger to unify real cross-keyboard "
+        "letter variants too (Arabic kaf/ك vs Urdu keheh/ک, Arabic heh/ه vs "
+        "Urdu goal-heh/ہ and doachashmee-heh/ھ).",
+        _fix_normalized_search_keyboard_variants,
     ),
 )
 

@@ -34,6 +34,23 @@ def test_normalize_strips_tatweel() -> None:
     assert normalize_search_text("كـتاب") == "كتاب"
 
 
+def test_normalize_unifies_kaf_keheh_variants() -> None:
+    """Urdu/Farsi keheh (typed on an Urdu keyboard) collapses to Arabic kaf.
+
+    Real cross-keyboard mismatch: an Arabic keyboard produces "ك" and an
+    Urdu keyboard produces "ک" for what looks like the same letter -
+    confirmed to not match at all without this (FTS5 treats them as
+    different tokens).
+    """
+    assert normalize_search_text("کتاب") == normalize_search_text("كتاب")
+
+
+def test_normalize_unifies_heh_variants() -> None:
+    """Urdu goal-heh and doachashmee-heh collapse to Arabic heh."""
+    assert normalize_search_text("راہ") == normalize_search_text("راه")
+    assert normalize_search_text("بھائی") == normalize_search_text("بهائی")
+
+
 def test_normalize_handles_none() -> None:
     """A None input returns None rather than raising."""
     assert normalize_search_text(None) is None

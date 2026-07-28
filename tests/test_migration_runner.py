@@ -15,6 +15,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     BASELINE_VERSION,
     CATEGORIES_VERSION,
     MIGRATIONS,
+    NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
     NORMALIZED_SEARCH_VERSION,
     TAXONOMY_DIMENSIONS,
     TAXONOMY_VERSION,
@@ -126,8 +127,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
+            NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
         ]
-        assert runner.current_version(connection) == TAXONOMY_VERSION
+        assert runner.current_version(connection) == NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -164,6 +166,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
+            NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -213,6 +216,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
+            NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
         ]
 
         rows = connection.execute(
@@ -274,6 +278,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             VOLUMES_VERSION,
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
+            NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -465,6 +470,59 @@ def test_taxonomy_tables_support_a_real_hierarchical_term_and_a_book_link(
             "SELECT BookID FROM BookTaxonomyTerms WHERE TermID = 2"
         ).fetchall()
         assert linked_books == [(1,)]
+
+
+def test_keyboard_fix_migration_matches_kaf_keheh_cross_keyboard_variants(
+    tmp_path: Path,
+) -> None:
+    """A query typed with an Urdu keheh matches content stored with an Arabic kaf.
+
+    Real bug this migration fixes: migration 5's trigger has its
+    normalization SQL baked in at creation time, so updating
+    `_NORMALIZATION_PAIRS` alone does not change an already-migrated
+    database - this migration rebuilds both the trigger and the already-
+    indexed content.
+    """
+    database_path = tmp_path / "books.db"
+    _seed_book_with_page_content(database_path, "Book One", "كتاب الفقه", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        from islamic_research_hub.shared.arabic_text_normalization import (
+            normalize_search_text,
+        )
+
+        match = connection.execute(
+            "SELECT COUNT(*) FROM PagesFTSNormalized WHERE PagesFTSNormalized MATCH ?",
+            (normalize_search_text("کتاب"),),  # Urdu keheh, content has Arabic kaf
+        ).fetchone()[0]
+        assert match == 1
+
+
+def test_keyboard_fix_migration_rebuilt_trigger_still_normalizes_new_pages(
+    tmp_path: Path,
+) -> None:
+    """After the rebuild, a book imported afterward still gets indexed normalized."""
+    database_path = tmp_path / "books.db"
+    _seed_book_with_page_content(database_path, "Book One", "placeholder", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+    # Import a second book after all migrations (including the rebuild) have run.
+    _seed_book_with_page_content(database_path, "Book Two", "کتاب جدید", "two.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        from islamic_research_hub.shared.arabic_text_normalization import (
+            normalize_search_text,
+        )
+
+        match = connection.execute(
+            "SELECT COUNT(*) FROM PagesFTSNormalized WHERE PagesFTSNormalized MATCH ?",
+            (normalize_search_text("كتاب"),),  # Arabic kaf, new content has Urdu keheh
+        ).fetchone()[0]
+        assert match == 1
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

@@ -15,6 +15,7 @@ class FakeIndex:
         self.last_library: str | None = None
         self.last_author: str | None = None
         self.last_category: str | None = None
+        self.last_exact: bool | None = None
 
     def search(
         self,
@@ -23,6 +24,7 @@ class FakeIndex:
         library: str | None = None,
         author: str | None = None,
         category: str | None = None,
+        exact: bool = False,
     ) -> tuple[SearchResult, ...]:
         """Record the request and return one fixed result."""
         self.last_query = query
@@ -30,6 +32,7 @@ class FakeIndex:
         self.last_library = library
         self.last_author = author
         self.last_category = category
+        self.last_exact = exact
         return (SearchResult(book_id=1, title="Title", author="Author", page_number=1, excerpt="..."),)
 
 
@@ -61,6 +64,24 @@ def test_search_passes_through_author_and_category_filters() -> None:
 
     assert index.last_author == "Ibn Kathir"
     assert index.last_category == "Fiqh"
+
+
+def test_search_defaults_to_not_exact() -> None:
+    """With no exact= argument, the index is asked for tolerant (non-exact) matching."""
+    index = FakeIndex()
+
+    BookSearchService(index).search("query")
+
+    assert index.last_exact is False
+
+
+def test_search_passes_through_exact_flag() -> None:
+    """exact=True reaches the index unchanged."""
+    index = FakeIndex()
+
+    BookSearchService(index).search("query", exact=True)
+
+    assert index.last_exact is True
 
 
 def test_search_rejects_blank_query() -> None:
