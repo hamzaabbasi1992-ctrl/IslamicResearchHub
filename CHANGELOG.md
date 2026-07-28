@@ -1779,3 +1779,37 @@ to the production database (fresh backup first, verified `user_version`
 recent-open record/list round-trip against a real production book -
 the test row was deleted afterward, no permanent change left behind).
 
+## Semantic search pilot: real storage-bloat bug fixed (before any full-corpus run)
+
+The pilot run's known bug (noted at the time, not yet fixed - see the
+"Semantic search pilot" entry above) was that `PageEmbeddingIndexer.
+index_pages()` called `EmbeddingStore.store()` once per 32-page
+embedding batch, and each `SqlitePageEmbeddingRepository.store()` call
+opens its own SQLite connection and commits its own transaction - 256
+separate commits for the 8,179-page pilot, costing ~789 MB of real
+transaction/connection overhead for what should have been ~12.6 MB of
+actual vector data.
+
+**Fixed** by decoupling embedding batch size from storage/commit batch
+size: `index_pages()` still embeds in small `batch_size`-sized chunks
+(bounds the embedding model's peak memory), but now accumulates
+entries and only calls `store()` once `commit_batch_size` (default
+1000) entries are pending, or at the very end. For a full-corpus run
+this cuts commits by roughly 30x (1000/32) versus the pilot's
+behavior, without changing embedding memory use at all.
+
+4 new/updated tests in `test_page_embedding.py`: batch-size-vs-commit-
+size decoupling verified directly (embedding batches of 2 still embed
+as `[2, 2, 1]`, but storage commits as `[4, 1]` with
+`commit_batch_size=4`), and a small run confirmed to commit exactly
+once under the real default `commit_batch_size=1000`. 290/290 tests
+passing overall.
+
+**Not yet done**: no full-corpus embedding run. The corpus has grown
+significantly since the original 18-hour estimate (922,345 pages at
+the time) - it now stands at 2,385,159 pages across 15,162 books. At
+the pilot's measured throughput (~14.5 pages/sec, CPU-only, no GPU),
+a full run is now estimated at **~45.7 hours of continuous CPU time**,
+not 18. This is a real, updated number to weigh before committing to
+that run - not yet started.
+

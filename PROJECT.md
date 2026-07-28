@@ -194,6 +194,18 @@ exists, built before the phased roadmap was adopted and kept as-is per
 explicit decision - it is not formally "Phase 6 work" and hasn't been
 scaled to the full corpus.
 
+- **Storage-bloat bug: fixed.** The pilot's per-32-page-batch commit
+  pattern (256 commits, ~789 MB overhead for ~12.6 MB of real vector
+  data) is fixed - see CHANGELOG. Storage now commits in much larger,
+  far less frequent batches (default 1000 entries), independent of the
+  embedding batch size.
+- **Full-corpus run: not started, updated estimate.** The original ~18
+  hour estimate was based on a 922,345-page corpus; the corpus has
+  since grown to 2,385,159 pages (15,162 books). At the pilot's
+  measured throughput (CPU-only, no GPU), a full run now costs an
+  estimated **~45.7 hours** of continuous CPU time - a real number to
+  weigh before committing to it, not a decision made yet.
+
 ### Phase 7 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 6, not started**
 
 Explicitly scheduled by the user to come after Phase 6, not before -
