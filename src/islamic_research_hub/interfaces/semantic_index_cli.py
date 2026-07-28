@@ -9,8 +9,13 @@ Resume-safe by construction: every page already present in
 `PageEmbeddings` is skipped automatically (see `_load_pages_to_index`),
 so re-running the exact same command after an interruption (crash, power
 loss, deliberate stop) picks up where it left off instead of re-embedding
-already-done work. `--limit` runs one deliberately bounded batch and
-exits cleanly, for splitting a large indexing job into several sessions.
+already-done work. `--limit` bounds the *overall* run and exits cleanly,
+for splitting a large indexing job into several sessions - regardless of
+`--limit`, `main()` internally fetches and embeds in bounded
+`QUERY_CHUNK_SIZE`-sized chunks rather than one query for the whole
+remaining corpus, so an unbounded "index everything" run doesn't have to
+load millions of pages of real text into memory (or wait on one huge
+query) before the first page is even embedded.
 """
 
 import argparse
@@ -34,6 +39,15 @@ from islamic_research_hub.shared.logging_config import configure_logging
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_PATH = Path("data/books.db")
+QUERY_CHUNK_SIZE = 5000
+"""Pages fetched per database round-trip, independent of --limit.
+
+Bounds both query cost (the NOT-EXISTS resume check) and peak memory
+(real page text held at once) for an unbounded "index everything" run -
+without this, omitting --limit would try to load the entire remaining
+corpus's page content into memory in a single query before embedding
+even started.
+"""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,36 +80,43 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Embed and index real pages, skipping any already indexed."""
+    """Embed and index real pages in bounded chunks, skipping any already indexed."""
     _configure_unicode_output()
     configure_logging()
     args = build_parser().parse_args(arguments)
 
     store = SqlitePageEmbeddingRepository(args.database)
     store.ensure_schema()
-
-    try:
-        pages = _load_pages_to_index(args.database, args.subject, args.limit)
-    except sqlite3.Error as error:
-        LOGGER.error("Unable to read the master database: %s", error)
-        return 1
-
-    scope = f'subject "{args.subject}"' if args.subject else "the full corpus"
-    if not pages:
-        print(f"Nothing to index for {scope} - every matching page is already embedded.")
-        return 0
-
-    print(f"Found {len(pages)} not-yet-indexed page(s) to embed ({scope}).")
     embedder = SentenceTransformerEmbedder()
     indexer = PageEmbeddingIndexer(embedder, store)
 
-    try:
-        indexed_count = indexer.index_pages(pages)
-    except PageEmbeddingError as error:
-        LOGGER.error("Indexing failed: %s", error)
-        return 1
+    scope = f'subject "{args.subject}"' if args.subject else "the full corpus"
+    total_indexed = 0
+    remaining = args.limit
+    while remaining is None or remaining > 0:
+        chunk_size = QUERY_CHUNK_SIZE if remaining is None else min(QUERY_CHUNK_SIZE, remaining)
+        try:
+            pages = _load_pages_to_index(args.database, args.subject, chunk_size)
+        except sqlite3.Error as error:
+            LOGGER.error("Unable to read the master database: %s", error)
+            return 1
+        if not pages:
+            break
 
-    print(f"Indexed {indexed_count} page(s) this run.")
+        print(f"Embedding {len(pages)} not-yet-indexed page(s) ({scope})...")
+        try:
+            indexed_count = indexer.index_pages(pages)
+        except PageEmbeddingError as error:
+            LOGGER.error("Indexing failed: %s", error)
+            return 1
+        total_indexed += indexed_count
+        if remaining is not None:
+            remaining -= indexed_count
+
+    if total_indexed == 0:
+        print(f"Nothing to index for {scope} - every matching page is already embedded.")
+    else:
+        print(f"Indexed {total_indexed} page(s) this run.")
     return 0
 
 

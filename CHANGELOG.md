@@ -1861,3 +1861,28 @@ run for the entire corpus (2,385,159 pages, ~45.7 hours estimated) was
 then started for real in the background, per explicit request - not yet
 complete as of this entry.
 
+**Real bug found immediately after starting that run, and fixed before
+letting it continue**: `main()` called `_load_pages_to_index()` once with
+`limit=None` (the whole remaining corpus) *before* the embedding loop
+started - which meant one SQL query tried to fetch every not-yet-indexed
+page's real text (~2.37 million rows) into memory in a single round-trip
+before a single page got embedded. Caught by watching real signals, not
+assumption: `PageEmbeddings`'s row count stayed frozen for minutes while
+the process's real CPU time kept climbing (8s -> 150s -> 252s) - a real,
+running-but-not-progressing job. Killed it and fixed the actual cause:
+`main()` now loops, fetching and embedding in bounded `QUERY_CHUNK_SIZE`
+(5000-page) chunks regardless of `--limit`, so an unbounded "index
+everything" run makes steady, real progress from the first chunk instead
+of stalling on one giant query. Re-validated for real afterward (a timed
+2000-page run made steady incremental commits, confirmed via
+`PageEmbeddings` row counts moving during the run, not just at the end)
+before relaunching the real overnight run.
+
+**Updated real throughput, measured (not extrapolated) on this exact
+machine**: ~8.5-8.7 pages/sec, slower than the original pilot's ~14.5
+(likely real corpus-content differences, not a regression - this
+project's later-imported libraries include denser/longer real page
+content than the original Hadith-subject pilot). At this rate the full
+corpus (2,385,159 pages) is now estimated at **~76-78 hours** of
+continuous CPU time, not ~45.7 - another real, updated number.
+

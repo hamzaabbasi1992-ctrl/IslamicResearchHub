@@ -207,12 +207,16 @@ scaled to the full corpus.
 - **WAL journal mode: done** (migration 9, applied to production) - lets
   the desktop app keep reading/searching while a long background
   indexing job writes, instead of risking "database is locked".
-- **Full-corpus run: started.** The original ~18 hour estimate was based
-  on a 922,345-page corpus; the corpus has since grown to 2,385,159
-  pages (15,162 books), so the updated estimate is **~45.7 hours** of
-  continuous CPU time (no GPU on this machine). Started for real,
-  unbounded, in the background, per explicit request - in progress, not
-  yet complete.
+- **Full-corpus run: in progress.** The original ~18 hour estimate used
+  a smaller, older corpus and an unmeasured throughput guess; the real,
+  measured throughput on this machine is ~8.5-8.7 pages/sec (CPU only),
+  giving an updated estimate of **~76-78 hours** for all 2,385,159
+  pages. Running unbounded in the background per explicit request,
+  resumable at any point (migration 9 + the resume/skip logic above).
+  A real bug was found and fixed right after starting it (see
+  CHANGELOG: an unbounded run tried to load the entire remaining
+  corpus into memory in one query before embedding anything - fixed
+  with bounded internal chunking).
 
 ### Phase 7 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 6, not started**
 
