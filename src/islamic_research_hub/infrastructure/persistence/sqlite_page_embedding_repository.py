@@ -32,6 +32,18 @@ class SqlitePageEmbeddingRepository:
     def __init__(self, database_path: Path) -> None:
         self._database_path = database_path
 
+    def ensure_schema(self) -> None:
+        """Create the `PageEmbeddings` table if it doesn't exist yet, writing no rows.
+
+        Lets a caller (e.g. a resume-aware indexing run) safely query
+        `PageEmbeddings` - to see what's already indexed - before any real
+        embedding has ever been stored, without duplicating the schema
+        declaration from `store()`.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            self._create_schema(connection)
+            connection.commit()
+
     def store(self, entries: tuple[tuple[int, int, tuple[float, ...]], ...]) -> None:
         """Persist (book_id, page_number, embedding) triples."""
         if not entries:

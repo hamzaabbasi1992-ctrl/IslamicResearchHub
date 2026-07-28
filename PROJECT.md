@@ -199,12 +199,20 @@ scaled to the full corpus.
   data) is fixed - see CHANGELOG. Storage now commits in much larger,
   far less frequent batches (default 1000 entries), independent of the
   embedding batch size.
-- **Full-corpus run: not started, updated estimate.** The original ~18
-  hour estimate was based on a 922,345-page corpus; the corpus has
-  since grown to 2,385,159 pages (15,162 books). At the pilot's
-  measured throughput (CPU-only, no GPU), a full run now costs an
-  estimated **~45.7 hours** of continuous CPU time - a real number to
-  weigh before committing to it, not a decision made yet.
+- **Resume-safe batched indexing: done.** `semantic_index_cli.py` skips
+  every page already embedded (`NOT EXISTS` against `PageEmbeddings`)
+  and supports `--limit` for bounded, resumable batches - verified for
+  real by hard-killing a run mid-batch and confirming a re-run resumed
+  cleanly with no duplicate work and no gaps.
+- **WAL journal mode: done** (migration 9, applied to production) - lets
+  the desktop app keep reading/searching while a long background
+  indexing job writes, instead of risking "database is locked".
+- **Full-corpus run: started.** The original ~18 hour estimate was based
+  on a 922,345-page corpus; the corpus has since grown to 2,385,159
+  pages (15,162 books), so the updated estimate is **~45.7 hours** of
+  continuous CPU time (no GPU on this machine). Started for real,
+  unbounded, in the background, per explicit request - in progress, not
+  yet complete.
 
 ### Phase 7 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 6, not started**
 

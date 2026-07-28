@@ -1,5 +1,6 @@
 """Tests for the pilot-scale SQLite page embedding store and search."""
 
+import sqlite3
 from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Book, Page
@@ -63,6 +64,23 @@ def test_search_respects_limit(tmp_path: Path) -> None:
     results = repository.search(embedding=(1.0, 0.0), limit=1)
 
     assert len(results) == 1
+
+
+def test_ensure_schema_creates_the_table_without_writing_any_rows(tmp_path: Path) -> None:
+    """ensure_schema() makes PageEmbeddings queryable before any real store() call."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    repository = SqlitePageEmbeddingRepository(database_path)
+
+    repository.ensure_schema()
+
+    with sqlite3.connect(database_path) as connection:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'PageEmbeddings'"
+        ).fetchone()
+        assert exists is not None
+        count = connection.execute("SELECT COUNT(*) FROM PageEmbeddings").fetchone()[0]
+        assert count == 0
 
 
 def test_store_upserts_existing_book_and_page(tmp_path: Path) -> None:

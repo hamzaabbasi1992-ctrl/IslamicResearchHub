@@ -1813,3 +1813,51 @@ a full run is now estimated at **~45.7 hours of continuous CPU time**,
 not 18. This is a real, updated number to weigh before committing to
 that run - not yet started.
 
+## Semantic search: resume-safe batched indexing, WAL mode, full-corpus run started
+
+Before committing real machine time to the full-corpus run, three things
+the user explicitly asked for were built and verified for real.
+
+### Added
+
+- **Resume/skip logic** (`semantic_index_cli.py`, `_load_pages_to_index`):
+  every page already present in `PageEmbeddings` is now excluded via a
+  `NOT EXISTS` SQL filter before anything is loaded - re-running the
+  same command after an interruption (crash, power loss, deliberate
+  stop) continues rather than re-embedding already-done pages. Verified
+  for real: a running batch was hard-killed mid-run (SIGTERM via a shell
+  timeout) and only the uncommitted partial batch was lost - re-running
+  picked up exactly where it left off, with no duplicate work and no
+  gaps (confirmed via `PageEmbeddings` row counts before/after).
+- `--limit` on `semantic_index_cli.py`: caps a single run to a bounded
+  number of not-yet-indexed pages, for deliberately splitting a large
+  job into sessions. `--subject` changed from a required positional
+  argument to an optional flag - omitting it now indexes the whole
+  corpus instead of requiring one root category.
+- `SqlitePageEmbeddingRepository.ensure_schema()`: creates the
+  `PageEmbeddings` table (if missing) without writing any rows, so the
+  resume check works correctly even before the very first real
+  embedding is stored.
+- **Migration 9, WAL journal mode**: the default rollback-journal mode
+  briefly locks the whole database during every writer commit, which
+  readers can genuinely hit as "database is locked" - confirmed
+  directly in this project's own real usage earlier this session (a
+  long-running read alongside a concurrent write). WAL lets the desktop
+  app keep reading/searching while a long background indexing job
+  writes. Applied for real to the production database (fresh backup
+  first, verified `user_version` 8 -> 9 and `PRAGMA journal_mode`
+  returns `wal`).
+
+### Real production run
+
+7 new tests (`test_semantic_index_cli.py`, plus a WAL-mode test in
+`test_migration_runner.py` and an `ensure_schema()` test) - 299/299
+total. Validated against the real production database (not just tests):
+a small real run embedded 20 real pages correctly; a second run with the
+same `--limit` confirmed real resume (20 different, not-yet-seen pages,
+via `PageEmbeddings` row counts); a 3000-page timed run was killed
+mid-batch and resumed cleanly. The full, unbounded, resume-safe indexing
+run for the entire corpus (2,385,159 pages, ~45.7 hours estimated) was
+then started for real in the background, per explicit request - not yet
+complete as of this entry.
+

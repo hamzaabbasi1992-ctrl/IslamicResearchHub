@@ -381,6 +381,33 @@ def _add_bookmarks_and_recent_books(connection: sqlite3.Connection) -> None:
     )
 
 
+def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
+    """Switch the database file to WAL journal mode for real read/write concurrency.
+
+    The default rollback-journal mode briefly locks the whole database
+    during every writer commit, which readers can genuinely hit as
+    "database is locked" - confirmed directly in this project's own real
+    usage (a long-running read alongside a concurrent write). This matters
+    for long background jobs (e.g. batched semantic embedding indexing)
+    that commit repeatedly while the desktop app keeps searching/browsing
+    at the same time. WAL is a persistent, file-level setting (stored in
+    the database file itself, not per-connection) - every future
+    connection uses WAL automatically once this runs, and the pragma is a
+    no-op if a connection is already in WAL mode. `PRAGMA journal_mode`
+    can't be set while a transaction is active, but nothing before this
+    in `migrate()` opens one for this migration, so a plain execute is
+    sufficient. A WAL switch can silently no-op (returning the unchanged
+    mode, not an error) if another connection already has the database
+    open - checked explicitly here so that failure is loud, not silent.
+    """
+    mode = connection.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+    if mode.lower() != "wal":
+        raise RuntimeError(
+            f"Could not switch to WAL journal mode (got '{mode}'). Close every "
+            "other connection to this database (e.g. the desktop app) and retry."
+        )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -389,6 +416,7 @@ NORMALIZED_SEARCH_VERSION = 5
 TAXONOMY_VERSION = 6
 NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION = 7
 BOOKMARKS_AND_RECENT_BOOKS_VERSION = 8
+WAL_JOURNAL_MODE_VERSION = 9
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -440,6 +468,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add BookBookmarks and RecentBooks tables for the Phase 5 desktop "
         "viewer, additive.",
         _add_bookmarks_and_recent_books,
+    ),
+    Migration(
+        WAL_JOURNAL_MODE_VERSION,
+        "Switch the database to WAL journal mode for real read/write "
+        "concurrency during long background jobs.",
+        _switch_to_wal_journal_mode,
     ),
 )
 

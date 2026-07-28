@@ -21,6 +21,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     TAXONOMY_DIMENSIONS,
     TAXONOMY_VERSION,
     VOLUMES_VERSION,
+    WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
 )
 
@@ -130,8 +131,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
+            WAL_JOURNAL_MODE_VERSION,
         ]
-        assert runner.current_version(connection) == BOOKMARKS_AND_RECENT_BOOKS_VERSION
+        assert runner.current_version(connection) == WAL_JOURNAL_MODE_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -170,6 +172,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
+            WAL_JOURNAL_MODE_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -221,6 +224,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
+            WAL_JOURNAL_MODE_VERSION,
         ]
 
         rows = connection.execute(
@@ -284,6 +288,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
+            WAL_JOURNAL_MODE_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -558,6 +563,17 @@ def test_bookmarks_and_recent_books_migration_creates_real_working_tables(
             "SELECT BookID, LastPageNo FROM RecentBooks WHERE BookID = 1"
         ).fetchone()
         assert recent_row == (1, 5)
+
+
+def test_wal_migration_switches_the_real_journal_mode(tmp_path: Path) -> None:
+    """Migration 9 leaves the database in real WAL mode, verified via PRAGMA."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+        mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+        assert mode.lower() == "wal"
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:
