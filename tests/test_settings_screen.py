@@ -71,7 +71,7 @@ def test_default_font_family_falls_back_when_nothing_is_stored(qtbot, tmp_path: 
     screen = SettingsScreen(database_path, settings, Translator(settings))
     qtbot.addWidget(screen)
 
-    assert screen.default_font_family() == "Noori Nastaleeq"
+    assert screen.default_font_family() == "Jameel Noori Nastaleeq"
 
 
 def test_changing_font_family_persists_to_settings(qtbot, tmp_path: Path) -> None:

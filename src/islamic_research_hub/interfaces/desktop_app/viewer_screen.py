@@ -20,6 +20,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
     DEFAULT_FONT_CHOICE,
     FONT_CHOICES,
+    resolve_installed_font_family,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 
@@ -180,9 +181,10 @@ class ViewerScreen(QWidget):
 
     def _apply_font_size(self) -> None:
         font_stack = _font_stack_for(self._font_family)
+        resolved_family = resolve_installed_font_family(font_stack)
         self._content_label.setStyleSheet(
             f"padding: 16px 24px; font-size: {self._font_px}px; line-height: 160%; "
-            f"font-family: {font_stack};"
+            f"font-family: '{resolved_family}';"
         )
 
     def selected_font_family(self) -> str:

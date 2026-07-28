@@ -42,3 +42,7 @@ build_temp/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Claude Code conversation history export (spans unrelated projects -
+# never belongs in this repo's history)
+claude-history-export/

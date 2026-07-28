@@ -1628,3 +1628,33 @@ searching "بخاری" shows real title matches (e.g. "آفتاب بخارا س�
 "محمد" into the author filter narrows 650 real authors down to matching
 ones live.
 
+## Real bug fix: the reading font wasn't actually rendering as chosen
+
+User-reported: the Viewer's selected font ("Noori Nastaleeq") didn't
+look right. Root cause, confirmed directly (`QLabel.font().family()`
+after `setStyleSheet()`): Qt's `font-family` stylesheet property does
+**not** walk a CSS-style comma-separated fallback list the way a real
+browser does - it requests only the first name verbatim, and if that
+exact family isn't installed, Qt silently substitutes some unrelated
+default instead of trying the next name in the list. "Noori Nastaleeq"
+itself turned out not to be installed on this machine at all (confirmed
+via `QFontDatabase.families()`) - only "Jameel Noori Nastaleeq" (the
+real, widely-distributed version) was, so every font choice whose first
+preference wasn't installed was silently rendering wrong.
+
+Fixed with `reading_fonts.resolve_installed_font_family()`: walks the
+same comma-separated stack ourselves against `QFontDatabase.families()`
+and returns the first name that's genuinely installed (falling back to
+"Tahoma", confirmed present), so the font actually requested from Qt is
+always real. `ViewerScreen._apply_font_size()` now resolves before
+setting the stylesheet. `DEFAULT_FONT_CHOICE` changed from "Noori
+Nastaleeq" to "Jameel Noori Nastaleeq" - the same real font, but the
+name actually present as an installed system font, so the default
+selection is honest about what's shown from the very first run.
+
+3 new tests (`test_reading_fonts.py`) covering the exact real bug
+(a stack whose first choice isn't installed correctly falls through to
+one that is) plus the already-installed-first-choice case. Existing
+font tests updated for the new default/verified against `QFontDatabase`
+rather than hardcoding an unverified font name. 257/257 tests passing.
+

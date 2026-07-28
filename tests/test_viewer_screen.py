@@ -107,29 +107,37 @@ def test_font_size_controls_change_the_stylesheet(qtbot, tmp_path: Path) -> None
     assert f"font-size: {screen._font_px}px" in screen._content_label.styleSheet()
 
 
-def test_font_family_choice_defaults_to_noori_nastaleeq(qtbot, tmp_path: Path) -> None:
-    """With no persisted choice, the reading font defaults to Noori Nastaleeq."""
+def test_font_family_choice_defaults_to_jameel_noori_nastaleeq(qtbot, tmp_path: Path) -> None:
+    """With no persisted choice, the reading font defaults to Jameel Noori Nastaleeq -
+    the widely-installed real redistribution, not the rarer "Noori Nastaleeq" name."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = ViewerScreen(database_path)
     qtbot.addWidget(screen)
 
-    assert screen.selected_font_family() == "Noori Nastaleeq"
-    assert "Noori Nastaleeq" in screen._content_label.styleSheet()
+    assert screen.selected_font_family() == "Jameel Noori Nastaleeq"
+    assert "font-family" in screen._content_label.styleSheet()
 
 
 def test_font_family_dropdown_changes_the_applied_font(qtbot, tmp_path: Path) -> None:
-    """Picking a different font from the dropdown updates the page content's font-family."""
+    """Picking a different font from the dropdown updates the page content's font-family.
+
+    Picks a font not offered as a first choice in any FONT_CHOICES stack
+    (Sakkal Majalla) that's also genuinely installed on this machine, so
+    the resolved, rendered family name is real and stable to assert on -
+    unlike a font that may not be installed everywhere (see
+    reading_fonts.resolve_installed_font_family).
+    """
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = ViewerScreen(database_path)
     qtbot.addWidget(screen)
     screen.load_book(1)
 
-    screen._font_family_combo.setCurrentText("Amiri")
+    screen._font_family_combo.setCurrentText("Sakkal Majalla")
 
-    assert screen.selected_font_family() == "Amiri"
-    assert "Amiri" in screen._content_label.styleSheet()
+    assert screen.selected_font_family() == "Sakkal Majalla"
+    assert "font-family" in screen._content_label.styleSheet()
 
 
 def test_initial_font_family_is_honored(qtbot, tmp_path: Path) -> None:
