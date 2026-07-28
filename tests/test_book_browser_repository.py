@@ -295,6 +295,72 @@ def test_list_books_by_author_returns_real_matching_books(tmp_path: Path) -> Non
     assert summaries[0].title == "Book of Fiqh"
 
 
+def test_list_books_by_filters_with_only_author_matches_that_author(tmp_path: Path) -> None:
+    """With no library/category given, only the author filter narrows results."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_by_filters(author="Author One")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Fiqh"
+
+
+def test_list_books_by_filters_with_only_category_matches_that_category(tmp_path: Path) -> None:
+    """With no library/author given, only the category filter narrows results."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(Category(mjcn=9, name="Fiqh", parent_mjcn=0, sort_key=1),),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    other = Book(
+        information={"Name": "Book of Hadith"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (other,), (database_path.parent / "two.mjbz",)
+    )
+
+    summaries = BookBrowserRepository(database_path).list_books_by_filters(category="Fiqh")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Fiqh"
+
+
+def test_list_books_by_filters_combines_author_and_library(tmp_path: Path) -> None:
+    """Author and library filters combine (AND), not just either alone."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    matching = BookBrowserRepository(database_path).list_books_by_filters(
+        library="Library A", author="Author One"
+    )
+    mismatched = BookBrowserRepository(database_path).list_books_by_filters(
+        library="Library B", author="Author One"
+    )
+
+    assert len(matching) == 1
+    assert matching[0].title == "Book of Fiqh"
+    assert mismatched == ()
+
+
+def test_list_books_by_filters_with_nothing_set_returns_everything(tmp_path: Path) -> None:
+    """No filters at all returns every real book, same as an unfiltered browse."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_by_filters()
+
+    assert len(summaries) == 2
+
+
 def test_list_books_in_library_returns_real_matching_books(tmp_path: Path) -> None:
     """Only books in this exact library are returned."""
     database_path = tmp_path / "books.db"

@@ -1717,3 +1717,61 @@ newly-imported pages after the rebuild still get normalized correctly),
 1 for the `SearchScreen` checkbox. Applied migration 7 for real to the
 production database (fresh backup first).
 
+## Phase 5: Book Viewer - in-app PDF reading, bookmarks, recent books
+
+Text-page books already opened in `ViewerScreen`; PDF-only books (no
+extracted per-page text - confirmed DjVu/EPUB have zero real content in
+this corpus, so Phase 5 scope was PDF + bookmarks + recent books only)
+had no in-app reading path at all.
+
+### Added
+
+- `PdfViewerScreen` (`interfaces/desktop_app/pdf_viewer_screen.py`), a
+  new screen using Qt's own `QPdfDocument`/`QPdfView` (ships with
+  PySide6, no new dependency) for real in-app PDF rendering: prev/next
+  page, a page-number jump box, zoom in/out, and a bookmark toggle.
+- Real per-page bookmarks: `BookBookmarks` table (migration 8) +
+  `BookmarkRepository` (`infrastructure/persistence/bookmark_repository.py`).
+  Wired into both `ViewerScreen` (text-page books) and the new
+  `PdfViewerScreen` (PDF books) via a shared `bookmark_toggled` signal, so
+  bookmarking works identically regardless of which viewer opened the book.
+- Real recently-opened-book tracking: `RecentBooks` table (migration 8,
+  `UNIQUE`/upsert on `BookID` so reopening a book updates its row instead
+  of duplicating it) + `RecentBookRepository`
+  (`infrastructure/persistence/recent_book_repository.py`).
+- `MainWindow` routing (`_open_in_viewer`): tries `ViewerScreen` first: if
+  the book actually has extracted text pages, opens there; otherwise falls
+  back to resolving and opening the source PDF in `PdfViewerScreen`. Both
+  screens now live inside an inner `QStackedWidget` at rail index 1.
+- Both repositories follow the existing `_table_exists()` graceful-degrade
+  pattern (`BookBrowserRepository`'s established pattern) so a database
+  that hasn't run migration 8 yet never crashes - bookmarking/recent-books
+  just silently no-op until migrated.
+
+### Fixed
+
+- **Real bug found while wiring routing**: `ViewerScreen.load_book()`
+  returned `True` even for a 0-page (PDF-only) book, which broke the
+  PDF-fallback logic (`if viewer_screen.load_book(...)` was always
+  truthy). Added `has_content()` and used it as an additional routing
+  condition.
+- **Real bug, user-reported** ("author n category search button not
+  working"): `SearchScreen._run_search()` returned immediately whenever
+  the main search box was empty, before it ever looked at the
+  Author/Category/Library filter fields - so typing directly into those
+  boxes and clicking Search did nothing. Added
+  `BookBrowserRepository.list_books_by_filters()` (any combination of
+  exact library/author/category, all optional) and
+  `SearchScreen._browse_by_filters()`, used when the query box is empty
+  but at least one filter is set - browses straight to the matching books,
+  the same way clicking a name in the left pane already did.
+
+19 new tests (286/286 total): `PdfViewerScreen`,
+`BookmarkRepository`/`RecentBookRepository` (including pre-migration
+graceful-degrade cases for both), `MainWindow` routing to each screen,
+and the Author/Category filter-search fix. Migration 8 applied for real
+to the production database (fresh backup first, verified `user_version`
+7 -> 8, both new tables present, and a real bookmark add/remove +
+recent-open record/list round-trip against a real production book -
+the test row was deleted afterward, no permanent change left behind).
+

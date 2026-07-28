@@ -154,6 +154,48 @@ class BookBrowserRepository:
             ).fetchall()
         return tuple(BookSummary(*row) for row in rows)
 
+    def list_books_by_filters(
+        self,
+        library: str | None = None,
+        author: str | None = None,
+        category: str | None = None,
+        limit: int = MAX_BROWSE_RESULTS,
+    ) -> tuple[BookSummary, ...]:
+        """Return real books matching any combination of exact library/author/category filters.
+
+        Unlike `search_by_title`, this takes no query text - it's for
+        browsing directly by filter alone (e.g. the Author/Category boxes
+        with no search text typed).
+        """
+        conditions = ["1 = 1"]
+        parameters: list[object] = []
+        if library is not None:
+            conditions.append("l.Name = ?")
+            parameters.append(library)
+        if author is not None:
+            conditions.append("b.Author = ?")
+            parameters.append(author)
+        if category is not None:
+            conditions.append(
+                "EXISTS (SELECT 1 FROM Categories c WHERE c.BookID = b.BookID AND c.Name = ?)"
+            )
+            parameters.append(category)
+        parameters.append(limit)
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE {" AND ".join(conditions)}
+                ORDER BY b.Title
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
     def get_book_source(self, book_id: int) -> tuple[str, str | None] | None:
         """Return (source path, library name) for one book, or None if missing."""
         with closing(sqlite3.connect(self._database_path)) as connection:

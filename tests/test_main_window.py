@@ -115,14 +115,15 @@ def test_search_result_open_in_viewer_switches_screen_and_loads_the_book(
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
     search_screen = window._stack.widget(0)
-    viewer_screen = window._stack.widget(1)
+    viewer_stack = window._stack.widget(1)
 
     search_screen.open_in_viewer_requested.emit(1, 1)
 
     assert window._stack.currentIndex() == 1
     assert window._rail_buttons[1].isChecked()
-    assert viewer_screen._title_label.text() == "Book of Fiqh"
-    assert viewer_screen._content_label.text() == "Some real page content"
+    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._viewer_screen._title_label.text() == "Book of Fiqh"
+    assert window._viewer_screen._content_label.text() == "Some real page content"
 
 
 def test_missing_database_shows_a_clear_message_not_a_broken_search_screen(

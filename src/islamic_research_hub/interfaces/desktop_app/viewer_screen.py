@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -33,6 +33,8 @@ FONT_STEP_PX = 1.5
 class ViewerScreen(QWidget):
     """Show one book's pages, one at a time, with prev/next/jump navigation."""
 
+    bookmark_toggled = Signal(int, int, bool)  # book_id, page_number, is_now_bookmarked
+
     def __init__(
         self,
         database_path: Path,
@@ -47,6 +49,8 @@ class ViewerScreen(QWidget):
         self._current_index = 0
         self._font_px = initial_font_px or DEFAULT_FONT_PX
         self._font_family = initial_font_family or DEFAULT_FONT_CHOICE
+        self._current_book_id: int | None = None
+        self._bookmarked_pages: set[int] = set()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -96,6 +100,10 @@ class ViewerScreen(QWidget):
 
         toolbar.addStretch(1)
 
+        self._bookmark_button = QPushButton("Bookmark this page")
+        self._bookmark_button.clicked.connect(self._toggle_bookmark)
+        toolbar.addWidget(self._bookmark_button)
+
         self._font_family_combo = QComboBox()
         for display_name, _font_stack in FONT_CHOICES:
             self._font_family_combo.addItem(display_name)
@@ -130,7 +138,7 @@ class ViewerScreen(QWidget):
         layout.addWidget(self._reader, stretch=1)
         self._apply_font_size()
 
-    def load_book(self, book_id: int) -> bool:
+    def load_book(self, book_id: int, bookmarked_pages: set[int] | None = None) -> bool:
         """Load one book's pages into the viewer. Returns False if not found."""
         detail = self._browser.get_book_detail(book_id)
         if detail is None:
@@ -138,6 +146,8 @@ class ViewerScreen(QWidget):
         title, author, pages = detail
         self._pages = pages
         self._current_index = 0
+        self._current_book_id = book_id
+        self._bookmarked_pages = set(bookmarked_pages or ())
         self._title_label.setText(title or "(untitled)")
         self._author_label.setText(author or "Unknown author")
         self._empty_label.setVisible(False)
@@ -191,6 +201,45 @@ class ViewerScreen(QWidget):
         """Return the currently selected reading font's display name."""
         return self._font_family
 
+    def has_content(self) -> bool:
+        """Return whether the loaded book has any real extracted page text.
+
+        `load_book()` returns True as soon as a matching `Books` row
+        exists, even for the ~9,172 real PDF-only books with `PageCount=0`
+        (no OCR has been run on them) - this is the real signal callers
+        need to decide whether to fall back to `PdfViewerScreen` instead.
+        """
+        return len(self._pages) > 0
+
+    def current_page_number(self) -> int | None:
+        """Return the real page number currently shown, or None if nothing is loaded."""
+        if not self._pages:
+            return None
+        return self._pages[self._current_index].page_number
+
+    def current_book_id(self) -> int | None:
+        """Return the book id of the currently loaded book, if any."""
+        return self._current_book_id
+
+    def _toggle_bookmark(self) -> None:
+        page_number = self.current_page_number()
+        if self._current_book_id is None or page_number is None:
+            return
+        now_bookmarked = page_number not in self._bookmarked_pages
+        if now_bookmarked:
+            self._bookmarked_pages.add(page_number)
+        else:
+            self._bookmarked_pages.discard(page_number)
+        self._update_bookmark_button()
+        self.bookmark_toggled.emit(self._current_book_id, page_number, now_bookmarked)
+
+    def _update_bookmark_button(self) -> None:
+        page_number = self.current_page_number()
+        is_bookmarked = page_number is not None and page_number in self._bookmarked_pages
+        self._bookmark_button.setText(
+            "★ Bookmarked" if is_bookmarked else "Bookmark this page"
+        )
+
     def _render_current_page(self) -> None:
         if not self._pages:
             return
@@ -200,6 +249,7 @@ class ViewerScreen(QWidget):
         self._page_count_label.setText(f"/ {len(self._pages)}")
         self._prev_button.setEnabled(self._current_index > 0)
         self._next_button.setEnabled(self._current_index < len(self._pages) - 1)
+        self._update_bookmark_button()
 
 
 def _font_stack_for(display_name: str) -> str:

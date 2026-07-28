@@ -1,6 +1,6 @@
 # Islamic Research Hub AI — Project Plan
 
-Last updated: 2026-07-28 (kept in sync with `CHANGELOG.md`, which is the
+Last updated: 2026-07-29 (kept in sync with `CHANGELOG.md`, which is the
 authoritative detailed history — this file is the current-status summary).
 
 ## Goal
@@ -155,12 +155,34 @@ real-data validation behind every item below.
   production log and real search results. Closes out the original
   8-tab Phase 4 list.
 
-### Phase 5 — Book Viewer: **not started**
+### Phase 5 — Book Viewer: **done**
 
-PDF, DjVu, EPUB rendering; jump-to-page; highlights; bookmarks; recent
-books. Note: a browser-based viewer (PDF `#page=N` jump, in-app text
-reading) already exists in the frozen web app - Phase 5 is about the
-PySide6 desktop equivalent, not building page-jump from zero.
+PDF rendering, jump-to-page, bookmarks, recent books - the PySide6
+desktop equivalent of the browser-based viewer already in the frozen web
+app. DjVu/EPUB were evaluated and dropped from scope: confirmed zero real
+content of either format exists anywhere in the corpus.
+
+- `PdfViewerScreen` - **done**: real in-app PDF rendering via Qt's own
+  `QPdfDocument`/`QPdfView` (ships with PySide6, no new dependency) -
+  page navigation, a page-number jump box, zoom, bookmark toggle.
+- Routing - **done**: `MainWindow` opens text-page books in the existing
+  `ViewerScreen` and falls back to `PdfViewerScreen` for PDF-only books,
+  both inside one stacked widget at the Viewer rail position.
+- Bookmarks - **done**: real per-book, per-page bookmarks
+  (`BookBookmarks` table, migration 8, `BookmarkRepository`), wired into
+  both viewer screens via a shared toggle signal.
+- Recent books - **done**: `RecentBooks` table (migration 8,
+  upsert-on-reopen) + `RecentBookRepository`. Repository/schema only so
+  far - no "Recent" section in the Search screen UI yet; tracked as
+  follow-up work, not blocking Phase 5 completion.
+- Real bug fixed along the way: the Search screen's Author/Category
+  filter fields did nothing when clicked with an empty search box (the
+  empty-query check short-circuited before the filters were read) - see
+  CHANGELOG.
+- 19 new tests (286/286 total). Migration 8 applied for real to the
+  production database (fresh backup first, verified `user_version` 7 ->
+  8, both new tables present, and a real bookmark + recent-open
+  round-trip against a real production book).
 
 ### Phase 6 — AI: **not started under phase discipline**
 

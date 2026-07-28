@@ -13,6 +13,7 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 from islamic_research_hub.infrastructure.persistence.migration_runner import (
     AUTHORS_VERSION,
     BASELINE_VERSION,
+    BOOKMARKS_AND_RECENT_BOOKS_VERSION,
     CATEGORIES_VERSION,
     MIGRATIONS,
     NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
@@ -128,8 +129,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
+            BOOKMARKS_AND_RECENT_BOOKS_VERSION,
         ]
-        assert runner.current_version(connection) == NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION
+        assert runner.current_version(connection) == BOOKMARKS_AND_RECENT_BOOKS_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -167,6 +169,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
+            BOOKMARKS_AND_RECENT_BOOKS_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -217,6 +220,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
+            BOOKMARKS_AND_RECENT_BOOKS_VERSION,
         ]
 
         rows = connection.execute(
@@ -279,6 +283,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             NORMALIZED_SEARCH_VERSION,
             TAXONOMY_VERSION,
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
+            BOOKMARKS_AND_RECENT_BOOKS_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -523,6 +528,36 @@ def test_keyboard_fix_migration_rebuilt_trigger_still_normalizes_new_pages(
             (normalize_search_text("كتاب"),),  # Arabic kaf, new content has Urdu keheh
         ).fetchone()[0]
         assert match == 1
+
+
+def test_bookmarks_and_recent_books_migration_creates_real_working_tables(
+    tmp_path: Path,
+) -> None:
+    """Migration 8 creates BookBookmarks/RecentBooks and real rows can be written."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        connection.execute(
+            "INSERT INTO BookBookmarks (BookID, PageNo, CreatedAt) VALUES (1, 5, datetime('now'))"
+        )
+        connection.execute(
+            "INSERT INTO RecentBooks (BookID, LastPageNo, OpenedAt) "
+            "VALUES (1, 5, datetime('now'))"
+        )
+        connection.commit()
+
+        bookmark_row = connection.execute(
+            "SELECT BookID, PageNo FROM BookBookmarks WHERE BookID = 1"
+        ).fetchone()
+        assert bookmark_row == (1, 5)
+
+        recent_row = connection.execute(
+            "SELECT BookID, LastPageNo FROM RecentBooks WHERE BookID = 1"
+        ).fetchone()
+        assert recent_row == (1, 5)
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

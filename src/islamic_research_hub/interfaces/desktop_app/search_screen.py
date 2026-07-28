@@ -327,15 +327,23 @@ class SearchScreen(QWidget):
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
-        if not query:
-            self._status_label.setText("")
-            return
 
         library = self._library_combo.currentText()
         library = None if library == ALL_LIBRARIES_LABEL else library
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
         exact = self._exact_match_checkbox.isChecked()
+
+        if not query:
+            # No search text - the Author/Category/Library filters can still
+            # be used on their own (e.g. typed directly into the Author or
+            # Category box, then Search clicked) to browse straight to the
+            # matching books, same as clicking a name in the left pane does.
+            if author or category or library:
+                self._browse_by_filters(library, author, category)
+            else:
+                self._status_label.setText("")
+            return
 
         # Book-name search runs alongside content search (not instead of it):
         # the same query can be a real title match, a real content match, or
@@ -378,6 +386,20 @@ class SearchScreen(QWidget):
             self._results_layout.insertWidget(
                 self._results_layout.count() - 1, self._build_result_card(result)
             )
+
+    def _browse_by_filters(
+        self, library: str | None, author: str | None, category: str | None
+    ) -> None:
+        """Browse straight to books matching Author/Category/Library filters alone."""
+        summaries = self._browser.list_books_by_filters(library, author, category)
+        heading_bits = []
+        if author:
+            heading_bits.append(f"author {author}")
+        if category:
+            heading_bits.append(f'category "{category}"')
+        if library:
+            heading_bits.append(f"library {library}")
+        self._browse(summaries, "Books matching " + ", ".join(heading_bits))
 
     def _clear_results(self) -> None:
         while self._results_layout.count() > 1:

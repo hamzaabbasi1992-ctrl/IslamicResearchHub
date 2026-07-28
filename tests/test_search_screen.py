@@ -220,6 +220,42 @@ def test_clicking_all_libraries_with_no_query_prompts_instead_of_listing_everyth
     assert "Type a search" in screen._status_label.text()
 
 
+def test_typing_an_author_and_clicking_search_with_no_query_browses_directly(
+    qtbot, tmp_path: Path
+) -> None:
+    """Typing straight into the Author box and clicking Search (no query text)
+    lists that author's real books, instead of doing nothing (previously the
+    empty query box short-circuited _run_search before the filters were
+    even read - see the CHANGELOG fix for this exact gap)."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    qtbot.keyClicks(screen._author_edit, "Author One")
+    screen._run_search()
+
+    assert "1 book" in screen._status_label.text()
+    assert screen._results_layout.count() == 2  # one book card + trailing stretch
+
+
+def test_typing_a_category_and_clicking_search_with_no_query_browses_directly(
+    qtbot, tmp_path: Path
+) -> None:
+    """Typing straight into the Category box and clicking Search (no query
+    text) lists that category's real books directly."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    qtbot.keyClicks(screen._category_edit, "Fiqh")
+    screen._run_search()
+
+    assert "1 book" in screen._status_label.text()
+    assert screen._results_layout.count() == 2  # one book card + trailing stretch
+
+
 def test_search_shows_real_title_matches_separately_from_content_matches(
     qtbot, tmp_path: Path
 ) -> None:

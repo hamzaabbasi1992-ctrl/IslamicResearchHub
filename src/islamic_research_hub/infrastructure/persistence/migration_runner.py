@@ -353,6 +353,34 @@ def _add_taxonomy_system(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_bookmarks_and_recent_books(connection: sqlite3.Connection) -> None:
+    """Add real Bookmarks and Recent Books tables for the Phase 5 desktop viewer.
+
+    Additive only - no existing table is touched. `BookBookmarks` is a
+    real per-book, per-page bookmark (a book can have several); `RecentBooks`
+    tracks the single most recent open per book (re-opening a book updates
+    its existing row rather than growing an unbounded history).
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS BookBookmarks (
+            BookID INTEGER NOT NULL REFERENCES Books(BookID),
+            PageNo INTEGER NOT NULL,
+            CreatedAt TEXT NOT NULL,
+            PRIMARY KEY (BookID, PageNo)
+        );
+        CREATE INDEX IF NOT EXISTS idx_bookmarks_book_id ON BookBookmarks(BookID);
+
+        CREATE TABLE IF NOT EXISTS RecentBooks (
+            BookID INTEGER PRIMARY KEY REFERENCES Books(BookID),
+            LastPageNo INTEGER,
+            OpenedAt TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_recent_books_opened_at ON RecentBooks(OpenedAt);
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -360,6 +388,7 @@ VOLUMES_VERSION = 4
 NORMALIZED_SEARCH_VERSION = 5
 TAXONOMY_VERSION = 6
 NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION = 7
+BOOKMARKS_AND_RECENT_BOOKS_VERSION = 8
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -405,6 +434,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "letter variants too (Arabic kaf/ك vs Urdu keheh/ک, Arabic heh/ه vs "
         "Urdu goal-heh/ہ and doachashmee-heh/ھ).",
         _fix_normalized_search_keyboard_variants,
+    ),
+    Migration(
+        BOOKMARKS_AND_RECENT_BOOKS_VERSION,
+        "Add BookBookmarks and RecentBooks tables for the Phase 5 desktop "
+        "viewer, additive.",
+        _add_bookmarks_and_recent_books,
     ),
 )
 
