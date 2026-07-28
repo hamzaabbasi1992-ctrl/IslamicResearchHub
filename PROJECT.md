@@ -172,14 +172,15 @@ content of either format exists anywhere in the corpus.
   (`BookBookmarks` table, migration 8, `BookmarkRepository`), wired into
   both viewer screens via a shared toggle signal.
 - Recent books - **done**: `RecentBooks` table (migration 8,
-  upsert-on-reopen) + `RecentBookRepository`. Repository/schema only so
-  far - no "Recent" section in the Search screen UI yet; tracked as
-  follow-up work, not blocking Phase 5 completion.
+  upsert-on-reopen) + `RecentBookRepository`, plus a real "Recent" tab
+  in the Search screen's left pane (alongside Categories/Authors),
+  listing real recently-opened books and reopening one at its real last
+  page on click.
 - Real bug fixed along the way: the Search screen's Author/Category
   filter fields did nothing when clicked with an empty search box (the
   empty-query check short-circuited before the filters were read) - see
   CHANGELOG.
-- 19 new tests (286/286 total). Migration 8 applied for real to the
+- 21 new tests (288/288 total). Migration 8 applied for real to the
   production database (fresh backup first, verified `user_version` 7 ->
   8, both new tables present, and a real bookmark + recent-open
   round-trip against a real production book).

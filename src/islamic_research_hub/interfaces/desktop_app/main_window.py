@@ -85,7 +85,9 @@ class MainWindow(QMainWindow):
             self._bookmarks = BookmarkRepository(database_path)
             self._recent_books = RecentBookRepository(database_path)
             self._header_bar = HeaderBar(database_path, self._translator)
-            search_screen = SearchScreen(database_path, maknoon_pdf_folder)
+            search_screen = SearchScreen(
+                database_path, maknoon_pdf_folder, recent_books=self._recent_books
+            )
             initial_font_px = int(self._settings.value(FONT_SIZE_KEY, DEFAULT_FONT_PX))
             initial_font_family = str(
                 self._settings.value(FONT_FAMILY_KEY, DEFAULT_FONT_CHOICE)

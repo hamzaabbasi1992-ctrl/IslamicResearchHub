@@ -8,6 +8,7 @@ import pytest
 pytest.importorskip("PySide6")
 
 from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtWidgets import QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Category, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
@@ -15,6 +16,9 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 )
 from islamic_research_hub.infrastructure.persistence.migration_runner import (  # noqa: E402
     MigrationRunner,
+)
+from islamic_research_hub.infrastructure.persistence.recent_book_repository import (  # noqa: E402
+    RecentBookRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen  # noqa: E402
 
@@ -218,6 +222,46 @@ def test_clicking_all_libraries_with_no_query_prompts_instead_of_listing_everyth
 
     assert screen._results_layout.count() == 1  # only the trailing stretch
     assert "Type a search" in screen._status_label.text()
+
+
+def test_recent_tab_shows_empty_state_with_no_history(qtbot, tmp_path: Path) -> None:
+    """A fresh database (no books ever opened) shows an honest empty message."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._show_browse_tab(2)
+
+    labels = [
+        label.text() for label in screen._recent_list.findChildren(type(screen._status_label))
+    ]
+    assert any("No recently opened books" in text for text in labels)
+
+
+def test_recent_tab_lists_a_real_recently_opened_book_and_opens_it_on_click(
+    qtbot, tmp_path: Path
+) -> None:
+    """A real recorded open shows up in the Recent tab and re-opens at its last page."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    RecentBookRepository(database_path).record_open(1, page_number=5)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._show_browse_tab(2)
+
+    buttons = screen._recent_list.findChildren(QPushButton)
+    assert len(buttons) == 1
+    assert "Book of Fiqh" in buttons[0].text()
+
+    with qtbot.waitSignal(screen.open_in_viewer_requested, timeout=1000) as blocker:
+        buttons[0].click()
+    assert blocker.args == [1, 5]
 
 
 def test_typing_an_author_and_clicking_search_with_no_query_browses_directly(

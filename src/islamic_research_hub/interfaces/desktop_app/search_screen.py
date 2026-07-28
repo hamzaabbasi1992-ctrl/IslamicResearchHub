@@ -31,6 +31,9 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     MAX_BROWSE_RESULTS,
     BookBrowserRepository,
 )
+from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
+    RecentBookRepository,
+)
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
     BookSearchError,
     SqliteBookSearchRepository,
@@ -56,6 +59,7 @@ class SearchScreen(QWidget):
         maknoon_pdf_folder: Path,
         search_service: BookSearchService | None = None,
         browser: BookBrowserRepository | None = None,
+        recent_books: RecentBookRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -64,6 +68,7 @@ class SearchScreen(QWidget):
             SqliteBookSearchRepository(database_path)
         )
         self._browser = browser or BookBrowserRepository(database_path)
+        self._recent_books = recent_books or RecentBookRepository(database_path)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -101,6 +106,12 @@ class SearchScreen(QWidget):
         self._authors_tab_button.setObjectName("navTab")
         self._authors_tab_button.clicked.connect(lambda: self._show_browse_tab(1))
         tab_row.addWidget(self._authors_tab_button)
+
+        self._recent_tab_button = QPushButton("Recent")
+        self._recent_tab_button.setCheckable(True)
+        self._recent_tab_button.setObjectName("navTab")
+        self._recent_tab_button.clicked.connect(lambda: self._show_browse_tab(2))
+        tab_row.addWidget(self._recent_tab_button)
         layout.addLayout(tab_row)
 
         # 691 real categories and 650 real authors are too many to scroll
@@ -115,6 +126,8 @@ class SearchScreen(QWidget):
         self._browse_stack.addWidget(self._category_tree)
         self._author_list, self._author_row_buttons = self._build_author_list()
         self._browse_stack.addWidget(self._author_list)
+        self._recent_list, self._recent_list_layout = self._build_recent_pane()
+        self._browse_stack.addWidget(self._recent_list)
         layout.addWidget(self._browse_stack, stretch=1)
 
         layout.addWidget(_pane_title("Libraries"))
@@ -156,6 +169,51 @@ class SearchScreen(QWidget):
         scroll_area.setWidget(container)
         return scroll_area, row_buttons
 
+    def _build_recent_pane(self) -> tuple[QScrollArea, QVBoxLayout]:
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setSpacing(2)
+        scroll_area.setWidget(container)
+        return scroll_area, layout
+
+    def _refresh_recent_list(self) -> None:
+        """Rebuild the Recent tab from the real recently-opened-books list.
+
+        Queried fresh each time the tab is shown (rather than kept in sync
+        via a signal) since it's cheap and only needs to be current at the
+        moment the user looks at it.
+        """
+        while self._recent_list_layout.count():
+            item = self._recent_list_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+        recent = self._recent_books.list_recent()
+        if not recent:
+            empty_label = QLabel("No recently opened books yet.")
+            empty_label.setStyleSheet(MUTED_LABEL_STYLE)
+            empty_label.setWordWrap(True)
+            self._recent_list_layout.addWidget(empty_label)
+        else:
+            for summary in recent:
+                button = QPushButton(f"{summary.title}  ({summary.author or 'Unknown author'})")
+                button.setObjectName("authorRow")
+                button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+                last_page = self._recent_books.last_page_number(summary.book_id) or 1
+                button.clicked.connect(
+                    lambda _checked, bid=summary.book_id, page=last_page: (
+                        self.open_in_viewer_requested.emit(bid, page)
+                    )
+                )
+                self._recent_list_layout.addWidget(button)
+        self._recent_list_layout.addStretch(1)
+
     def _rebuild_library_chips(self) -> None:
         while self._library_chip_layout.count():
             item = self._library_chip_layout.takeAt(0)
@@ -178,16 +236,25 @@ class SearchScreen(QWidget):
         self._browse_stack.setCurrentIndex(index)
         self._categories_tab_button.setChecked(index == 0)
         self._authors_tab_button.setChecked(index == 1)
+        self._recent_tab_button.setChecked(index == 2)
         self._browse_filter_edit.clear()
+        self._browse_filter_edit.setEnabled(index != 2)
+        if index == 2:
+            self._refresh_recent_list()
 
     def _apply_browse_filter(self, text: str) -> None:
-        """Narrow whichever browse list (categories or authors) is currently shown."""
+        """Narrow whichever browse list (categories or authors) is currently shown.
+
+        The Recent tab isn't filterable - it's capped at
+        `RecentBookRepository.MAX_RECENT_BOOKS` (20) real books, short
+        enough that a filter box adds no value.
+        """
         needle = (normalize_search_text(text.strip()) or "").casefold()
         if self._browse_stack.currentIndex() == 0:
             root = self._category_tree.invisibleRootItem()
             for index in range(root.childCount()):
                 self._filter_category_item(root.child(index), needle)
-        else:
+        elif self._browse_stack.currentIndex() == 1:
             for name, button in self._author_row_buttons:
                 button.setVisible(needle in (normalize_search_text(name) or "").casefold())
 

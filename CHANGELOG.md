@@ -1738,7 +1738,11 @@ had no in-app reading path at all.
 - Real recently-opened-book tracking: `RecentBooks` table (migration 8,
   `UNIQUE`/upsert on `BookID` so reopening a book updates its row instead
   of duplicating it) + `RecentBookRepository`
-  (`infrastructure/persistence/recent_book_repository.py`).
+  (`infrastructure/persistence/recent_book_repository.py`), plus a real
+  "Recent" tab in `SearchScreen`'s left pane (next to Categories/
+  Authors) listing them and reopening one at its real last page on
+  click. Queried fresh each time the tab is shown rather than kept live
+  via a signal - simple and cheap at the real `MAX_RECENT_BOOKS = 20` cap.
 - `MainWindow` routing (`_open_in_viewer`): tries `ViewerScreen` first: if
   the book actually has extracted text pages, opens there; otherwise falls
   back to resolving and opening the source PDF in `PdfViewerScreen`. Both
@@ -1766,7 +1770,7 @@ had no in-app reading path at all.
   but at least one filter is set - browses straight to the matching books,
   the same way clicking a name in the left pane already did.
 
-19 new tests (286/286 total): `PdfViewerScreen`,
+21 new tests (288/288 total): `PdfViewerScreen`,
 `BookmarkRepository`/`RecentBookRepository` (including pre-migration
 graceful-degrade cases for both), `MainWindow` routing to each screen,
 and the Author/Category filter-search fix. Migration 8 applied for real
