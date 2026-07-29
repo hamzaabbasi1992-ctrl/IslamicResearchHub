@@ -2114,3 +2114,31 @@ cross-language conceptual search (Urdu query surfaces Arabic-only
 results - distinct from Phase 12's paragraph translation). Roadmap-only
 change, nothing implemented yet.
 
+## Semantic search wired into the desktop Search screen (capability shipped, not yet live)
+
+Real gap closed: semantic/hybrid search existed only as CLI tooling
+(`semantic_search_cli.py`), never reachable from the actual desktop
+app - v1.0's "fast unified search" promise wasn't fully met without it.
+
+`SearchScreen` gained an optional `semantic_search_service` parameter
+(`SemanticBookSearchService | None`, default `None`). When provided, a
+search also runs semantic search over the same query and shows results
+in a separate "Related pages" section, excluding any page already
+shown as a keyword match (no duplicates), with its own excerpt style
+(no `**highlight**` markers - a semantic match has no literal matched
+term to bold). Never breaks the primary keyword search: any semantic
+failure (`PageEmbeddingError`, no embedding index yet, the `ai` extra
+not installed) silently produces no related-pages section, nothing
+else. Skipped under `exact=True` (semantic matching is inherently
+fuzzy, contradicts what "exact" means) and under `scope="footnotes"`
+(the embedding index only covers page content, not footnotes).
+
+**Deliberately not wired into `MainWindow`'s real startup path yet** -
+loading a real local embedding model adds real startup latency for
+every user, even ones who never use search, and needs the optional
+`ai` extra installed. Built and fully tested with a duck-typed fake
+service (8 new tests, 310/310 total) so no real ML model loads in the
+test suite. Whether/how to wire it into real app startup (eagerly,
+lazily on first search, or behind a Settings toggle) is a real decision
+left open, not silently made.
+

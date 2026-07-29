@@ -23,10 +23,12 @@ from PySide6.QtWidgets import (
 
 from islamic_research_hub.application.book_search import BookSearchService
 from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
+from islamic_research_hub.application.semantic_book_search import SemanticBookSearchService
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
 from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
 from islamic_research_hub.domain.models.search_result import SearchResult
+from islamic_research_hub.domain.models.semantic_search_result import SemanticSearchResult
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     MAX_BROWSE_RESULTS,
     BookBrowserRepository,
@@ -37,6 +39,9 @@ from islamic_research_hub.infrastructure.persistence.recent_book_repository impo
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
     BookSearchError,
     SqliteBookSearchRepository,
+)
+from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (
+    PageEmbeddingError,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
@@ -60,6 +65,7 @@ class SearchScreen(QWidget):
         search_service: BookSearchService | None = None,
         browser: BookBrowserRepository | None = None,
         recent_books: RecentBookRepository | None = None,
+        semantic_search_service: SemanticBookSearchService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -68,6 +74,7 @@ class SearchScreen(QWidget):
             SqliteBookSearchRepository(database_path)
         )
         self._browser = browser or BookBrowserRepository(database_path)
+        self._semantic_search_service = semantic_search_service
         self._recent_books = recent_books or RecentBookRepository(database_path)
 
         layout = QHBoxLayout(self)
@@ -447,7 +454,12 @@ class SearchScreen(QWidget):
             self._status_label.setText("Enter a search term.")
             return
 
-        if not results and not title_matches:
+        matched_keys = {(result.book_id, result.page_number) for result in results}
+        semantic_results = ()
+        if self._semantic_search_service is not None and not exact and scope != "footnotes":
+            semantic_results = self._run_semantic_search(query, library, matched_keys)
+
+        if not results and not title_matches and not semantic_results:
             self._status_label.setText(f'No matches found for "{query}".')
             return
 
@@ -455,6 +467,8 @@ class SearchScreen(QWidget):
         if title_matches:
             status_bits.append(f"{len(title_matches)} title match(es)")
         status_bits.append(f"{len(results)} content result(s)")
+        if semantic_results:
+            status_bits.append(f"{len(semantic_results)} related page(s)")
         self._status_label.setText(", ".join(status_bits))
 
         if title_matches:
@@ -469,6 +483,38 @@ class SearchScreen(QWidget):
             self._results_layout.insertWidget(
                 self._results_layout.count() - 1, self._build_result_card(result)
             )
+        if semantic_results:
+            self._results_layout.insertWidget(
+                self._results_layout.count() - 1, _pane_title("Related pages")
+            )
+            for semantic_result in semantic_results:
+                self._results_layout.insertWidget(
+                    self._results_layout.count() - 1,
+                    self._build_semantic_result_card(semantic_result),
+                )
+
+    def _run_semantic_search(
+        self, query: str, library: str | None, exclude_keys: set[tuple[int, int | None]]
+    ) -> tuple[SemanticSearchResult, ...]:
+        """Run semantic search, excluding pages already shown as keyword matches.
+
+        Never raises - any failure (missing embedding index, the "ai"
+        extra not installed, an empty index) just means no related-pages
+        section, not a broken search screen. `self._semantic_search_service`
+        is None unless explicitly wired in by the caller (opt-in, not
+        constructed automatically here).
+        """
+        if self._semantic_search_service is None:
+            return ()
+        try:
+            candidates = self._semantic_search_service.search(query, DEFAULT_LIMIT, library)
+        except (PageEmbeddingError, ValueError):
+            return ()
+        return tuple(
+            candidate
+            for candidate in candidates
+            if (candidate.book_id, candidate.page_number) not in exclude_keys
+        )
 
     def _browse_by_filters(
         self, library: str | None, author: str | None, category: str | None
@@ -514,6 +560,45 @@ class SearchScreen(QWidget):
 
         excerpt = QLabel(highlight_excerpt_html(result.excerpt))
         excerpt.setTextFormat(Qt.TextFormat.RichText)
+        excerpt.setWordWrap(True)
+        excerpt.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        excerpt.setStyleSheet(f"font-size: 13px; line-height: 150%; {RTL_TEXT_STYLE}")
+        _enable_height_for_width(excerpt)
+        card_layout.addWidget(excerpt)
+
+        card.mousePressEvent = lambda _event, r=result: self._show_details(r.book_id, r.page_number)
+
+        open_row = self._build_open_row(result.book_id, result.page_number)
+        if open_row is not None:
+            card_layout.addWidget(open_row)
+
+        return card
+
+    def _build_semantic_result_card(self, result: SemanticSearchResult) -> QFrame:
+        """A result card for a semantically (not keyword-) matched page.
+
+        No `**highlight**` markers - a semantic match has no literal
+        matched term to bold, unlike a keyword excerpt.
+        """
+        card = QFrame()
+        card.setObjectName("resultCard")
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        card_layout = QVBoxLayout(card)
+
+        title = QLabel(result.title or "(untitled)")
+        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
+        title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        card_layout.addWidget(title)
+
+        meta_bits = [result.author or "Unknown author", result.library or "Unknown library"]
+        if result.page_number is not None:
+            meta_bits.append(f"page {result.page_number}")
+        meta = QLabel(" · ".join(meta_bits))
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        card_layout.addWidget(meta)
+
+        excerpt = QLabel(result.excerpt)
         excerpt.setWordWrap(True)
         excerpt.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         excerpt.setStyleSheet(f"font-size: 13px; line-height: 150%; {RTL_TEXT_STYLE}")

@@ -20,7 +20,39 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (  
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (  # noqa: E402
     RecentBookRepository,
 )
+from islamic_research_hub.domain.models.semantic_search_result import (  # noqa: E402
+    SemanticSearchResult,
+)
+from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (  # noqa: E402
+    PageEmbeddingError,
+)
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen  # noqa: E402
+
+
+class FakeSemanticSearchService:
+    """A real-shaped, controllable stand-in for SemanticBookSearchService.
+
+    Duck-typed rather than subclassed - SearchScreen only ever calls
+    `.search(query, limit, library)`, matching the real service's public
+    surface, so no real embedder/model is ever loaded in these tests.
+    """
+
+    def __init__(
+        self,
+        results: tuple[SemanticSearchResult, ...] = (),
+        error: Exception | None = None,
+    ) -> None:
+        self._results = results
+        self._error = error
+        self.last_query: str | None = None
+
+    def search(
+        self, query: str, limit: int = 20, library: str | None = None
+    ) -> tuple[SemanticSearchResult, ...]:
+        self.last_query = query
+        if self._error is not None:
+            raise self._error
+        return self._results[:limit]
 
 
 def _seed_database(database_path: Path) -> None:
@@ -340,6 +372,119 @@ def test_exact_match_checkbox_requires_literal_spelling(qtbot, tmp_path: Path) -
     screen._exact_match_checkbox.setChecked(True)
 
     assert "No matches found" in screen._status_label.text()
+
+
+def test_semantic_results_shown_as_a_separate_related_pages_section(
+    qtbot, tmp_path: Path
+) -> None:
+    """When a semantic service is wired in, its results appear under
+    "Related pages", separate from and in addition to keyword content
+    results."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    semantic = FakeSemanticSearchService(
+        results=(
+            SemanticSearchResult(
+                book_id=99,
+                title="Conceptually Related Book",
+                author="Someone",
+                page_number=5,
+                excerpt="A passage about the same idea, different words",
+                similarity=0.87,
+                library="Some Library",
+            ),
+        )
+    )
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+    )
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert "1 related page" in screen._status_label.text()
+    assert semantic.last_query == "jurisprudence"
+    all_titles = " ".join(
+        label.text() for label in screen._results_area.findChildren(type(screen._status_label))
+    )
+    assert "Conceptually Related Book" in all_titles
+    assert "Related pages" in all_titles
+
+
+def test_semantic_results_exclude_pages_already_shown_as_keyword_matches(
+    qtbot, tmp_path: Path
+) -> None:
+    """A page found by both keyword and semantic search is shown once, not twice."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    semantic = FakeSemanticSearchService(
+        results=(
+            SemanticSearchResult(
+                book_id=1,
+                title="Book of Fiqh",
+                author="Author One",
+                page_number=1,
+                excerpt="duplicate of the real keyword match",
+                similarity=0.99,
+                library="Maktaba Jibreel (Mobile)",
+            ),
+        )
+    )
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+    )
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert "0 related page" not in screen._status_label.text()
+    assert "related page" not in screen._status_label.text()
+
+
+def test_semantic_search_failure_degrades_gracefully_not_a_crash(
+    qtbot, tmp_path: Path
+) -> None:
+    """A semantic-search failure (e.g. no embedding index yet) never breaks
+    the real keyword search results."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    semantic = FakeSemanticSearchService(error=PageEmbeddingError("no index"))
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+    )
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert "1 content result" in screen._status_label.text()
+    assert "related page" not in screen._status_label.text()
+
+
+def test_semantic_search_is_skipped_under_exact_match(qtbot, tmp_path: Path) -> None:
+    """Exact match means literal keyword matching only - no semantic results."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    semantic = FakeSemanticSearchService(
+        results=(
+            SemanticSearchResult(
+                book_id=99, title="Other", author=None, page_number=1,
+                excerpt="x", similarity=0.9, library=None,
+            ),
+        )
+    )
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+    )
+    qtbot.addWidget(screen)
+
+    screen._exact_match_checkbox.setChecked(True)
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert semantic.last_query is None
 
 
 def test_scope_dropdown_footnotes_finds_a_real_footnote_only_term(qtbot, tmp_path: Path) -> None:
