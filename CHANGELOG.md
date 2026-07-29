@@ -2100,3 +2100,17 @@ Not yet built: the actual extractor/importer for either the 1,101
 text-layer books or the 2,139 outline-only books - this is real,
 accurate scoping data for that future work, not the work itself.
 
+## Four more differentiators folded into Phase 10
+
+From a follow-up "unique advantages" discussion, four items confirmed
+to pass the same differentiator test (build on infrastructure other
+phases already produce, not new data-collection problems) were added to
+Phase 10: a contradiction detector (flags, doesn't judge - same
+evidence-not-verdict discipline as the citation graph), a knowledge gap
+detector (real corpus-statistics queries, e.g. "only 2 books on this
+topic"), digital preservation reports (extends already-built duplicate/
+corrupted-file detection from Phases 1-2 into a real report), and
+cross-language conceptual search (Urdu query surfaces Arabic-only
+results - distinct from Phase 12's paragraph translation). Roadmap-only
+change, nothing implemented yet.
+

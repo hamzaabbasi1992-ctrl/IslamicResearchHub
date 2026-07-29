@@ -369,10 +369,14 @@ translation, encyclopedia generation, knowledge graphs, isnad/citation
 tracing, quizzes, an API platform, mobile apps, and more), then
 explicitly asked for a version that prioritizes what's genuinely unique
 to this project over generic AI-wrapper duplication. This phase is
-where that reprioritization matters most: it now foregrounds the two
-sub-items that are real differentiators (only possible because of this
-project's actual data), ahead of the more generic knowledge-graph/
-encyclopedia framing:
+where that reprioritization matters most: it now foregrounds the real
+differentiators (only possible because of this project's actual,
+already-unified data), ahead of the more generic knowledge-graph/
+encyclopedia framing. Four further items (contradiction/knowledge-gap/
+preservation detectors, cross-language search) were added afterward
+from a follow-up "unique advantages" discussion, each confirmed to
+build on infrastructure this phase or an earlier one already produces,
+not new data-collection problems of their own:
 
 - **Citation graph between owned books**: fiqh books cite hadith
   collections; if both the citing and the cited book are already in
@@ -413,6 +417,32 @@ encyclopedia framing:
   *types* over the same underlying graph/timeline data, not different
   data problems - built as one flexible visualization layer, not one
   bespoke feature per chart type.
+- **Contradiction detector**: flag passages where the same author's
+  work appears to say different things in different places, for a
+  researcher to evaluate - explicitly a *flag*, not an AI verdict that
+  a contradiction exists, same evidence-not-judgment discipline as the
+  citation graph above. Needs the same content-linking infrastructure
+  (real page text already indexed, semantic search from Phase 7) rather
+  than new data collection.
+- **Knowledge gap detector**: surface real corpus statistics as
+  research signal - "only 2 books cover this topic," "no English
+  references exist for this subject" - directly computable once the
+  taxonomy (Phase 8) has real population data; not a new data problem,
+  a new query over data other Phase 10 items already produce.
+- **Digital preservation reports**: automatically flag damaged scans,
+  duplicate editions, incomplete books, and corrupt files - largely an
+  extension of already-built infrastructure (duplicate-candidate
+  detection from Phase 2, the corrupted-file handling hardened during
+  Phase 1) surfaced as a real report, not new detection logic from
+  scratch.
+- **Cross-language conceptual search**: a query typed in Urdu should be
+  able to surface relevant Arabic-only results (and vice versa) - a
+  real gap distinct from Phase 12's paragraph translation, since this
+  is about *search* finding conceptually related content across
+  languages, not translating found content afterward. Real dependency:
+  needs Phase 7's semantic embeddings to be genuinely cross-lingual
+  (the multilingual model already in use should support this, but it
+  needs a real check before being presented as working, not assumed).
 
 ### Phase 11 — AI research assistant: **scheduled after Phase 10, not started**
 
