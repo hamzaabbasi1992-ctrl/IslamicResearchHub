@@ -402,6 +402,9 @@ def test_semantic_results_shown_as_a_separate_related_pages_section(
 
     screen._query_edit.setText("jurisprudence")
     screen._run_search()
+    with qtbot.waitSignal(screen._semantic_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)  # let the queued search_succeeded slot run after the thread finishes
 
     assert "1 related page" in screen._status_label.text()
     assert semantic.last_query == "jurisprudence"
@@ -438,6 +441,9 @@ def test_semantic_results_exclude_pages_already_shown_as_keyword_matches(
 
     screen._query_edit.setText("jurisprudence")
     screen._run_search()
+    with qtbot.waitSignal(screen._semantic_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
 
     assert "0 related page" not in screen._status_label.text()
     assert "related page" not in screen._status_label.text()
@@ -458,6 +464,9 @@ def test_semantic_search_failure_degrades_gracefully_not_a_crash(
 
     screen._query_edit.setText("jurisprudence")
     screen._run_search()
+    with qtbot.waitSignal(screen._semantic_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
 
     assert "1 content result" in screen._status_label.text()
     assert "related page" not in screen._status_label.text()
@@ -525,7 +534,14 @@ def test_lazy_semantic_search_builds_at_most_once_across_searches(
 
     screen._query_edit.setText("jurisprudence")
     screen._run_search()
+    with qtbot.waitSignal(screen._semantic_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
     screen._run_search()
+    with qtbot.waitSignal(screen._semantic_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
 
     assert build_calls == [1]
     assert screen._semantic_search_service is fake_service

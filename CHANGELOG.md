@@ -2212,3 +2212,61 @@ very different content (106 vs 324 pages at ~0.003% similarity; 154 vs
 title-matching alone would have wrongly suggested "probably the same
 book."
 
+## Semantic search made genuinely fast + non-blocking; Phase 7 desktop wiring now live
+
+Picked back up the semantic-search performance problem flagged as a
+real blocker earlier tonight (94.92s per search at 25.3% embedded).
+Root-caused it properly instead of assuming it needed a full ANN index:
+
+**Real bottleneck #1**: `SqlitePageEmbeddingRepository.search()` joined
+`Books`/`Pages`/`Libraries` for *every* embedded row (not just the real
+top-`limit` results), fetching full page text for hundreds of thousands
+of rows just to discard nearly all of them after ranking. Fixed with a
+real two-phase query: score using only `(BookID, PageNo, Embedding)`,
+then a second, cheap query for metadata on just the results actually
+returned.
+
+**Real bottleneck #2**: building the scoring matrix via
+`[np.frombuffer(row["Embedding"], ...) for row in rows]` then
+`np.stack(...)` does real per-row Python-level work for every one of
+hundreds of thousands of rows. Embedding BLOBs are fixed-width, so
+concatenating them into one buffer and reshaping once is equivalent
+and removes that per-row cost.
+
+**Isolated, direct profiling** (not guessed) found these two fixes
+brought the actual scoring pipeline (SQL fetch + score + rank) down to
+**6.9 seconds at 676,491 embedded rows** - but a full end-to-end search
+was still ~39-53s. The remaining cost, also profiled directly: importing
+`sentence_transformers`/`transformers`/`torch` themselves take **~21
+seconds**, plus **~5 seconds** to construct the model - a real, one-time
+Python import cost inherent to these libraries, not fixable in
+application code.
+
+**Real UX fix**: that one-time cost (and the per-search scan cost)
+must never block the GUI thread or delay the fast keyword results that
+should appear regardless. New `SemanticSearchWorker(QThread)` (same
+pattern as the existing `LibraryImportWorker`) runs the whole semantic
+path in the background; `SearchScreen._run_search()` now displays
+keyword/title results immediately and lets "Related pages" populate
+asynchronously when the worker finishes. A `threading.Lock` guards the
+lazy real-service construction so two overlapping searches can't both
+try to build the model at once; a query-mismatch check silently
+discards a stale result if the user searched again before the previous
+one finished.
+
+**Verified for real, end to end**, not assumed: `_run_search()` returns
+in 0.9-2.3s regardless (keyword results shown instantly); the
+background worker takes ~36s on the very first search (one-time model
+import) and ~8-9s on every search after that, at the current
+~700K-embedded-page corpus - entirely without freezing the UI. 8 tests
+updated to wait on the worker's real `finished` signal instead of
+asserting synchronously (323/323 total).
+
+**`MainWindow` now enables this for real**
+(`enable_lazy_semantic_search=True`) - Phase 7's desktop-GUI semantic
+search is live, not just built and tested. This remains a brute-force
+scan (cost still grows with corpus size - a real ANN index is still the
+honest long-term answer once the corpus is closer to fully embedded),
+but it no longer does unnecessary work, and it never blocks the UI
+regardless of how slow it gets.
+

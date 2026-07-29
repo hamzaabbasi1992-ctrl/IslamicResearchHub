@@ -295,19 +295,28 @@ scaled to the full corpus.
   this same hadith" is answerable from real, owned content - not an AI
   guessing what different schools generally think, which a generic tool
   with no comparable corpus cannot do at all.
-- **Desktop GUI wiring: built and tested, deliberately not live yet.**
-  `SearchScreen` can show semantic results in a real "Related pages"
-  section (lazy-loaded on first search, never blocking app startup) -
-  see CHANGELOG. Real testing against production found two bugs: a
-  ~30s network hang on first load (fixed - `HF_HUB_OFFLINE`/
-  `TRANSFORMERS_OFFLINE` must be set before, not after, importing
-  `sentence_transformers`) and a genuinely slow search - **94.92
-  seconds** at the current 25.3%-embedded corpus, because
-  `SqlitePageEmbeddingRepository`'s pilot-scale search brute-force-scans
-  the entire embedding table into memory every call. `MainWindow` keeps
-  this off (`enable_lazy_semantic_search=False`) until a real ANN index
-  (or at least a bounded/library-scoped search) replaces the brute-force
-  scan - a real, not-yet-done piece of this phase's remaining work.
+- **Desktop GUI wiring: done, live for real.** `SearchScreen` shows
+  semantic results in a real "Related pages" section, lazy-loaded on
+  first search. Real testing against production found and fixed three
+  real bugs, in order: a ~30s network hang on first load (offline env
+  vars were set too late - after `sentence_transformers` was already
+  imported); a 94.92-second search caused by joining in full page text
+  for every one of ~600K embedded rows just to discard nearly all of
+  them; and per-row `np.frombuffer`/`np.stack` overhead instead of one
+  buffer concatenation. Isolated profiling (not guessing) found the
+  real remaining cost was the one-time `sentence_transformers`/`torch`
+  Python import itself (~21s) plus model construction (~5s) - not
+  fixable in application code, so it's run on a background
+  `SemanticSearchWorker(QThread)` instead (same pattern as
+  `LibraryImportWorker`): keyword results always appear instantly
+  (0.9-2.3s), "Related pages" populates a few seconds to ~36s later
+  (once per session) without ever freezing the UI. Verified for real:
+  ~36s on the first search, ~8-9s on every search after that at
+  ~700K+ embedded pages. `MainWindow` now enables this
+  (`enable_lazy_semantic_search=True`) - still a brute-force scan (a
+  real ANN index remains the honest long-term answer once the corpus
+  is closer to fully embedded), but no longer doing unnecessary work,
+  and never blocking regardless of how slow it gets. See CHANGELOG.
 
 ### Phase 8 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 7, not started**
 

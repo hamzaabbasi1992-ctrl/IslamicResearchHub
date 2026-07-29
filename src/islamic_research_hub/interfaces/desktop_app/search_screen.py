@@ -1,6 +1,7 @@
 """Search screen: category/author browsing, query+filters+results, an inline detail panel."""
 
 import logging
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
@@ -41,8 +42,8 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
-from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (
-    PageEmbeddingError,
+from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
+    SemanticSearchWorker,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
@@ -79,6 +80,12 @@ class SearchScreen(QWidget):
             SqliteBookSearchRepository(database_path)
         )
         self._enable_lazy_semantic_search = enable_lazy_semantic_search
+        self._semantic_search_lock = threading.Lock()
+        self._semantic_worker: SemanticSearchWorker | None = None
+        self._current_query = ""
+        self._current_title_count = 0
+        self._current_content_count = 0
+        self._current_exclude_keys: set[tuple[int, int | None]] = set()
         self._semantic_search_attempted = False
         self._browser = browser or BookBrowserRepository(database_path)
         self._semantic_search_service = semantic_search_service
@@ -462,24 +469,19 @@ class SearchScreen(QWidget):
             return
 
         matched_keys = {(result.book_id, result.page_number) for result in results}
-        semantic_results = ()
-        semantic_available = (
-            self._semantic_search_service is not None or self._enable_lazy_semantic_search
-        )
-        if semantic_available and not exact and scope != "footnotes":
-            semantic_results = self._run_semantic_search(query, library, matched_keys)
+        self._current_query = query
+        self._current_title_count = len(title_matches)
+        self._current_content_count = len(results)
 
-        if not results and not title_matches and not semantic_results:
-            self._status_label.setText(f'No matches found for "{query}".')
-            return
-
-        status_bits = []
-        if title_matches:
-            status_bits.append(f"{len(title_matches)} title match(es)")
-        status_bits.append(f"{len(results)} content result(s)")
-        if semantic_results:
-            status_bits.append(f"{len(semantic_results)} related page(s)")
-        self._status_label.setText(", ".join(status_bits))
+        if not results and not title_matches:
+            self._status_label.setText(f'No matches found for "{query}" yet - checking related pages...')
+        else:
+            self._status_label.setText(
+                ", ".join(
+                    ([f"{len(title_matches)} title match(es)"] if title_matches else [])
+                    + [f"{len(results)} content result(s)"]
+                )
+            )
 
         if title_matches:
             self._results_layout.insertWidget(
@@ -493,46 +495,91 @@ class SearchScreen(QWidget):
             self._results_layout.insertWidget(
                 self._results_layout.count() - 1, self._build_result_card(result)
             )
-        if semantic_results:
-            self._results_layout.insertWidget(
-                self._results_layout.count() - 1, _pane_title("Related pages")
-            )
-            for semantic_result in semantic_results:
-                self._results_layout.insertWidget(
-                    self._results_layout.count() - 1,
-                    self._build_semantic_result_card(semantic_result),
-                )
 
-    def _run_semantic_search(
-        self, query: str, library: str | None, exclude_keys: set[tuple[int, int | None]]
-    ) -> tuple[SemanticSearchResult, ...]:
-        """Run semantic search, excluding pages already shown as keyword matches.
-
-        Never raises - any failure (missing embedding index, the "ai"
-        extra not installed, an empty index) just means no related-pages
-        section, not a broken search screen. Lazily constructs the real
-        service on the very first call (only when `enable_lazy_semantic_search`
-        was set and no service was explicitly injected) - loading the
-        embedding model is real, one-time work deferred to the first
-        actual search, not paid by every app launch. Tried at most once:
-        `_semantic_search_attempted` prevents retrying (and re-failing)
-        the load on every subsequent search.
-        """
-        if self._semantic_search_service is None and self._enable_lazy_semantic_search:
-            if not self._semantic_search_attempted:
-                self._semantic_search_attempted = True
-                self._semantic_search_service = self._build_real_semantic_search_service()
-        if self._semantic_search_service is None:
-            return ()
-        try:
-            candidates = self._semantic_search_service.search(query, DEFAULT_LIMIT, library)
-        except (PageEmbeddingError, ValueError):
-            return ()
-        return tuple(
-            candidate
-            for candidate in candidates
-            if (candidate.book_id, candidate.page_number) not in exclude_keys
+        semantic_available = (
+            self._semantic_search_service is not None or self._enable_lazy_semantic_search
         )
+        if semantic_available and not exact and scope != "footnotes":
+            self._start_semantic_search(query, library, matched_keys)
+        elif not results and not title_matches:
+            self._status_label.setText(f'No matches found for "{query}".')
+
+    def _start_semantic_search(
+        self, query: str, library: str | None, exclude_keys: set[tuple[int, int | None]]
+    ) -> None:
+        """Kick off semantic search in a background thread - never blocks the GUI.
+
+        `_get_or_build_semantic_service` (passed to the worker, called on
+        the worker thread) does the lazy, at-most-once real construction;
+        `self._semantic_search_lock` guards it so two overlapping searches
+        can't both try to build the model at once. A stale result (the
+        user searched again before this one finished) is silently
+        discarded in the completion handler, not displayed.
+        """
+        self._current_exclude_keys = exclude_keys
+        worker = SemanticSearchWorker(
+            self._get_or_build_semantic_service, query, DEFAULT_LIMIT, library, self
+        )
+        worker.search_succeeded.connect(self._on_semantic_search_succeeded)
+        worker.search_failed.connect(self._on_semantic_search_failed)
+        self._semantic_worker = worker
+        worker.start()
+
+    def _get_or_build_semantic_service(self) -> SemanticBookSearchService | None:
+        """Return the cached semantic service, building it at most once.
+
+        Runs on the worker thread (real, one-time ~20+ second import cost
+        for `sentence_transformers`/`torch`, confirmed directly - see
+        CHANGELOG) - guarded by a lock so two overlapping background
+        searches can't both attempt the build simultaneously.
+        """
+        with self._semantic_search_lock:
+            if self._semantic_search_service is None and self._enable_lazy_semantic_search:
+                if not self._semantic_search_attempted:
+                    self._semantic_search_attempted = True
+                    self._semantic_search_service = self._build_real_semantic_search_service()
+            return self._semantic_search_service
+
+    def _on_semantic_search_succeeded(
+        self, query: str, results: tuple[SemanticSearchResult, ...]
+    ) -> None:
+        if query != self._current_query:
+            return  # stale - a newer search has already started
+        semantic_results = tuple(
+            result
+            for result in results
+            if (result.book_id, result.page_number) not in self._current_exclude_keys
+        )
+        self._finalize_semantic_results(semantic_results)
+
+    def _on_semantic_search_failed(self, query: str) -> None:
+        if query != self._current_query:
+            return
+        self._finalize_semantic_results(())
+
+    def _finalize_semantic_results(
+        self, semantic_results: tuple[SemanticSearchResult, ...]
+    ) -> None:
+        if not semantic_results:
+            if self._current_title_count == 0 and self._current_content_count == 0:
+                self._status_label.setText(f'No matches found for "{self._current_query}".')
+            return
+
+        status_bits = []
+        if self._current_title_count:
+            status_bits.append(f"{self._current_title_count} title match(es)")
+        status_bits.append(f"{self._current_content_count} content result(s)")
+        status_bits.append(f"{len(semantic_results)} related page(s)")
+        self._status_label.setText(", ".join(status_bits))
+
+        self._results_layout.insertWidget(
+            self._results_layout.count() - 1, _pane_title("Related pages")
+        )
+        for semantic_result in semantic_results:
+            self._results_layout.insertWidget(
+                self._results_layout.count() - 1,
+                self._build_semantic_result_card(semantic_result),
+            )
 
     def _build_real_semantic_search_service(self) -> SemanticBookSearchService | None:
         """Build the real local-model semantic search service, or None on any failure.

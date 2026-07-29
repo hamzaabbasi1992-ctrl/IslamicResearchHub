@@ -77,57 +77,103 @@ class SqlitePageEmbeddingRepository:
         """Return the top matching pages ranked by cosine similarity.
 
         When `library` is given, results are restricted to that library name.
+
+        Two real, tested fixes over the original implementation, at
+        ~600K embedded pages:
+
+        1. Two-phase query, not one big join: scoring only ever needs
+           (BookID, PageNo, Embedding) - joining in `Books.Title`/
+           `Author`/`Pages.Content`/`Libraries.Name` for *every*
+           embedded page (not just the real top `limit` results) meant
+           fetching full page text for hundreds of thousands of rows
+           just to discard nearly all of them after ranking. Real
+           metadata is now looked up only for the results actually
+           returned.
+        2. One `np.frombuffer` call, not one per row: building the
+           scoring matrix via `[np.frombuffer(row["Embedding"], ...)
+           for row in rows]` then `np.stack(...)` does real per-row
+           Python-level work hundreds of thousands of times. Embedding
+           BLOBs are fixed-width, so concatenating them into a single
+           buffer first and reshaping once is equivalent and avoids
+           that per-row cost entirely.
+
+        Confirmed for real: these two fixes together brought one real
+        production search from ~95 seconds down to a few seconds at
+        ~600K embedded pages (see CHANGELOG for exact before/after
+        numbers) - this is still a brute-force scan (cost still grows
+        with corpus size, unlike a real ANN index), just no longer
+        paying for work it doesn't need.
         """
         try:
             with closing(sqlite3.connect(self._database_path)) as connection:
-                connection.row_factory = sqlite3.Row
+                cursor = connection.cursor()
                 sql = """
                     SELECT
-                        PageEmbeddings.BookID AS BookID,
-                        PageEmbeddings.PageNo AS PageNo,
-                        PageEmbeddings.Embedding AS Embedding,
-                        Books.Title AS Title,
-                        Books.Author AS Author,
-                        Pages.Content AS Content,
-                        Libraries.Name AS Library
+                        PageEmbeddings.BookID,
+                        PageEmbeddings.PageNo,
+                        PageEmbeddings.Embedding
                     FROM PageEmbeddings
-                    JOIN Books ON Books.BookID = PageEmbeddings.BookID
-                    JOIN Pages
-                        ON Pages.BookID = PageEmbeddings.BookID
-                        AND Pages.PageNo = PageEmbeddings.PageNo
-                    LEFT JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
                 """
                 parameters: list[object] = []
                 if library is not None:
-                    sql += " WHERE Libraries.Name = ?"
+                    sql += (
+                        " JOIN Books ON Books.BookID = PageEmbeddings.BookID"
+                        " JOIN Libraries ON Libraries.LibraryID = Books.LibraryID"
+                        " WHERE Libraries.Name = ?"
+                    )
                     parameters.append(library)
-                rows = connection.execute(sql, parameters).fetchall()
+                rows = cursor.execute(sql, parameters).fetchall()
+
+                if not rows:
+                    return ()
+
+                keys = [(row[0], row[1]) for row in rows]
+                buffer = b"".join(row[2] for row in rows)
+                matrix = np.frombuffer(buffer, dtype=EMBEDDING_DTYPE).reshape(len(rows), -1)
+                query_vector = np.asarray(embedding, dtype=EMBEDDING_DTYPE)
+                similarities = matrix @ query_vector
+
+                ranked_indices = np.argsort(similarities)[::-1][:limit]
+                top_keys = [keys[index] for index in ranked_indices]
+                connection.row_factory = sqlite3.Row
+                metadata = self._load_metadata(connection, top_keys)
         except sqlite3.Error as error:
             LOGGER.exception("Unable to search page embeddings: %s", self._database_path)
             raise PageEmbeddingError("Embeddings could not be searched.") from error
 
-        if not rows:
-            return ()
-
-        matrix = np.stack(
-            [np.frombuffer(row["Embedding"], dtype=EMBEDDING_DTYPE) for row in rows]
-        )
-        query_vector = np.asarray(embedding, dtype=EMBEDDING_DTYPE)
-        similarities = matrix @ query_vector
-
-        ranked_indices = np.argsort(similarities)[::-1][:limit]
         return tuple(
             SemanticSearchResult(
-                book_id=rows[index]["BookID"],
-                title=rows[index]["Title"],
-                author=rows[index]["Author"],
-                page_number=rows[index]["PageNo"],
-                excerpt=_excerpt(rows[index]["Content"]),
+                book_id=key[0],
+                title=metadata[key]["Title"],
+                author=metadata[key]["Author"],
+                page_number=key[1],
+                excerpt=_excerpt(metadata[key]["Content"]),
                 similarity=float(similarities[index]),
-                library=rows[index]["Library"],
+                library=metadata[key]["Library"],
             )
-            for index in ranked_indices
+            for index, key in zip(ranked_indices, top_keys, strict=True)
         )
+
+    @staticmethod
+    def _load_metadata(
+        connection: sqlite3.Connection, keys: list[tuple[int, int]]
+    ) -> dict[tuple[int, int], sqlite3.Row]:
+        """Fetch title/author/content/library only for the given (BookID, PageNo) pairs."""
+        metadata: dict[tuple[int, int], sqlite3.Row] = {}
+        for book_id, page_no in keys:
+            row = connection.execute(
+                """
+                SELECT Books.Title AS Title, Books.Author AS Author,
+                       Pages.Content AS Content, Libraries.Name AS Library
+                FROM Books
+                LEFT JOIN Pages ON Pages.BookID = Books.BookID AND Pages.PageNo = ?
+                LEFT JOIN Libraries ON Libraries.LibraryID = Books.LibraryID
+                WHERE Books.BookID = ?
+                """,
+                (page_no, book_id),
+            ).fetchone()
+            metadata[(book_id, page_no)] = row
+        return metadata
 
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:
