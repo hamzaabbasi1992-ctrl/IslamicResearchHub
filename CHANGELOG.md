@@ -1969,3 +1969,23 @@ confirmed to still need real OCR to become searchable - same
 conclusion as the original Phase 1 evaluation, now confirmed with
 actual per-library verification instead of one general finding.
 
+## Phase 9 added: knowledge graph + encyclopedia builder (scoped from a much larger vision)
+
+User proposed an 18-phase "AI Research Operating System" vision in one
+message. Explicitly **not** adopted wholesale, per discussion and
+explicit decision: most of it is unscoped aspiration, several items
+carry real accuracy/harm risk in a religious-scholarship domain without
+scholarly review built in from the start (isnad-chain analysis,
+automatic encyclopedia "completeness", AI-compared fiqh positions,
+AI literature reviews), and adopting it as-is would abandon the real-
+data-verification discipline this project has actually run on through
+Phases 1-7. Only the pieces with real existing infrastructure to build
+on are scoped as Phase 9: a knowledge graph (on migration 6's already-
+built, currently-empty taxonomy schema) and an encyclopedia builder (a
+direct extension of Phase 7's taxonomy GUI item, not new scope). Real
+relationship data for the graph doesn't exist yet and needs its own
+NER-based extraction step - flagged as genuine R&D, not assumed to just
+work. Everything else from the 18-phase message is recorded in
+PROJECT.md as an unscheduled idea, not lost, but not committed work
+either.
+

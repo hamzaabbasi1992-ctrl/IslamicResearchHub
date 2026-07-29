@@ -270,6 +270,58 @@ the core search/browse/read experience, and several build on each other
   stretch goal needing its own feasibility check, not assumed to be the
   same size as the rest of this phase.
 
+### Phase 9 — Knowledge graph and encyclopedia builder: **scheduled after Phase 8, not started**
+
+The user proposed a much larger 18-phase "AI Research Operating System"
+vision in one message (semantic search, NotebookLM workspaces, TTS,
+translation, encyclopedia generation, knowledge graphs, isnad/citation
+tracing, quizzes, an API platform, mobile apps, and more). Deliberately
+**not** adopted wholesale - most of it is unscoped aspiration with no
+real feasibility check yet, several items (automatic encyclopedia
+"completeness", AI-compared fiqh positions, isnad-chain analysis, AI
+literature reviews) carry real accuracy/harm risk in a religious-
+scholarship domain if built without scholarly review as a hard
+requirement, not an afterthought, and adopting it wholesale would
+abandon the real-data-verification discipline that got Phases 1-7
+actually built and working. Per explicit decision, only the pieces that
+build on infrastructure that already exists are scoped here as Phase 9;
+everything else from that vision stays an unscheduled idea (see below),
+not a committed phase.
+
+- **Knowledge graph**: migration 6's taxonomy schema (`TaxonomyTerms`
+  with `ParentTermID` hierarchy, `BookTaxonomyTerms` many-to-many,
+  `TaxonomyAliases`) already models exactly this shape of data - it's
+  currently empty. Real relationship data (teacher/student, author/book,
+  scholar/city) doesn't exist yet and needs its own extraction step
+  (most realistically named-entity recognition over already-imported
+  page text) before there's anything real to graph - this is a genuine
+  R&D step, not just a UI, and should be scoped for real once attempted,
+  not assumed to work.
+- **Encyclopedia builder**: a natural extension of Phase 7's taxonomy
+  GUI item, not new scope - once real taxonomy data exists (subjects,
+  personalities, places, events), auto-assembling "every book/page
+  linked to this term" into an encyclopedia-style page is a direct
+  application of data that will already be there. Depends on Phase 7's
+  taxonomy population happening first.
+- **Visualizations** (mind maps, timelines, relationship/topic graphs):
+  a rendering layer on top of the same knowledge-graph data above, not
+  a separate data problem - scoped together with it, not before it.
+
+## Ideas not adopted as scheduled phases (from the 18-phase vision message)
+
+Recorded so nothing is silently lost, explicitly **not** committed work:
+translation engine (Arabic/Urdu/English/word-by-word/grammar), AI
+reading assistant (inline highlight-to-ask), personal research
+workspace (folders/notes/exports), educational features (quizzes/
+flashcards/teaching mode), AI content generator (slides/khutbah drafts/
+articles), multimedia generation (podcasts/videos/infographics), mobile
+companion app, public developer APIs, and the advanced-research-tool
+subset with real accuracy risk (isnad-chain visualization, automatic
+literature reviews, AI-compared scholarly opinions, duplicate-edition/
+manuscript-variant comparison). Any of these can be pulled into a real,
+scoped phase later, the same way every other phase in this document was
+- verified against real data and real feasibility first.
+
 ## Items existing outside phase discipline (frozen, by explicit decision)
 
 - **Local web app** (`web_app.py`, Flask): search, PDF page-jump, in-app
