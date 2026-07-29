@@ -2008,3 +2008,50 @@ into Phase 10/11 rather than re-implementing them), and Phase 19's
 isnad-visualization/literature-review items are explicitly flagged as
 needing real scholarly review before shipping, not just a disclaimer.
 
+## Roadmap reprioritized around real differentiators, not generic AI-wrapper duplication
+
+Per explicit follow-up push ("useful/unique features, not doubling what
+already exists"): applied one real test to every AI-heavy phase - could
+a generic tool (ChatGPT, NotebookLM, any PDF-AI wrapper) do this with
+*any random* PDF collection? If yes, it's commodity value, not a
+differentiator. Restructured the roadmap (now Phases 1-20, still no
+gaps or duplicates) around that test:
+
+- **New Phase 6**: footnote-layer search and cross-library edition/
+  variant comparison - pulled forward because they need no new AI
+  capability, only infrastructure that already exists (the `Footnotes`
+  table, existing duplicate-candidate detection), and specifically
+  require this project's already-unified, cross-library corpus - a
+  generic tool with no comparable corpus categorically cannot do either.
+- **Phase 7** (renamed from 6, AI/semantic search) gained an explicit
+  callout: cross-*tradition* comparative search (Deobandi/Salafi/
+  general-Sunni sources already unified in one corpus) as the real
+  differentiating application, not "AI search" in the generic sense.
+- **Phase 10** (renamed/expanded from 9, knowledge graph) now
+  foregrounds two real differentiators ahead of the general framing: a
+  citation graph between books actually held in the corpus (verifiable,
+  not an AI guess), and a structured narrator/isnad *database* - real
+  searchable data, explicitly without the AI ever rendering an
+  authentication judgment, split out from the higher-risk AI-judgment
+  version that stays deferred in Phase 20.
+- Phases 11-19 (research assistant, translation, reading assistant,
+  workspace, education, content generator, multimedia, mobile, APIs)
+  kept but explicitly reframed as commodity value-adds, not
+  differentiators - still useful, just honest about not being unique to
+  this project.
+
+**Second follow-up, also addressed**: reconciled a real tension between
+"integrate best-in-class AI (OpenAI/Anthropic/Gemini) instead of
+building your own" and this project's existing, explicitly-stated
+offline-first design goal. Resolution, recorded as a real architecture
+policy (PROJECT.md, under Architecture): local, self-hosted open models
+stay the default for every AI-heavy phase (no internet requirement, no
+per-query cost, no data leaving the machine, no third-party content-
+moderation risk on sensitive comparative-religion queries) - this
+already matches how the embedding pilot is built, behind a `Protocol`
+port. Cloud APIs become an optional, user-provided-key upgrade wired in
+behind the same port, not a required rewrite. Per further explicit
+instruction, the provider itself stays an implementation detail, never
+user-facing jargon - the UI names the capability ("AI Summary"), not
+the underlying model.
+
