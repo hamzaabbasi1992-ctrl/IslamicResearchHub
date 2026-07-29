@@ -225,15 +225,50 @@ both items below are real, scoped, but deliberately deferred:
 
 - **Maktaba Shamela importer**: `F:\المكتبة الشاملة`, 113 GB, 30,662
   real books, 99.5% new vs. the existing corpus (would more than double
-  it). Investigated, not yet built - see CHANGELOG. Real blocker: the
-  books are Jet 3/Access-97 `.mdb` files the installed ACE ODBC driver
-  refuses to open; needs different tooling (e.g. `mdbtools`) before an
-  importer can be written.
+  it). Investigated, not yet built - see CHANGELOG. **Blocker resolved**:
+  the modern ACE engine (ODBC, DAO, and the newer OLEDB provider) refuses
+  these Jet 3/Access-97 files, but the older `Microsoft.Jet.OLEDB.4.0`
+  provider (32-bit only) opens them correctly - confirmed for real
+  against an actual Shamela `.mdb` file (`book` table: id/nass/page/
+  part/seal; `title` table: id/lvl/sub/tit, real table-of-contents
+  hierarchy). The importer itself is not yet built.
 - **Taxonomy dimension browsing/tagging GUI**: migration 6 added the
   general nine-dimension schema (subject, author, madhhab, language,
   publisher, region, personality, event, tag) and `TaxonomyRepository` -
   see CHANGELOG. No data has been migrated into it and no GUI browses it
   yet; both are this phase's real work, not migration 6's.
+
+### Phase 8 — Accessibility, engagement, and AI research tools: **scheduled after Phase 7, not started**
+
+Added at the user's explicit request. Five real, distinct items - grouped
+into one phase because they're all later-stage, all optional relative to
+the core search/browse/read experience, and several build on each other
+(TTS underlies both voice search and AI audio summaries):
+
+- **Text-to-speech, Arabic/Urdu/English**: local/offline TTS (consistent
+  with the project's offline-first design, same pattern as the semantic
+  search pilot). Urdu is the real risk here - fewer good open-source
+  Urdu TTS models exist than for Arabic/English; needs a quality check
+  before committing to a specific engine.
+- **English-language books**: not a technical feature - every library
+  imported so far (Jibreel, Al-Maknoon, Islam, Shamila Urdu, Shamela) is
+  Arabic/Urdu. This needs its own Phase-1-style source investigation
+  (find real English Islamic-book collections, check format/scale/
+  overlap) before any importer can be scoped. Per explicit instruction,
+  this investigation happens as part of Phase 8, not before it.
+- **Suggestions / questions / ratings**: real per-book ratings and
+  notes/questions, plus a "suggested for you" panel built on the
+  existing taxonomy/author/category data - similar scope to the Phase 5
+  bookmarks/recent-books work.
+- **Voice search with AI**: local speech-to-text (a Whisper-class model
+  handles Arabic/Urdu/English) feeding the existing search pipeline -
+  no cloud dependency, same local-AI pattern as the embedding pilot.
+- **NotebookLM-style AI research tools** (summaries, audio overviews,
+  visual reports): summaries and audio-overview-style output are
+  realistic with a local LLM plus the TTS item above. Real AI-generated
+  *video* is a materially bigger, separate undertaking - treated as a
+  stretch goal needing its own feasibility check, not assumed to be the
+  same size as the rest of this phase.
 
 ## Items existing outside phase discipline (frozen, by explicit decision)
 

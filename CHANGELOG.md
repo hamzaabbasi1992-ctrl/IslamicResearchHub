@@ -1886,3 +1886,36 @@ content than the original Hadith-subject pilot). At this rate the full
 corpus (2,385,159 pages) is now estimated at **~76-78 hours** of
 continuous CPU time, not ~45.7 - another real, updated number.
 
+## Maktaba Shamela: the real Jet 3 blocker is resolved
+
+Investigated at the user's request while the embedding run was in
+progress in the background (CPU-bound, so this didn't compete with it).
+The prior blocker ("Maktaba Shamela investigated, not yet imported", see
+above): the installed ACE ODBC driver refuses to open these real Jet 3/
+Access-97 `.mdb` files ("Cannot open a database created with a previous
+version"). Confirmed the same refusal holds across every ACE-based path
+tried - ODBC, `DAO.DBEngine.120`, and `Microsoft.ACE.OLEDB.12.0` all fail
+identically, since they're all the same modern engine underneath.
+
+**Real fix found**: the genuinely older `Microsoft.Jet.OLEDB.4.0`
+provider - a different, older engine than ACE, registered on this
+machine but 32-bit only (same "32-bit-only DLL" pattern already known
+from the Jibreel Desktop decryption work) - opens these files correctly.
+Verified for real against an actual Shamela `.mdb` file (32-bit
+PowerShell + ADODB): real schema and real row data both read back
+successfully - `book` table (id, nass, page, part, seal - real page
+text and pagination) and `title` table (id, lvl, sub, tit - a real
+table-of-contents hierarchy). No code written yet; this was pure
+investigation to unblock Phase 7's importer, not the importer itself.
+
+## Phase 8 added to the roadmap: accessibility, engagement, AI research tools
+
+Added at the user's explicit request: text-to-speech (Arabic/Urdu/
+English), English-language book sourcing (its own investigation, folded
+into this phase per explicit instruction), suggestions/questions/
+ratings, AI voice search, and NotebookLM-style summaries/audio overviews/
+reports (video generation flagged as a separate, bigger stretch goal,
+not assumed same-sized as the rest). See PROJECT.md's Phase 8 section
+for the real scoping/feasibility notes behind each item. Nothing
+implemented yet - this is a roadmap addition only.
+
