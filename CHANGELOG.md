@@ -2184,3 +2184,31 @@ not assumed:
   decision to make deliberately, not by leaving a slow feature on by
   accident.
 
+## Phase 6, second item shipped: real cross-library edition/variant comparison
+
+`DuplicateCandidateRepository` only ever said two books were *probably*
+the same work (title match, same/different `SourceBookID`) - it never
+showed what actually differs. `BookComparisonRepository.compare()`
+(new, read-only, no schema change) computes a real page-by-page
+comparison: for every page number present in both books, a real
+`difflib.SequenceMatcher` similarity ratio; pages below 0.98 similarity
+are reported with both real texts, capped at 50 differing pages so a
+mismatched pair doesn't produce an unusable result. When pagination
+doesn't overlap at all, `overall_similarity` is honestly `None`, not a
+misleading 0%.
+
+Wired into `ImportScreen`'s existing duplicate-review table as a real
+"Compare" button per row, opening a dialog with the real summary and
+differing pages. 11 new tests (323/323 total): 6 for the repository,
+5 for the dialog/button wiring (dialog `exec()` patched out in tests -
+it would otherwise block on a real modal event loop).
+
+**Verified against real production data** (2,302 real stored
+candidates): found genuinely useful signal beyond title-matching alone
+- one pair was byte-identical (457/457 pages, 100% similarity, a real
+confirmed duplicate), but two other same-titled pairs turned out to be
+very different content (106 vs 324 pages at ~0.003% similarity; 154 vs
+34 pages at ~1.5% similarity on their 21 common pages) - cases where
+title-matching alone would have wrongly suggested "probably the same
+book."
+

@@ -216,7 +216,7 @@ content of either format exists anywhere in the corpus.
   8, both new tables present, and a real bookmark + recent-open
   round-trip against a real production book).
 
-### Phase 6 — Real differentiators, buildable now: **in progress**
+### Phase 6 — Real differentiators, buildable now: **done**
 
 Added after an explicit push to prioritize what's actually unique to
 this project over generic AI-wrapper features - the test applied: could
@@ -232,16 +232,18 @@ AI capability, only infrastructure that already exists:
   `"both"`) through the full search stack, and a "Main text / Footnotes
   / Both" dropdown in the Search screen. Applied to production and
   verified with a real query. See CHANGELOG.
-- **Cross-library edition/variant comparison**: the same book often
-  exists across Jibreel Mobile, Desktop, Maknoon, and (once imported)
-  Shamela as different printings/editions. No single-source tool
-  (Shamela alone, Maknoon alone) can compare *its own* editions against
-  each other - this project's already-built duplicate-candidate
-  detection (Phase 2) is the real prerequisite, already partially done
-  (27 remaining Mobile/Desktop pairs under "Not yet scheduled", below).
-  Real new scope: show the actual textual differences between editions
-  of the same work, not just "these are probably the same book." Not
-  yet started.
+- **Cross-library edition/variant comparison: done.** No single-source
+  tool (Shamela alone, Maknoon alone) can compare *its own* editions
+  against each other. `BookComparisonRepository.compare()` computes a
+  real page-by-page `difflib` similarity between two candidate books,
+  honestly reporting `None` (not a misleading 0%) when pagination
+  doesn't overlap. Wired into `ImportScreen`'s duplicate-review table
+  as a real "Compare" button/dialog. See CHANGELOG. Verified against
+  2,302 real stored candidates: found genuinely useful signal beyond
+  title-matching alone - two same-titled pairs turned out to be very
+  different content (as low as ~0.003% similarity), cases where
+  title-matching alone would have wrongly suggested "probably the same
+  book."
 - **Real, full-corpus PDF-extractability scan: done** (not part of the
   original Phase 6 scope, but directly informs it - see CHANGELOG).
   Scanned all 5,914 PDF-only books across the three libraries with no
