@@ -2419,3 +2419,72 @@ this fix. 5 new tests (`is_stub()` x3, a direct-resolution
 `MainWindow` test, existing fuzzy-path tests re-verified).
 353/353 total passing.
 
+## Real Publish Year capture; SourcePdfHint-based matching; core-navigation icons
+
+Continued the bibliographic-data and heading-only-book investigations.
+
+**Shamila Urdu Publish Year** was being silently discarded - never even
+read into memory, unlike Jibreel's own unmapped fields. A random 40-book
+sample found a real value in 72.5% of books (Volume and Introduction were
+also checked: only 10% and 15% filled, and Volume duplicates the
+title-derived `VolumeNumber` migration already has, so neither was worth
+adding). `ShamilaUrduBookReader` now reads it; `MasterBookRepository`
+gained a `PublishYear` column (baseline schema for new imports, plus an
+`_ensure_publish_year_column()` idempotent ALTER for existing databases -
+the same pattern `_ensure_library_id_column()` already used). New
+`shamila_urdu_publish_year_backfill_cli.py` for the 693 already-imported
+books, reading directly from each book's own source file (no decryption
+needed, unlike Jibreel) - real urgency here: those source files only
+still exist because this session's own scratch extraction happens to be
+live; a future session would have no way to recover this data at all.
+
+**Migration 11** adds `Books.SourcePdfHint`, backfilled by the new
+`jibreel_pdf_hint_backfill_cli.py` from Jibreel's own `Information.PDF`
+key (present in memory since day one, via `_read_information()`, but
+never persisted). Batches decryption (200 books/batch, temp files cleaned
+up after each batch) so this never accumulates thousands of decrypted
+files on disk. `PdfMatchCandidateRepository` now tries a stub book's own
+hint first, falling back to title matching only when the hint finds
+nothing or doesn't exist - the hint is the book's own claim about which
+PDF it is, not an incidental text similarity, and critically it's in the
+same script as the archive's romanized filenames (native Urdu/Arabic
+titles are not, so title-based blocking structurally cannot bridge that
+gap at all). Deliberately did **not** relax the match threshold for
+hint-based matching to rescue near-misses with extra trailing text (e.g.
+an author name appended to the archive filename): manually verified that
+doing so lets real title-matching false positives back in at similar
+scores, with no clean threshold separating the two - correctness over
+coverage, consistent with every other matching decision in this module.
+
+Added icons to the buttons used constantly while reading - Prev/Next,
+Bookmark, and every "Open PDF"/"Read in app" action, across the Viewer,
+PDF Viewer, and Search result cards/details pane. Left one-off admin
+buttons (Browse, Scan, Refresh, Compare) as plain text; scoped this way
+deliberately since icon choices are visual/subjective calls I can't fully
+verify without seeing the running app, and the frequently-used controls
+are where an icon earns its place. `icons.py` gained `button_icon()` (a
+single-color, small-size render for ordinary buttons, alongside the
+existing two-state `rail_icon()`) and four new icon paths (prev/next
+chevrons, a bookmark ribbon, a document-with-external-link-arrow for
+"open PDF"); "Read in app"/"Open in Viewer" reuse the existing "viewer"
+open-book icon rather than inventing a near-duplicate shape.
+
+Added five real English/Latin reading fonts to the Viewer's font picker
+(Georgia, Cambria, Constantia, Calibri, Segoe UI) - previously only
+Urdu/Arabic choices were offered, with no good option for the corpus's
+own English-titled and English-authored content (the PDF Archive
+libraries especially). All five verified as genuinely installed on this
+machine, matching the existing "never trust an uninstalled font name"
+discipline the rest of the picker already holds to.
+
+25 new tests across the Shamila Urdu reader/repository/backfill CLI, the
+PDF-hint matching extension, and the new `icons.py`/`reading_fonts.py`
+coverage. 379/379 total passing.
+
+### Applied to production for real
+
+- `jibreel_pdf_hint_backfill_cli.py` against all 1,843 Maktaba Jibreel (Desktop) stub books: **1,843/1,843 (100%) got a real PDF hint** from their own source file - every single one had the `Information.PDF` key filled in. (Also tried against Maktaba Islam's 13 stub books: 0/13 - their `.mjbx` files decrypt "successfully" per the batch script but the resulting `.mjbz` is unreadable, almost certainly the same "second, unidentified password" issue noted when Maktaba Islam was first imported. Not chased further for 13 books.)
+- `shamila_urdu_publish_year_backfill_cli.py` against all 698 already-imported Shamila Urdu books: **431/698 (61.7%) got a real Publish Year**, 0 source files missing.
+- Re-ran `PdfMatchCandidateRepository.detect_and_store()` with hint-based matching live: **817 matches** (up from 98 title-only). Combined with the existing 481 direct-resolve matches (96 overlapping both), **1,202 of 2,368 stub books (50.8%) now offer a fallback PDF** - up from 483 (20.4%) before this round. Spot-checked a sample weighted toward the lowest-confidence matches (down to the 0.90 floor): all correct - mostly exact matches after normalization, with the near-threshold ones being genuine transliteration spelling variants (e.g. "Taleem Ul Sarf" / "Taleem Us Sarf"), not false positives.
+- The production `Books` table didn't yet have `PublishYear` (added via an import-time `_ensure_*_column()` check, like `LibraryID`, not a versioned migration - no import had run since the change to trigger it) - added directly via the same idempotent helper the code itself uses, equivalent to what the next real import would have done.
+

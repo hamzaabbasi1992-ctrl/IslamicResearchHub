@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
     DEFAULT_FONT_CHOICE,
     FONT_CHOICES,
@@ -91,13 +92,17 @@ class ViewerScreen(QWidget):
         banner_label.setWordWrap(True)
         banner_layout.addWidget(banner_label, stretch=1)
         pdf_fallback_button = QPushButton("Open scanned PDF")
+        pdf_fallback_button.setIcon(button_icon("open-pdf"))
+        pdf_fallback_button.setIconSize(button_icon_size())
         pdf_fallback_button.clicked.connect(self.pdf_fallback_requested)
         banner_layout.addWidget(pdf_fallback_button)
         reader_layout.addWidget(self._pdf_fallback_banner)
 
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(16, 4, 16, 8)
-        self._prev_button = QPushButton("< Prev")
+        self._prev_button = QPushButton("Prev")
+        self._prev_button.setIcon(button_icon("prev"))
+        self._prev_button.setIconSize(button_icon_size())
         self._prev_button.clicked.connect(self._go_previous)
         toolbar.addWidget(self._prev_button)
 
@@ -110,13 +115,17 @@ class ViewerScreen(QWidget):
         self._page_count_label = QLabel()
         toolbar.addWidget(self._page_count_label)
 
-        self._next_button = QPushButton("Next >")
+        self._next_button = QPushButton("Next")
+        self._next_button.setIcon(button_icon("next"))
+        self._next_button.setIconSize(button_icon_size())
         self._next_button.clicked.connect(self._go_next)
         toolbar.addWidget(self._next_button)
 
         toolbar.addStretch(1)
 
         self._bookmark_button = QPushButton("Bookmark this page")
+        self._bookmark_button.setIcon(button_icon("bookmark"))
+        self._bookmark_button.setIconSize(button_icon_size())
         self._bookmark_button.clicked.connect(self._toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
 

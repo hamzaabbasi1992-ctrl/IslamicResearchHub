@@ -18,6 +18,22 @@ then keeps the single best match per stub book, and only if it clears a
 high similarity threshold. Detection is intentionally conservative and
 informational only: nothing here deletes or replaces content, and every
 match should be treated as a *possible* PDF, not a verified one.
+
+When a stub book has a `SourcePdfHint` (Jibreel's own self-reported PDF
+filename cross-reference, backfilled by `jibreel_pdf_hint_backfill_cli.py`
+from the original source - see migration 11), that is tried first and
+preferred over a title match when it clears the threshold: it is the
+book's own claim about which PDF it is, not an incidental text similarity,
+and it is in the same script as the archive's romanized filenames (native
+Urdu/Arabic stub titles are not, so title-based blocking structurally
+cannot bridge them at all). An early manual check (30-book sample, a
+looser ad-hoc 0.75 threshold with no volume guard) found real PDFs for
+24/30 via the hint - this module's actual threshold (0.90, plain
+whole-string ratio, same volume-conflict guard as title matching) is more
+conservative and will recover fewer: a partial-ratio relaxation was tried
+to close that gap and rejected, because it let real title-matching false
+positives (e.g. "Ahsan Ul Bayaan" vs. "Anwaar Ul Bayaan") back in at
+similar scores, with no clean threshold separating the two.
 """
 
 import logging
@@ -139,12 +155,23 @@ class PdfMatchCandidateRepository:
 
     @staticmethod
     def _fetch_stub_books(connection: sqlite3.Connection) -> tuple[sqlite3.Row, ...]:
-        """Return every non-PDF-library book whose pages average near-empty content."""
+        """Return every non-PDF-library book whose pages average near-empty content.
+
+        `SourcePdfHint` (migration 11) may not exist yet on a database that
+        hasn't been migrated - selected only when present, matching the
+        defensive pattern `BookBrowserRepository` uses for Series support,
+        rather than requiring every caller to migrate first.
+        """
+        hint_column = (
+            "b.SourcePdfHint"
+            if PdfMatchCandidateRepository._has_source_pdf_hint_column(connection)
+            else "NULL"
+        )
         placeholders = ",".join("?" for _ in PDF_SOURCE_LIBRARIES)
         return tuple(
             connection.execute(
                 f"""
-                SELECT b.BookID, b.Title FROM Books b
+                SELECT b.BookID, b.Title, {hint_column} AS SourcePdfHint FROM Books b
                 JOIN Libraries l ON l.LibraryID = b.LibraryID
                 WHERE l.Name NOT IN ({placeholders})
                 AND b.Title IS NOT NULL
@@ -158,6 +185,12 @@ class PdfMatchCandidateRepository:
                 (*PDF_SOURCE_LIBRARIES, STUB_MIN_PAGE_COUNT, STUB_MAX_AVG_CONTENT_LENGTH),
             ).fetchall()
         )
+
+    @staticmethod
+    def _has_source_pdf_hint_column(connection: sqlite3.Connection) -> bool:
+        """Return whether Books.SourcePdfHint exists on this database yet."""
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+        return "SourcePdfHint" in columns
 
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:
@@ -177,6 +210,23 @@ class PdfMatchCandidateRepository:
 def _normalize_title(title: str) -> str:
     """Return a lowercased, diacritic-stripped title for fuzzy comparison."""
     return (normalize_search_text(title) or "").casefold()
+
+
+_PDF_EXTENSION_PATTERN = re.compile(r"\.pdf$", re.IGNORECASE)
+
+
+def _normalize_hint(hint: str) -> str:
+    """Return a comparable form of a raw PDF filename hint.
+
+    Unlike PDF archive `Title`s (already cosmetically cleaned by
+    `title_cleanup_cli.py` - underscores replaced with spaces), a raw
+    `SourcePdfHint` straight from the source is still
+    "AASAAR_UL_HADEES_VOL_01.pdf": `\\w` treats underscores as part of a
+    word, so without this the whole hint would tokenize as one giant word
+    and never match anything.
+    """
+    without_extension = _PDF_EXTENSION_PATTERN.sub("", hint)
+    return _normalize_title(without_extension.replace("_", " "))
 
 
 def _tokens(normalized_title: str) -> set[str]:
@@ -206,7 +256,11 @@ def _volumes_conflict(
 def _match(
     stub_books: tuple[sqlite3.Row, ...], pdf_books: tuple[sqlite3.Row, ...]
 ) -> list[tuple[int, int, float]]:
-    """Return (BookID, PdfBookID, Confidence) triples for high-confidence fuzzy title matches."""
+    """Return (BookID, PdfBookID, Confidence) triples for high-confidence matches.
+
+    A stub book's own `SourcePdfHint` is tried first when present; a title
+    match is only used as a fallback. See the module docstring for why.
+    """
     pdf_normalized: dict[int, str] = {}
     token_index: dict[str, list[int]] = defaultdict(list)
     for row in pdf_books:
@@ -221,24 +275,42 @@ def _match(
 
     candidates: list[tuple[int, int, float]] = []
     for row in stub_books:
-        normalized = _normalize_title(row["Title"])
-        stub_volume = _volume_key(normalized)
-        candidate_pdf_ids: set[int] = set()
-        for token in _tokens(normalized):
-            candidate_pdf_ids.update(blocking_tokens.get(token, ()))
+        hint = row["SourcePdfHint"]
+        best = None
+        if hint:
+            best = _best_match(_normalize_hint(hint), blocking_tokens, pdf_normalized)
+        if best is None:
+            best = _best_match(_normalize_title(row["Title"]), blocking_tokens, pdf_normalized)
 
-        best_pdf_id: int | None = None
-        best_ratio = 0.0
-        for pdf_id in candidate_pdf_ids:
-            pdf_title = pdf_normalized[pdf_id]
-            if _volumes_conflict(stub_volume, _volume_key(pdf_title)):
-                continue
-            ratio = SequenceMatcher(None, normalized, pdf_title).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-                best_pdf_id = pdf_id
-
-        if best_pdf_id is not None and best_ratio >= MIN_CONFIDENCE:
+        if best is not None:
+            best_pdf_id, best_ratio = best
             candidates.append((row["BookID"], best_pdf_id, best_ratio))
 
     return candidates
+
+
+def _best_match(
+    normalized_query: str,
+    blocking_tokens: dict[str, list[int]],
+    pdf_normalized: dict[int, str],
+) -> tuple[int, float] | None:
+    """Return the (PdfBookID, confidence) of the best blocked match, or None below threshold."""
+    query_volume = _volume_key(normalized_query)
+    candidate_pdf_ids: set[int] = set()
+    for token in _tokens(normalized_query):
+        candidate_pdf_ids.update(blocking_tokens.get(token, ()))
+
+    best_pdf_id: int | None = None
+    best_ratio = 0.0
+    for pdf_id in candidate_pdf_ids:
+        pdf_title = pdf_normalized[pdf_id]
+        if _volumes_conflict(query_volume, _volume_key(pdf_title)):
+            continue
+        ratio = SequenceMatcher(None, normalized_query, pdf_title).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_pdf_id = pdf_id
+
+    if best_pdf_id is not None and best_ratio >= MIN_CONFIDENCE:
+        return best_pdf_id, best_ratio
+    return None

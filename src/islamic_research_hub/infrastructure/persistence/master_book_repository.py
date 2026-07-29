@@ -35,6 +35,7 @@ class MasterBookRepository:
             fts_index_already_existed = self._pages_fts_exists(connection)
             self._create_schema(connection)
             self._ensure_library_id_column(connection)
+            self._ensure_publish_year_column(connection)
             self._backfill_legacy_library(connection)
             if not fts_index_already_existed:
                 self._backfill_pages_fts(connection)
@@ -87,7 +88,8 @@ class MasterBookRepository:
                 Language TEXT,
                 Category TEXT,
                 PageCount INTEGER NOT NULL,
-                ChapterCount INTEGER NOT NULL
+                ChapterCount INTEGER NOT NULL,
+                PublishYear TEXT
             );
 
             CREATE TABLE IF NOT EXISTS Categories (
@@ -163,6 +165,14 @@ class MasterBookRepository:
         connection.commit()
 
     @staticmethod
+    def _ensure_publish_year_column(connection: sqlite3.Connection) -> None:
+        """Add the PublishYear column to a Books table created before it existed."""
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+        if "PublishYear" not in columns:
+            connection.execute("ALTER TABLE Books ADD COLUMN PublishYear TEXT")
+            connection.commit()
+
+    @staticmethod
     def _get_or_create_library_id(connection: sqlite3.Connection, name: str) -> int:
         """Return the id for a library, creating it if it does not yet exist."""
         connection.execute("INSERT OR IGNORE INTO Libraries (Name) VALUES (?)", (name,))
@@ -204,8 +214,8 @@ class MasterBookRepository:
                 """
                 INSERT INTO Books (
                     LibraryID, Source, SourceBookID, Title, Author, Publisher,
-                    Language, Category, PageCount, ChapterCount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    Language, Category, PageCount, ChapterCount, PublishYear
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     library_id,
@@ -218,6 +228,7 @@ class MasterBookRepository:
                     book.information.get("MJCN"),
                     len(book.pages),
                     _count_chapters(book.table_of_contents),
+                    book.information.get("PublishYear"),
                 ),
             )
             book_id = cursor.lastrowid

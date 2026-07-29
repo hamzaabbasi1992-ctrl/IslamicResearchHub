@@ -88,6 +88,37 @@ def test_reads_footnotes_when_present(tmp_path: Path) -> None:
     assert book.pages[2].footnote is None
 
 
+def test_reads_publish_year_when_present(tmp_path: Path) -> None:
+    """Publish Year is captured - real data showed 72.5% of sampled books have one,
+    but it was being silently discarded (never even read into memory)."""
+    db_path = tmp_path / "sample.db"
+    _make_book_db(
+        db_path,
+        metadata={"Book Name": "Test", "Publish Year": "1998"},
+        pages=[(1, "<span>text</span>", None)],
+        toc=[],
+    )
+
+    book = ShamilaUrduBookReader().read(db_path)
+
+    assert book.information["PublishYear"] == "1998"
+
+
+def test_publish_year_is_none_when_absent(tmp_path: Path) -> None:
+    """A book with no Publish Year field gets None, not a missing-key error."""
+    db_path = tmp_path / "sample.db"
+    _make_book_db(
+        db_path,
+        metadata={"Book Name": "Test"},
+        pages=[(1, "<span>text</span>", None)],
+        toc=[],
+    )
+
+    book = ShamilaUrduBookReader().read(db_path)
+
+    assert book.information["PublishYear"] is None
+
+
 def test_falls_back_to_translator_when_no_writer(tmp_path: Path) -> None:
     """A translation with no listed author uses the translator instead."""
     db_path = tmp_path / "sample.db"

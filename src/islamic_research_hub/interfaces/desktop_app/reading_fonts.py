@@ -37,6 +37,20 @@ FONT_CHOICES: tuple[tuple[str, str], ...] = (
     ("Scheherazade New", "'Scheherazade New', Amiri, Tahoma, serif"),
     ("Amiri", "Amiri, 'Scheherazade New', Tahoma, serif"),
     ("Sakkal Majalla", "'Sakkal Majalla', Tahoma, sans-serif"),
+    # English/Latin - for the corpus's own English-titled and English-authored
+    # content (the PDF Archive libraries especially - e.g. "12 Masail By
+    # SHEIKH MUNEER AHMAD MUNAWWAR" - and any translated/English material),
+    # not a replacement for the Urdu/Arabic choices above. Georgia/Cambria/
+    # Constantia are real serif faces designed for on-screen long-form
+    # reading (not just print), Calibri/Segoe UI are the standard Windows
+    # sans alternative - all five ship with every real Windows install
+    # checked so far, matching the "genuinely installed" bar the rest of
+    # this list holds to.
+    ("Georgia", "Georgia, Cambria, 'Times New Roman', serif"),
+    ("Cambria", "Cambria, Georgia, Constantia, serif"),
+    ("Constantia", "Constantia, Cambria, Georgia, serif"),
+    ("Calibri", "Calibri, 'Segoe UI', Verdana, sans-serif"),
+    ("Segoe UI", "'Segoe UI', Calibri, Verdana, sans-serif"),
 )
 
 

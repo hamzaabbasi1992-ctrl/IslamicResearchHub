@@ -42,10 +42,15 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
 )
-from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
+from islamic_research_hub.interfaces.desktop_app.theme import (
+    MUTED_LABEL_STYLE,
+    RTL_TEXT_STYLE,
+    SURFACE_RAISED,
+)
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 
@@ -767,11 +772,15 @@ class SearchScreen(QWidget):
         row_layout.setContentsMargins(0, 4, 0, 0)
         if pdf_path is not None:
             pdf_button = QPushButton("Open PDF")
+            pdf_button.setIcon(button_icon("open-pdf"))
+            pdf_button.setIconSize(button_icon_size())
             pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
             row_layout.addWidget(pdf_button)
 
         target_page = page_number or 1
         read_button = QPushButton("Read in app")
+        read_button.setIcon(button_icon("viewer"))
+        read_button.setIconSize(button_icon_size())
         read_button.clicked.connect(
             lambda: self.open_in_viewer_requested.emit(book_id, target_page)
         )
@@ -843,6 +852,8 @@ class SearchScreen(QWidget):
 
         open_viewer_button = QPushButton("Open in Viewer")
         open_viewer_button.setObjectName("primaryButton")
+        open_viewer_button.setIcon(button_icon("viewer", SURFACE_RAISED))
+        open_viewer_button.setIconSize(button_icon_size())
         target_page = page_number or 1
         open_viewer_button.clicked.connect(
             lambda: self.open_in_viewer_requested.emit(metadata.book_id, target_page)
@@ -854,6 +865,8 @@ class SearchScreen(QWidget):
             pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
             if pdf_path is not None:
                 pdf_button = QPushButton("Open source PDF")
+                pdf_button.setIcon(button_icon("open-pdf"))
+                pdf_button.setIconSize(button_icon_size())
                 pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
                 self._detail_layout.addWidget(pdf_button)
 

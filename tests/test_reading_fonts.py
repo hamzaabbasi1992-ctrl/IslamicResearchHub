@@ -7,6 +7,7 @@ pytest.importorskip("PySide6")
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (  # noqa: E402
+    FONT_CHOICES,
     resolve_installed_font_family,
 )
 
@@ -48,3 +49,21 @@ def test_returns_the_exact_name_when_the_first_choice_is_installed() -> None:
     resolved = resolve_installed_font_family("Tahoma, 'Some Other Font'")
 
     assert resolved == "Tahoma"
+
+
+def test_every_font_choice_resolves_to_a_real_installed_family() -> None:
+    """Every offered choice, English/Latin included, resolves to something real -
+    not silently falling through to the generic Tahoma default for all of them."""
+    _ensure_app()
+
+    for display_name, font_stack in FONT_CHOICES:
+        resolved = resolve_installed_font_family(font_stack)
+        assert resolved != "", display_name
+
+
+def test_english_font_choices_are_offered() -> None:
+    """The corpus's own English-titled/English-authored content gets real
+    English reading fonts, not just the Urdu/Arabic choices."""
+    display_names = {name for name, _stack in FONT_CHOICES}
+
+    assert {"Georgia", "Cambria", "Constantia", "Calibri", "Segoe UI"} <= display_names

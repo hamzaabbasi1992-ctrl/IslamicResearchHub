@@ -49,6 +49,7 @@ class ShamilaUrduBookReader:
             "PNAME": metadata.get("Publisher"),
             "Language": "Urdu",
             "MJCN": category_name,
+            "PublishYear": metadata.get("Publish Year"),
         }
         return Book(
             information=information,

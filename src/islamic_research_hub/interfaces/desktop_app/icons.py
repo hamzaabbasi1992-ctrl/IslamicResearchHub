@@ -1,9 +1,12 @@
-"""Nav-rail icons, rendered from the same SVG paths as the design preview.
+"""Nav-rail and inline-button icons, rendered from shared SVG paths.
 
-Each icon is rasterized twice (muted "off" color, accent "on" color) via
-`QSvgRenderer`, so a checkable `QPushButton` shows the accent version
+Nav-rail icons are rasterized twice (muted "off" color, accent "on" color)
+via `QSvgRenderer`, so a checkable `QPushButton` shows the accent version
 automatically when checked - `QIcon` natively supports a separate pixmap
-per `QIcon.State`, no manual state-tracking needed.
+per `QIcon.State`, no manual state-tracking needed. `button_icon()` renders
+a single-color icon for ordinary (non-checkable) buttons - Prev/Next,
+bookmark, and the various "open PDF"/"read in app" actions - at a smaller
+size appropriate for sitting next to a button's own label text.
 """
 
 from PySide6.QtCore import QByteArray, QSize, Qt
@@ -13,6 +16,7 @@ from PySide6.QtSvg import QSvgRenderer
 from islamic_research_hub.interfaces.desktop_app.theme import ACCENT, INK_SOFT
 
 _RENDER_SIZE = QSize(40, 40)
+_BUTTON_RENDER_SIZE = QSize(18, 18)
 
 _SVG_PATHS: dict[str, str] = {
     "search": '<circle cx="10.5" cy="10.5" r="6.5"/><line x1="20.5" y1="20.5" x2="15.3" y2="15.3"/>',
@@ -43,25 +47,46 @@ _SVG_PATHS: dict[str, str] = {
         " 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0"
         ' 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/>'
     ),
+    "prev": '<polyline points="15 5 8 12 15 19"/>',
+    "next": '<polyline points="9 5 16 12 9 19"/>',
+    "bookmark": '<path d="M6 3.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1V21l-6-4-6 4z"/>',
+    "open-pdf": (
+        '<path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>'
+        '<path d="M15 3v4h4"/>'
+        '<path d="M10.3 14.7 15 10"/>'
+        '<path d="M11 10h4v4"/>'
+    ),
 }
 
 
 def rail_icon(name: str) -> QIcon:
     """Return the checkable-state icon (muted normally, accent when checked) for a rail entry."""
     icon = QIcon()
-    icon.addPixmap(_render(name, INK_SOFT), QIcon.Mode.Normal, QIcon.State.Off)
-    icon.addPixmap(_render(name, ACCENT), QIcon.Mode.Normal, QIcon.State.On)
+    icon.addPixmap(_render(name, INK_SOFT, _RENDER_SIZE), QIcon.Mode.Normal, QIcon.State.Off)
+    icon.addPixmap(_render(name, ACCENT, _RENDER_SIZE), QIcon.Mode.Normal, QIcon.State.On)
     return icon
 
 
-def _render(name: str, color: str) -> QPixmap:
+def button_icon(name: str, color: str = INK_SOFT) -> QIcon:
+    """Return a single-color icon sized for an ordinary (non-checkable) button's label."""
+    icon = QIcon()
+    icon.addPixmap(_render(name, color, _BUTTON_RENDER_SIZE))
+    return icon
+
+
+def button_icon_size() -> QSize:
+    """Return the size `button_icon()` renders at, for `QPushButton.setIconSize()`."""
+    return QSize(_BUTTON_RENDER_SIZE)
+
+
+def _render(name: str, color: str, size: QSize) -> QPixmap:
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
         f'stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
         f"{_SVG_PATHS[name]}</svg>"
     )
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
-    pixmap = QPixmap(_RENDER_SIZE)
+    pixmap = QPixmap(size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     renderer.render(painter)

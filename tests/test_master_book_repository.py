@@ -39,6 +39,64 @@ def test_repository_imports_and_skips_an_existing_source(tmp_path: Path) -> None
         assert connection.execute("SELECT Content FROM Pages").fetchone()[0] == "Formatted"
 
 
+def test_repository_stores_publish_year_when_present(tmp_path: Path) -> None:
+    """PublishYear is written from Book.information, and NULL when absent."""
+    with_year = Book(
+        information={"Name": "Book A", "PublishYear": "1998"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", None),),
+    )
+    without_year = Book(
+        information={"Name": "Book B"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", None),),
+    )
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+
+    repository.import_books(
+        database_path, (with_year, without_year), (tmp_path / "a.db", tmp_path / "b.db")
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        rows = dict(connection.execute("SELECT Title, PublishYear FROM Books").fetchall())
+    assert rows == {"Book A": "1998", "Book B": None}
+
+
+def test_repository_adds_publish_year_column_to_a_database_created_before_it_existed(
+    tmp_path: Path,
+) -> None:
+    """A Books table from before this column existed still imports cleanly afterward."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE Books (
+                BookID INTEGER PRIMARY KEY, Source TEXT NOT NULL UNIQUE,
+                SourceBookID TEXT, Title TEXT, Author TEXT, Publisher TEXT,
+                Language TEXT, Category TEXT, PageCount INTEGER NOT NULL,
+                ChapterCount INTEGER NOT NULL
+            )
+            """
+        )
+    book = Book(
+        information={"Name": "Book A", "PublishYear": "1998"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", None),),
+    )
+
+    imported, skipped, failed = repository.import_books(database_path, (book,), (tmp_path / "a.db",))
+
+    assert (imported, skipped, failed) == (1, 0, 0)
+    with sqlite3.connect(database_path) as connection:
+        year = connection.execute("SELECT PublishYear FROM Books").fetchone()[0]
+    assert year == "1998"
+
+
 def test_repository_stores_footnotes_for_pages_that_have_them(tmp_path: Path) -> None:
     """A page carrying real footnote text gets a Footnotes row; others don't."""
     source = tmp_path / "book.db"

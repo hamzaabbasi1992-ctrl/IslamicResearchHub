@@ -22,6 +22,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     TAXONOMY_VERSION,
     VOLUMES_VERSION,
     FOOTNOTES_SEARCH_INDEX_VERSION,
+    SOURCE_PDF_HINT_VERSION,
     WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
 )
@@ -134,8 +135,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
+            SOURCE_PDF_HINT_VERSION,
         ]
-        assert runner.current_version(connection) == FOOTNOTES_SEARCH_INDEX_VERSION
+        assert runner.current_version(connection) == SOURCE_PDF_HINT_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -176,6 +178,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
+            SOURCE_PDF_HINT_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -229,6 +232,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
+            SOURCE_PDF_HINT_VERSION,
         ]
 
         rows = connection.execute(
@@ -294,6 +298,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
+            SOURCE_PDF_HINT_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -636,6 +641,22 @@ def test_footnotes_search_migration_trigger_indexes_future_footnotes(tmp_path: P
             "SELECT COUNT(*) FROM FootnotesFTS WHERE FootnotesFTS MATCH 'patience'"
         ).fetchone()[0]
         assert match == 1
+
+
+def test_source_pdf_hint_migration_adds_a_null_column(tmp_path: Path) -> None:
+    """Migration 11 adds Books.SourcePdfHint, additive and NULL until a backfill runs."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        value = connection.execute("SELECT SourcePdfHint FROM Books").fetchone()[0]
+        assert value is None
+
+        connection.execute("UPDATE Books SET SourcePdfHint = 'REAL_PDF_NAME.pdf'")
+        updated = connection.execute("SELECT SourcePdfHint FROM Books").fetchone()[0]
+        assert updated == "REAL_PDF_NAME.pdf"
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

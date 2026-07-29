@@ -1,5 +1,6 @@
 """Tests for fuzzy-matching heading-only books to PDF archive titles."""
 
+import sqlite3
 from pathlib import Path
 
 from islamic_research_hub.domain.models.book import Book, Page
@@ -11,6 +12,17 @@ from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_reposit
 )
 
 STUB_PAGE_COUNT = 25
+
+
+def _set_source_pdf_hint(database_path: Path, book_id: int, hint: str) -> None:
+    """Set Books.SourcePdfHint directly, as the real backfill CLI does."""
+    with sqlite3.connect(database_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+        if "SourcePdfHint" not in columns:
+            connection.execute("ALTER TABLE Books ADD COLUMN SourcePdfHint TEXT")
+        connection.execute(
+            "UPDATE Books SET SourcePdfHint = ? WHERE BookID = ?", (hint, book_id)
+        )
 
 
 def _stub_book(name: str) -> Book:
@@ -288,3 +300,105 @@ def test_is_stub_false_for_an_unknown_book(tmp_path: Path) -> None:
     )
 
     assert PdfMatchCandidateRepository(database_path).is_stub(book_id=999) is False
+
+
+def test_matches_via_source_pdf_hint_across_scripts_where_title_matching_cannot(
+    tmp_path: Path,
+) -> None:
+    """A native-script title has zero shared words with a romanized PDF filename,
+    so only the SourcePdfHint (also romanized) can bridge them - real production
+    evidence: a random sample of 30 unmatched stub books found real PDFs for 24
+    via the hint (17 of them an exact match after normalization, like this one -
+    plain SequenceMatcher.ratio() is deliberately not relaxed for near-misses
+    with extra trailing text, e.g. an appended author name: manually verified
+    that doing so would also let real false positives from the title-matching
+    path back in at similar scores, with no clean threshold separating them)."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_stub_book("کشف الباری کتاب الایمان"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+    repository.import_books(
+        database_path,
+        (_pdf_book("Kashf Ul Bari Kitab Ul Eeman"),),
+        (tmp_path / "source.pdf",),
+        library_name="Maktaba Jibreel (PDF Archive)",
+    )
+    _set_source_pdf_hint(database_path, book_id=1, hint="KASHF_UL_BARI_KITAB_UL_EEMAN.pdf")
+
+    count = PdfMatchCandidateRepository(database_path).detect_and_store()
+
+    assert count == 1
+    candidates = PdfMatchCandidateRepository(database_path).list_candidates()
+    assert candidates[0].pdf_book_id == 2
+    assert candidates[0].confidence == 1.0
+
+
+def test_hint_match_still_rejects_a_different_volume(tmp_path: Path) -> None:
+    """The volume-conflict guard applies to hint-based matching too."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_stub_book("کشف الباری کتاب الایمان جلد 1"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+    repository.import_books(
+        database_path,
+        (_pdf_book("Kashf Ul Bari Kitab Ul Eeman Vol 02"),),
+        (tmp_path / "source.pdf",),
+        library_name="Maktaba Jibreel (PDF Archive)",
+    )
+    _set_source_pdf_hint(database_path, book_id=1, hint="KASHF_UL_BARI_KITAB_UL_EEMAN_VOL_01.pdf")
+
+    count = PdfMatchCandidateRepository(database_path).detect_and_store()
+
+    assert count == 0
+
+
+def test_falls_back_to_title_when_hint_finds_no_match(tmp_path: Path) -> None:
+    """A hint present but matching nothing still lets the title-based match through."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_stub_book("کشف الباری اردو شرح صحیح البخاری"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+    repository.import_books(
+        database_path,
+        (_pdf_book("کشف الباری اردو شرح صحیح البخاری"),),
+        (tmp_path / "source.pdf",),
+        library_name="Maktaba Jibreel (PDF Archive)",
+    )
+    _set_source_pdf_hint(database_path, book_id=1, hint="SOME_UNRELATED_FILENAME.pdf")
+
+    count = PdfMatchCandidateRepository(database_path).detect_and_store()
+
+    assert count == 1
+    candidates = PdfMatchCandidateRepository(database_path).list_candidates()
+    assert candidates[0].pdf_book_id == 2
+
+
+def test_missing_source_pdf_hint_column_does_not_break_detection(tmp_path: Path) -> None:
+    """A database that predates migration 11 (no SourcePdfHint column) still works."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_stub_book("کتاب"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+    with sqlite3.connect(database_path) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+    assert "SourcePdfHint" not in columns
+
+    count = PdfMatchCandidateRepository(database_path).detect_and_store()
+
+    assert count == 0

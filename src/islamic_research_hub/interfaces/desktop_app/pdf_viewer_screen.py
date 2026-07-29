@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
 
 MIN_ZOOM = 0.5
@@ -70,7 +71,9 @@ class PdfViewerScreen(QWidget):
 
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(16, 4, 16, 8)
-        self._prev_button = QPushButton("< Prev")
+        self._prev_button = QPushButton("Prev")
+        self._prev_button.setIcon(button_icon("prev"))
+        self._prev_button.setIconSize(button_icon_size())
         self._prev_button.clicked.connect(self._go_previous)
         toolbar.addWidget(self._prev_button)
 
@@ -83,13 +86,17 @@ class PdfViewerScreen(QWidget):
         self._page_count_label = QLabel()
         toolbar.addWidget(self._page_count_label)
 
-        self._next_button = QPushButton("Next >")
+        self._next_button = QPushButton("Next")
+        self._next_button.setIcon(button_icon("next"))
+        self._next_button.setIconSize(button_icon_size())
         self._next_button.clicked.connect(self._go_next)
         toolbar.addWidget(self._next_button)
 
         toolbar.addStretch(1)
 
         self._bookmark_button = QPushButton("Bookmark this page")
+        self._bookmark_button.setIcon(button_icon("bookmark"))
+        self._bookmark_button.setIconSize(button_icon_size())
         self._bookmark_button.clicked.connect(self._toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
 

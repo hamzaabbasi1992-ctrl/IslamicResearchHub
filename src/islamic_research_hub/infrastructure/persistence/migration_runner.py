@@ -432,6 +432,25 @@ def _add_footnotes_search_index(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_source_pdf_hint_column(connection: sqlite3.Connection) -> None:
+    """Add Books.SourcePdfHint, additive and NULL until a backfill runs.
+
+    Jibreel's own `Information` table carries a "PDF" key on many books - a
+    self-reported cross-reference to that book's real scanned PDF filename
+    (e.g. "AASAAR_UL_HADEES_VOL_01.pdf") - already read into `Book.information`
+    at import time by `SqliteMjbzBookReader._read_information()`, but never
+    persisted anywhere. Confirmed for real this is worth capturing: a random
+    30-book sample of currently-unmatched heading-only Jibreel Desktop stub
+    books had this key filled in 30/30 times, and comparing it (both sides
+    romanized/English) against the real PDF archive folder resolved 24/30 -
+    a real archive filename is often close but not identical (renamed,
+    author name appended), so this is a backfill target for
+    `jibreel_pdf_hint_backfill_cli.py`, not something achievable from
+    already-imported data alone.
+    """
+    connection.execute("ALTER TABLE Books ADD COLUMN SourcePdfHint TEXT")
+
+
 def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
     """Switch the database file to WAL journal mode for real read/write concurrency.
 
@@ -469,6 +488,7 @@ NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION = 7
 BOOKMARKS_AND_RECENT_BOOKS_VERSION = 8
 WAL_JOURNAL_MODE_VERSION = 9
 FOOTNOTES_SEARCH_INDEX_VERSION = 10
+SOURCE_PDF_HINT_VERSION = 11
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -533,6 +553,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "over Footnotes (previously unindexed), so search can restrict "
         "to main text, footnotes, or both.",
         _add_footnotes_search_index,
+    ),
+    Migration(
+        SOURCE_PDF_HINT_VERSION,
+        "Add Books.SourcePdfHint, additive and NULL until a backfill runs - "
+        "captures Jibreel's own book-to-PDF filename cross-reference.",
+        _add_source_pdf_hint_column,
     ),
 )
 
