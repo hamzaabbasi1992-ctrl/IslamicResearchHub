@@ -487,6 +487,50 @@ def test_semantic_search_is_skipped_under_exact_match(qtbot, tmp_path: Path) -> 
     assert semantic.last_query is None
 
 
+def test_lazy_semantic_search_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
+    """Without enable_lazy_semantic_search, no real service is ever built -
+    real model loading is opt-in, never a side effect of a plain search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    build_calls = []
+    screen._build_real_semantic_search_service = lambda: (build_calls.append(1), None)[1]
+
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert build_calls == []
+
+
+def test_lazy_semantic_search_builds_at_most_once_across_searches(
+    qtbot, tmp_path: Path
+) -> None:
+    """The real service is built (attempted) on the first search only - a
+    second search reuses the cached result instead of retrying the load."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", enable_lazy_semantic_search=True
+    )
+    qtbot.addWidget(screen)
+    build_calls = []
+    fake_service = FakeSemanticSearchService()
+
+    def _fake_build() -> FakeSemanticSearchService:
+        build_calls.append(1)
+        return fake_service
+
+    screen._build_real_semantic_search_service = _fake_build
+
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+    screen._run_search()
+
+    assert build_calls == [1]
+    assert screen._semantic_search_service is fake_service
+
+
 def test_scope_dropdown_footnotes_finds_a_real_footnote_only_term(qtbot, tmp_path: Path) -> None:
     """Selecting "Footnotes" in the scope dropdown finds a term only in a footnote,
     and shows it tagged as a footnote match on the result card."""

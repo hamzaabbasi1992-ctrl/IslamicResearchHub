@@ -1,5 +1,6 @@
 """Search screen: category/author browsing, query+filters+results, an inline detail panel."""
 
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
@@ -47,6 +48,8 @@ from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE,
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 
+LOGGER = logging.getLogger(__name__)
+
 DEFAULT_LIMIT = 30
 ALL_LIBRARIES_LABEL = "All libraries"
 LEFT_PANE_WIDTH = 230
@@ -66,13 +69,17 @@ class SearchScreen(QWidget):
         browser: BookBrowserRepository | None = None,
         recent_books: RecentBookRepository | None = None,
         semantic_search_service: SemanticBookSearchService | None = None,
+        enable_lazy_semantic_search: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self._database_path = database_path
         self._maknoon_pdf_folder = maknoon_pdf_folder
         self._search_service = search_service or BookSearchService(
             SqliteBookSearchRepository(database_path)
         )
+        self._enable_lazy_semantic_search = enable_lazy_semantic_search
+        self._semantic_search_attempted = False
         self._browser = browser or BookBrowserRepository(database_path)
         self._semantic_search_service = semantic_search_service
         self._recent_books = recent_books or RecentBookRepository(database_path)
@@ -456,7 +463,10 @@ class SearchScreen(QWidget):
 
         matched_keys = {(result.book_id, result.page_number) for result in results}
         semantic_results = ()
-        if self._semantic_search_service is not None and not exact and scope != "footnotes":
+        semantic_available = (
+            self._semantic_search_service is not None or self._enable_lazy_semantic_search
+        )
+        if semantic_available and not exact and scope != "footnotes":
             semantic_results = self._run_semantic_search(query, library, matched_keys)
 
         if not results and not title_matches and not semantic_results:
@@ -500,10 +510,18 @@ class SearchScreen(QWidget):
 
         Never raises - any failure (missing embedding index, the "ai"
         extra not installed, an empty index) just means no related-pages
-        section, not a broken search screen. `self._semantic_search_service`
-        is None unless explicitly wired in by the caller (opt-in, not
-        constructed automatically here).
+        section, not a broken search screen. Lazily constructs the real
+        service on the very first call (only when `enable_lazy_semantic_search`
+        was set and no service was explicitly injected) - loading the
+        embedding model is real, one-time work deferred to the first
+        actual search, not paid by every app launch. Tried at most once:
+        `_semantic_search_attempted` prevents retrying (and re-failing)
+        the load on every subsequent search.
         """
+        if self._semantic_search_service is None and self._enable_lazy_semantic_search:
+            if not self._semantic_search_attempted:
+                self._semantic_search_attempted = True
+                self._semantic_search_service = self._build_real_semantic_search_service()
         if self._semantic_search_service is None:
             return ()
         try:
@@ -515,6 +533,29 @@ class SearchScreen(QWidget):
             for candidate in candidates
             if (candidate.book_id, candidate.page_number) not in exclude_keys
         )
+
+    def _build_real_semantic_search_service(self) -> SemanticBookSearchService | None:
+        """Build the real local-model semantic search service, or None on any failure.
+
+        Failure is expected and normal here - the optional "ai" extra
+        (`sentence-transformers`) may not be installed, or model loading
+        may fail for other reasons. Either way, keyword search must keep
+        working unaffected.
+        """
+        try:
+            from islamic_research_hub.infrastructure.ai.sentence_transformer_embedder import (
+                SentenceTransformerEmbedder,
+            )
+            from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (
+                SqlitePageEmbeddingRepository,
+            )
+
+            embedder = SentenceTransformerEmbedder()
+            store = SqlitePageEmbeddingRepository(self._database_path)
+            return SemanticBookSearchService(embedder, store)
+        except Exception:
+            LOGGER.exception("Semantic search unavailable - falling back to keyword-only.")
+            return None
 
     def _browse_by_filters(
         self, library: str | None, author: str | None, category: str | None

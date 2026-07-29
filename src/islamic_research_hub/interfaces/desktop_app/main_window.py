@@ -86,7 +86,19 @@ class MainWindow(QMainWindow):
             self._recent_books = RecentBookRepository(database_path)
             self._header_bar = HeaderBar(database_path, self._translator)
             search_screen = SearchScreen(
-                database_path, maknoon_pdf_folder, recent_books=self._recent_books
+                database_path,
+                maknoon_pdf_folder,
+                recent_books=self._recent_books,
+                # Deliberately off: the pilot-scale semantic search does a
+                # brute-force in-memory scan of the whole embedding table
+                # (see SqlitePageEmbeddingRepository's own docstring) -
+                # confirmed for real at ~600K embedded pages (24% of the
+                # corpus) this already takes ~95 seconds per search, which
+                # will only get worse as the background indexing run
+                # continues. Not acceptable UX to enable silently - needs
+                # a real ANN index (or at least a bounded/library-scoped
+                # search) before this goes live. See CHANGELOG.
+                enable_lazy_semantic_search=False,
             )
             initial_font_px = int(self._settings.value(FONT_SIZE_KEY, DEFAULT_FONT_PX))
             initial_font_family = str(

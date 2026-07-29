@@ -293,6 +293,19 @@ scaled to the full corpus.
   this same hadith" is answerable from real, owned content - not an AI
   guessing what different schools generally think, which a generic tool
   with no comparable corpus cannot do at all.
+- **Desktop GUI wiring: built and tested, deliberately not live yet.**
+  `SearchScreen` can show semantic results in a real "Related pages"
+  section (lazy-loaded on first search, never blocking app startup) -
+  see CHANGELOG. Real testing against production found two bugs: a
+  ~30s network hang on first load (fixed - `HF_HUB_OFFLINE`/
+  `TRANSFORMERS_OFFLINE` must be set before, not after, importing
+  `sentence_transformers`) and a genuinely slow search - **94.92
+  seconds** at the current 25.3%-embedded corpus, because
+  `SqlitePageEmbeddingRepository`'s pilot-scale search brute-force-scans
+  the entire embedding table into memory every call. `MainWindow` keeps
+  this off (`enable_lazy_semantic_search=False`) until a real ANN index
+  (or at least a bounded/library-scoped search) replaces the brute-force
+  scan - a real, not-yet-done piece of this phase's remaining work.
 
 ### Phase 8 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 7, not started**
 

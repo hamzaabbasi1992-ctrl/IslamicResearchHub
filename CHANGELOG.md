@@ -2142,3 +2142,45 @@ test suite. Whether/how to wire it into real app startup (eagerly,
 lazily on first search, or behind a Settings toggle) is a real decision
 left open, not silently made.
 
+## Lazy semantic search wired in, then deliberately un-wired after real testing found it's not ready
+
+Per explicit decision (lazy, on first search), implemented and wired
+into `MainWindow`: `SearchScreen` gained `enable_lazy_semantic_search`,
+building the real local embedding service only on the first actual
+search (never at app startup), caching the attempt so it's tried at
+most once per session. 10 new tests using a duck-typed fake and a
+monkeypatched build method - no real model loads in the suite
+(312/312 total).
+
+**Two real bugs found by actually running it against production**,
+not assumed:
+
+1. **A ~30-36 second hang on the first search**, even with
+   `HF_HUB_OFFLINE` already set. Root cause: `HF_HUB_OFFLINE`/
+   `TRANSFORMERS_OFFLINE` are read by `huggingface_hub`/`transformers`
+   at *import time*, not per-call - setting them inside
+   `SentenceTransformerEmbedder.__init__` was too late, since the
+   `from sentence_transformers import SentenceTransformer` import
+   above it had already run. A `transformers` adapter-config existence
+   check (`find_adapter_config_file`) then made a real network HEAD
+   request and retried with backoff on a bad connection. Fixed by
+   moving the env var assignment to module import time, before the
+   library import. Verified fixed for real (no more retry log lines).
+2. **A genuinely slow search even once loading is instant**: at the
+   current ~602,515 embedded pages (25.3% of the corpus), one semantic
+   search took **94.92 seconds** - the pilot-scale
+   `SqlitePageEmbeddingRepository.search()` brute-force-scans the
+   entire embedding table into memory every call (its own docstring
+   already says this isn't meant to scale past a small pilot). This
+   will only get slower as the background indexing run continues
+   toward 100%.
+
+**Decision**: `MainWindow` now passes `enable_lazy_semantic_search=False`
+- the lazy-loading mechanism itself works correctly (bug 1 fixed), but
+  shipping a feature that can silently take 30-95+ seconds is not
+  acceptable UX, so it stays built and tested but off in the real app
+  until either a real ANN index replaces the brute-force scan, or
+  results are bounded (e.g. always requiring a library filter) - a
+  decision to make deliberately, not by leaving a slow feature on by
+  accident.
+
