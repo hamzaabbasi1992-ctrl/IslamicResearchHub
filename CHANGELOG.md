@@ -2055,3 +2055,48 @@ instruction, the provider itself stays an implementation detail, never
 user-facing jargon - the UI names the capability ("AI Summary"), not
 the underlying model.
 
+## Phase 6, first item shipped: real footnote-layer search
+
+Footnotes (67,056 real rows, Shamila Urdu) existed but were never
+indexed - browsable per-page only, not searchable. Migration 10 adds
+`FootnotesFTS`/`FootnotesFTSNormalized` (mirroring the existing
+`PagesFTS`/`PagesFTSNormalized` pattern exactly, including the same
+cross-keyboard normalization), with a real `scope` parameter
+(`"content"`/`"footnotes"`/`"both"`) threaded through
+`SqliteBookSearchRepository`, `BookSearchService`, and the `SearchIndex`
+Protocol. `SearchResult` gained a `source` field ("content"/"footnote")
+so a result card can show which layer matched. New "Main text /
+Footnotes / Both" dropdown in `SearchScreen`, next to the exact-match
+checkbox. 12 new/updated tests (306/306 total). Applied to production
+for real (backup first, applied cleanly alongside the still-running
+overnight embedding job thanks to WAL mode) - verified with a real
+query against real footnote data (5 real matches, e.g. "البیان شمارہ
+20" page 69).
+
+## Real, full-corpus PDF-extractability numbers (supersedes the earlier small-sample estimate)
+
+Completed the full scan (started earlier, ran in the background) of all
+5,914 PDF-only books across the three libraries with no companion
+index (Jibreel PDF Archive, Jumma Bayanat, Maktaba Islam PDF) for real
+outline/metadata/text-layer presence - not a 15-file sample this time:
+
+- **Real extractable native text layer: 1,101 books (18.6%)** - far
+  higher than the old corpus-wide "1.7-5%" estimate, which was
+  dragged down by averaging in the mostly-scanned libraries. Jumma
+  Bayanat alone is 32.3% (877/2,718) - real, typed sermon documents,
+  not scans. These 1,101 books could become fully searchable via the
+  existing native-PDF-text-extraction approach, with zero OCR needed.
+- **Real outline/bookmark structure: 2,139 books (36.2%)** - Maktaba
+  Islam PDF highest at 50.6% (41/81), Jibreel PDF Archive at 53.3%
+  (1661/3115). A real, extractable chapter/heading structure, same
+  category of value as the Maknoon TOC index investigated earlier.
+- Per-library breakdown: Jibreel PDF Archive (3115 total) - 1661
+  outline, 773 metadata title, 214 text layer, 4 errors. Jumma Bayanat
+  (2718 total) - 437 outline, 1771 metadata title, 877 text layer, 0
+  errors. Maktaba Islam PDF (81 total) - 41 outline, 18 metadata title,
+  10 text layer, 1 error.
+
+Not yet built: the actual extractor/importer for either the 1,101
+text-layer books or the 2,139 outline-only books - this is real,
+accurate scoping data for that future work, not the work itself.
+

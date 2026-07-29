@@ -280,3 +280,79 @@ def test_search_raises_book_search_error_for_malformed_query(tmp_path: Path) -> 
 
     with pytest.raises(BookSearchError):
         SqliteBookSearchRepository(database_path).search('"unbalanced quote', limit=10)
+
+
+def _seed_database_with_footnote(database_path: Path) -> None:
+    """Import one real book whose page carries real footnote/commentary text."""
+    book = Book(
+        information={"Name": "Book of Hadith"},
+        categories=(),
+        table_of_contents=(),
+        pages=(
+            Page(1, 1, "Main narration text about the obligation of prayer", "Plain",
+                 footnote="A real commentary note discussing sincerity in worship"),
+        ),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+
+
+def test_scope_content_ignores_a_term_that_only_appears_in_a_footnote(tmp_path: Path) -> None:
+    """The default scope ("content") never matches footnote-only text."""
+    database_path = tmp_path / "books.db"
+    _seed_database_with_footnote(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    results = SqliteBookSearchRepository(database_path).search("sincerity", limit=10)
+
+    assert results == ()
+
+
+def test_scope_footnotes_matches_real_footnote_text(tmp_path: Path) -> None:
+    """scope="footnotes" finds a real term that only appears in a footnote."""
+    database_path = tmp_path / "books.db"
+    _seed_database_with_footnote(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "sincerity", limit=10, scope="footnotes"
+    )
+
+    assert len(results) == 1
+    assert results[0].source == "footnote"
+    assert results[0].title == "Book of Hadith"
+    assert results[0].page_number == 1
+    assert "sincerity" in results[0].excerpt.lower()
+
+
+def test_scope_both_returns_content_and_footnote_matches(tmp_path: Path) -> None:
+    """scope="both" returns matches from main text and footnotes together."""
+    database_path = tmp_path / "books.db"
+    _seed_database_with_footnote(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    content_only = SqliteBookSearchRepository(database_path).search(
+        "narration", limit=10, scope="both"
+    )
+    footnote_only = SqliteBookSearchRepository(database_path).search(
+        "sincerity", limit=10, scope="both"
+    )
+
+    assert len(content_only) == 1 and content_only[0].source == "content"
+    assert len(footnote_only) == 1 and footnote_only[0].source == "footnote"
+
+
+def test_scope_footnotes_degrades_gracefully_before_migration(tmp_path: Path) -> None:
+    """Before migration 10 runs, scope="footnotes" returns empty, not a crash."""
+    database_path = tmp_path / "books.db"
+    _seed_database_with_footnote(database_path)
+
+    results = SqliteBookSearchRepository(database_path).search(
+        "sincerity", limit=10, scope="footnotes"
+    )
+
+    assert results == ()

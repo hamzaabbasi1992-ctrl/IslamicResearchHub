@@ -68,6 +68,16 @@ starts. No side improvements, no premature optimization, no unrequested
 AI work outside Phase 6. See `CHANGELOG.md` for the detailed history and
 real-data validation behind every item below.
 
+**V1.0 definition** (per explicit decision: think in terms of a 10-year
+roadmap, not a v1.0 checklist - v1.0 should solve one problem extremely
+well before anything else): **Phases 1-7** - find reliable information
+across the whole unified library quickly, with accurate, real page
+citations. Everything from Phase 8 onward is real, scoped future work,
+not part of getting there. Modular by design already (`Protocol` ports
+throughout `application/`, the optional `ai` extra in `pyproject.toml`)
+- a user who never touches AI/voice/etc. still gets a fast, complete
+library; those capabilities aren't required to get v1.0's core value.
+
 ### Phase 1 — Import System: **complete**
 
 - Maktaba Jibreel (Mobile), `.mjbz` — mature, production.
@@ -206,23 +216,22 @@ content of either format exists anywhere in the corpus.
   8, both new tables present, and a real bookmark + recent-open
   round-trip against a real production book).
 
-### Phase 6 — Real differentiators, buildable now: **not started**
+### Phase 6 — Real differentiators, buildable now: **in progress**
 
 Added after an explicit push to prioritize what's actually unique to
 this project over generic AI-wrapper features - the test applied: could
 a generic tool (any PDF-AI wrapper, ChatGPT, NotebookLM) do this with
 *any random* PDF collection? If yes, it's not a differentiator. These
-two items fail that test - they specifically require this project's
+items fail that test - they specifically require this project's
 already-unified, cross-library, deduplicated corpus - and need no new
 AI capability, only infrastructure that already exists:
 
-- **Footnote-layer search**: real footnote data already exists
-  (`Footnotes` table, Shamila Urdu's `fnotes`/`HadithHashiaText` - see
-  Phase 2). Currently searched the same as main text, undifferentiated.
-  Real, scoped work: let a search restrict to main text only, footnotes
-  only, or both - most Islamic library tools don't separate these
-  layers at all, so this is a real capability gap to close, not a
-  cosmetic filter.
+- **Footnote-layer search: done.** `Footnotes` (67,056 real rows) is
+  now genuinely indexed - `FootnotesFTS`/`FootnotesFTSNormalized`
+  (migration 10), a real `scope` parameter (`"content"`/`"footnotes"`/
+  `"both"`) through the full search stack, and a "Main text / Footnotes
+  / Both" dropdown in the Search screen. Applied to production and
+  verified with a real query. See CHANGELOG.
 - **Cross-library edition/variant comparison**: the same book often
   exists across Jibreel Mobile, Desktop, Maknoon, and (once imported)
   Shamela as different printings/editions. No single-source tool
@@ -231,7 +240,17 @@ AI capability, only infrastructure that already exists:
   detection (Phase 2) is the real prerequisite, already partially done
   (27 remaining Mobile/Desktop pairs under "Not yet scheduled", below).
   Real new scope: show the actual textual differences between editions
-  of the same work, not just "these are probably the same book."
+  of the same work, not just "these are probably the same book." Not
+  yet started.
+- **Real, full-corpus PDF-extractability scan: done** (not part of the
+  original Phase 6 scope, but directly informs it - see CHANGELOG).
+  Scanned all 5,914 PDF-only books across the three libraries with no
+  companion index: **1,101 (18.6%) have a real extractable native text
+  layer** - far above the old corpus-wide "1.7-5%" estimate (Jumma
+  Bayanat alone is 32.3%) - and **2,139 (36.2%) have a real outline/
+  bookmark structure**. Real, accurate scoping data for a future
+  no-OCR-needed import of those 1,101 books and a TOC-only import of
+  the outline books; the extractor/importer itself is not yet built.
 
 ### Phase 7 — AI: semantic search: **in progress**
 

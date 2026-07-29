@@ -362,6 +362,17 @@ class SearchScreen(QWidget):
         self._category_edit.setPlaceholderText("Category (exact)")
         filter_row.addWidget(self._category_edit)
 
+        self._scope_combo = QComboBox()
+        self._scope_combo.addItem("Main text", "content")
+        self._scope_combo.addItem("Footnotes", "footnotes")
+        self._scope_combo.addItem("Both", "both")
+        self._scope_combo.setToolTip(
+            "Restrict content search to main page text, footnotes/commentary "
+            "only, or both."
+        )
+        self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
+        filter_row.addWidget(self._scope_combo)
+
         filter_row.addStretch(1)
         self._exact_match_checkbox = QCheckBox("Exact match")
         self._exact_match_checkbox.setToolTip(
@@ -391,6 +402,10 @@ class SearchScreen(QWidget):
         if self._query_edit.text().strip():
             self._run_search()
 
+    def _on_scope_changed(self, _index: int) -> None:
+        if self._query_edit.text().strip():
+            self._run_search()
+
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
@@ -400,6 +415,7 @@ class SearchScreen(QWidget):
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
         exact = self._exact_match_checkbox.isChecked()
+        scope = self._scope_combo.currentData()
 
         if not query:
             # No search text - the Author/Category/Library filters can still
@@ -422,7 +438,7 @@ class SearchScreen(QWidget):
 
         try:
             results = self._search_service.search(
-                query, DEFAULT_LIMIT, library, author, category, exact
+                query, DEFAULT_LIMIT, library, author, category, exact, scope
             )
         except BookSearchError:
             self._status_label.setText("That search couldn't be run - check your query and try again.")
@@ -490,6 +506,8 @@ class SearchScreen(QWidget):
         meta_bits = [result.author or "Unknown author", result.library or "Unknown library"]
         if result.page_number is not None:
             meta_bits.append(f"page {result.page_number}")
+        if result.source == "footnote":
+            meta_bits.append("footnote match")
         meta = QLabel(" · ".join(meta_bits))
         meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
         card_layout.addWidget(meta)

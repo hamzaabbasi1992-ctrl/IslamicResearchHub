@@ -21,6 +21,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     TAXONOMY_DIMENSIONS,
     TAXONOMY_VERSION,
     VOLUMES_VERSION,
+    FOOTNOTES_SEARCH_INDEX_VERSION,
     WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
 )
@@ -132,8 +133,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
+            FOOTNOTES_SEARCH_INDEX_VERSION,
         ]
-        assert runner.current_version(connection) == WAL_JOURNAL_MODE_VERSION
+        assert runner.current_version(connection) == FOOTNOTES_SEARCH_INDEX_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -173,6 +175,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
+            FOOTNOTES_SEARCH_INDEX_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -225,6 +228,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
+            FOOTNOTES_SEARCH_INDEX_VERSION,
         ]
 
         rows = connection.execute(
@@ -289,6 +293,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION,
             BOOKMARKS_AND_RECENT_BOOKS_VERSION,
             WAL_JOURNAL_MODE_VERSION,
+            FOOTNOTES_SEARCH_INDEX_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -574,6 +579,63 @@ def test_wal_migration_switches_the_real_journal_mode(tmp_path: Path) -> None:
         runner_migrate_all(connection)
         mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode.lower() == "wal"
+
+
+def test_footnotes_search_migration_indexes_real_existing_footnotes(tmp_path: Path) -> None:
+    """Migration 10 backfills FootnotesFTS/FootnotesFTSNormalized from real existing rows."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Hadith"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Main text", "Plain", footnote="A real note about sincerity"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        raw_match = connection.execute(
+            "SELECT COUNT(*) FROM FootnotesFTS WHERE FootnotesFTS MATCH 'sincerity'"
+        ).fetchone()[0]
+        assert raw_match == 1
+
+        from islamic_research_hub.shared.arabic_text_normalization import (
+            normalize_search_text,
+        )
+
+        normalized_match = connection.execute(
+            "SELECT COUNT(*) FROM FootnotesFTSNormalized WHERE FootnotesFTSNormalized MATCH ?",
+            (normalize_search_text("sincerity"),),
+        ).fetchone()[0]
+        assert normalized_match == 1
+
+
+def test_footnotes_search_migration_trigger_indexes_future_footnotes(tmp_path: Path) -> None:
+    """After the migration, a footnote imported afterward still gets indexed."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+    second_book = Book(
+        information={"Name": "Book Two"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Main text", "Plain", footnote="A later real note about patience"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (second_book,), (database_path.parent / "two.mjbz",)
+    )
+
+    with sqlite3.connect(database_path) as connection:
+        match = connection.execute(
+            "SELECT COUNT(*) FROM FootnotesFTS WHERE FootnotesFTS MATCH 'patience'"
+        ).fetchone()[0]
+        assert match == 1
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

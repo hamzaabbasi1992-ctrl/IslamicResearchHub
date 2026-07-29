@@ -342,6 +342,41 @@ def test_exact_match_checkbox_requires_literal_spelling(qtbot, tmp_path: Path) -
     assert "No matches found" in screen._status_label.text()
 
 
+def test_scope_dropdown_footnotes_finds_a_real_footnote_only_term(qtbot, tmp_path: Path) -> None:
+    """Selecting "Footnotes" in the scope dropdown finds a term only in a footnote,
+    and shows it tagged as a footnote match on the result card."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Hadith"},
+        categories=(),
+        table_of_contents=(),
+        pages=(
+            Page(1, 1, "Main text about prayer", "Plain",
+                 footnote="A real note discussing sincerity in worship"),
+        ),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("sincerity")
+    screen._run_search()
+    assert "No matches found" in screen._status_label.text()
+
+    footnotes_index = screen._scope_combo.findData("footnotes")
+    screen._scope_combo.setCurrentIndex(footnotes_index)
+
+    assert "1 content result" in screen._status_label.text()
+    labels_text = " ".join(
+        label.text() for label in screen._results_area.findChildren(type(screen._status_label))
+    )
+    assert "footnote match" in labels_text
+
+
 def test_browse_filter_narrows_the_real_author_list(qtbot, tmp_path: Path) -> None:
     """Typing into the browse filter hides authors that don't match, in real time."""
     database_path = tmp_path / "books.db"

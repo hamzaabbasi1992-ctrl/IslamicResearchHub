@@ -16,6 +16,7 @@ class FakeIndex:
         self.last_author: str | None = None
         self.last_category: str | None = None
         self.last_exact: bool | None = None
+        self.last_scope: str | None = None
 
     def search(
         self,
@@ -25,6 +26,7 @@ class FakeIndex:
         author: str | None = None,
         category: str | None = None,
         exact: bool = False,
+        scope: str = "content",
     ) -> tuple[SearchResult, ...]:
         """Record the request and return one fixed result."""
         self.last_query = query
@@ -33,6 +35,7 @@ class FakeIndex:
         self.last_author = author
         self.last_category = category
         self.last_exact = exact
+        self.last_scope = scope
         return (SearchResult(book_id=1, title="Title", author="Author", page_number=1, excerpt="..."),)
 
 

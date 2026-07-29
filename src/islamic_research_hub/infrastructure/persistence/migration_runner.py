@@ -381,6 +381,57 @@ def _add_bookmarks_and_recent_books(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_footnotes_search_index(connection: sqlite3.Connection) -> None:
+    """Add real, separate full-text indexes over `Footnotes`, both raw and normalized.
+
+    `Footnotes` (BookID, PageNo, FootnoteText) has existed since the
+    Shamila Urdu import (67,056 real rows: `fnotes`/`HadithHashiaText`
+    commentary) but was never indexed at all - footnote text could not
+    be searched, only browsed per-page. `FootnotesFTS` mirrors `PagesFTS`
+    (literal matching); `FootnotesFTSNormalized` mirrors
+    `PagesFTSNormalized` (diacritic/letter-form/cross-keyboard-tolerant,
+    same `_NORMALIZATION_PAIRS` used everywhere else) - kept as two
+    separate indexes, not merged into the page-content ones, so a search
+    can genuinely restrict to main text only, footnotes only, or both
+    (the real point of this migration - see PROJECT.md Phase 6).
+    """
+    normalize_new_text = build_sql_normalize_expression("new.FootnoteText")
+    normalize_existing_text = build_sql_normalize_expression("FootnoteText")
+
+    connection.executescript(
+        """
+        CREATE VIRTUAL TABLE FootnotesFTS USING fts5(
+            FootnoteText,
+            content='Footnotes',
+            content_rowid='rowid'
+        );
+        CREATE TRIGGER footnotes_after_insert AFTER INSERT ON Footnotes BEGIN
+            INSERT INTO FootnotesFTS(rowid, FootnoteText)
+            VALUES (new.rowid, new.FootnoteText);
+        END;
+
+        CREATE VIRTUAL TABLE FootnotesFTSNormalized USING fts5(FootnoteText);
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE TRIGGER footnotes_after_insert_normalized AFTER INSERT ON Footnotes BEGIN
+            INSERT INTO FootnotesFTSNormalized (rowid, FootnoteText)
+            VALUES (new.rowid, {normalize_new_text});
+        END
+        """
+    )
+    connection.execute(
+        "INSERT INTO FootnotesFTS(rowid, FootnoteText) SELECT rowid, FootnoteText FROM Footnotes"
+    )
+    connection.execute(
+        f"""
+        INSERT INTO FootnotesFTSNormalized (rowid, FootnoteText)
+        SELECT rowid, {normalize_existing_text} FROM Footnotes
+        """
+    )
+
+
 def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
     """Switch the database file to WAL journal mode for real read/write concurrency.
 
@@ -417,6 +468,7 @@ TAXONOMY_VERSION = 6
 NORMALIZED_SEARCH_KEYBOARD_FIX_VERSION = 7
 BOOKMARKS_AND_RECENT_BOOKS_VERSION = 8
 WAL_JOURNAL_MODE_VERSION = 9
+FOOTNOTES_SEARCH_INDEX_VERSION = 10
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -474,6 +526,13 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Switch the database to WAL journal mode for real read/write "
         "concurrency during long background jobs.",
         _switch_to_wal_journal_mode,
+    ),
+    Migration(
+        FOOTNOTES_SEARCH_INDEX_VERSION,
+        "Add FootnotesFTS/FootnotesFTSNormalized, real full-text indexes "
+        "over Footnotes (previously unindexed), so search can restrict "
+        "to main text, footnotes, or both.",
+        _add_footnotes_search_index,
     ),
 )
 
