@@ -383,13 +383,23 @@ class SearchScreen(QWidget):
         self._category_edit.setPlaceholderText("Category (exact)")
         filter_row.addWidget(self._category_edit)
 
+        self._search_target_combo = QComboBox()
+        self._search_target_combo.addItem("Name + content", "both")
+        self._search_target_combo.addItem("Book name only", "title")
+        self._search_target_combo.addItem("Book content only", "content")
+        self._search_target_combo.setToolTip(
+            "Search by book name (title), inside book content, or both."
+        )
+        self._search_target_combo.currentIndexChanged.connect(self._on_search_target_changed)
+        filter_row.addWidget(self._search_target_combo)
+
         self._scope_combo = QComboBox()
         self._scope_combo.addItem("Main text", "content")
         self._scope_combo.addItem("Footnotes", "footnotes")
         self._scope_combo.addItem("Both", "both")
         self._scope_combo.setToolTip(
-            "Restrict content search to main page text, footnotes/commentary "
-            "only, or both."
+            "When searching book content: main page text, footnotes/"
+            "commentary only, or both."
         )
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         filter_row.addWidget(self._scope_combo)
@@ -427,6 +437,10 @@ class SearchScreen(QWidget):
         if self._query_edit.text().strip():
             self._run_search()
 
+    def _on_search_target_changed(self, _index: int) -> None:
+        if self._query_edit.text().strip():
+            self._run_search()
+
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
@@ -437,6 +451,7 @@ class SearchScreen(QWidget):
         category = self._category_edit.text().strip() or None
         exact = self._exact_match_checkbox.isChecked()
         scope = self._scope_combo.currentData()
+        search_target = self._search_target_combo.currentData()  # "both" | "title" | "content"
 
         if not query:
             # No search text - the Author/Category/Library filters can still
@@ -449,39 +464,58 @@ class SearchScreen(QWidget):
                 self._status_label.setText("")
             return
 
-        # Book-name search runs alongside content search (not instead of it):
-        # the same query can be a real title match, a real content match, or
-        # both - shown as two clearly labeled groups, title matches first
-        # since that's usually what a name-shaped query means.
-        title_matches = self._browser.search_by_title(
-            query, DEFAULT_LIMIT, library, author, category, exact
-        )
-
-        try:
-            results = self._search_service.search(
-                query, DEFAULT_LIMIT, library, author, category, exact, scope
+        # Book-name search and content search each run only when the real
+        # "Search in" choice includes them - "Name + content" (the default)
+        # runs both and shows two clearly labeled groups, title matches
+        # first since that's usually what a name-shaped query means.
+        title_matches: tuple[BookSummary, ...] = ()
+        if search_target in ("title", "both"):
+            title_matches = self._browser.search_by_title(
+                query, DEFAULT_LIMIT, library, author, category, exact
             )
-        except BookSearchError:
-            self._status_label.setText("That search couldn't be run - check your query and try again.")
-            return
-        except ValueError:
-            self._status_label.setText("Enter a search term.")
-            return
+
+        results: tuple[SearchResult, ...] = ()
+        if search_target in ("content", "both"):
+            try:
+                results = self._search_service.search(
+                    query, DEFAULT_LIMIT, library, author, category, exact, scope
+                )
+            except BookSearchError:
+                self._status_label.setText(
+                    "That search couldn't be run - check your query and try again."
+                )
+                return
+            except ValueError:
+                self._status_label.setText("Enter a search term.")
+                return
 
         matched_keys = {(result.book_id, result.page_number) for result in results}
         self._current_query = query
         self._current_title_count = len(title_matches)
         self._current_content_count = len(results)
 
+        content_search_active = search_target in ("content", "both")
+        semantic_available = (
+            self._semantic_search_service is not None or self._enable_lazy_semantic_search
+        )
+        semantic_will_run = (
+            content_search_active and semantic_available and not exact and scope != "footnotes"
+        )
+
         if not results and not title_matches:
-            self._status_label.setText(f'No matches found for "{query}" yet - checking related pages...')
-        else:
-            self._status_label.setText(
-                ", ".join(
-                    ([f"{len(title_matches)} title match(es)"] if title_matches else [])
-                    + [f"{len(results)} content result(s)"]
-                )
+            status = (
+                f'No matches found for "{query}" yet - checking related pages...'
+                if semantic_will_run
+                else f'No matches found for "{query}".'
             )
+            self._status_label.setText(status)
+        else:
+            status_bits = []
+            if title_matches:
+                status_bits.append(f"{len(title_matches)} title match(es)")
+            if content_search_active:
+                status_bits.append(f"{len(results)} content result(s)")
+            self._status_label.setText(", ".join(status_bits))
 
         if title_matches:
             self._results_layout.insertWidget(
@@ -496,13 +530,8 @@ class SearchScreen(QWidget):
                 self._results_layout.count() - 1, self._build_result_card(result)
             )
 
-        semantic_available = (
-            self._semantic_search_service is not None or self._enable_lazy_semantic_search
-        )
-        if semantic_available and not exact and scope != "footnotes":
+        if semantic_will_run:
             self._start_semantic_search(query, library, matched_keys)
-        elif not results and not title_matches:
-            self._status_label.setText(f'No matches found for "{query}".')
 
     def _start_semantic_search(
         self, query: str, library: str | None, exclude_keys: set[tuple[int, int | None]]

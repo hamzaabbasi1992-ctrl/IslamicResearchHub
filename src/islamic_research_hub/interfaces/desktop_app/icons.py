@@ -15,17 +15,23 @@ from islamic_research_hub.interfaces.desktop_app.theme import ACCENT, INK_SOFT
 _RENDER_SIZE = QSize(40, 40)
 
 _SVG_PATHS: dict[str, str] = {
-    "search": '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/>',
+    "search": '<circle cx="10.5" cy="10.5" r="6.5"/><line x1="20.5" y1="20.5" x2="15.3" y2="15.3"/>',
     "viewer": (
-        '<path d="M3 5c3-1.5 6-1.5 9 0v14c-3-1.5-6-1.5-9 0z"/>'
-        '<path d="M21 5c-3-1.5-6-1.5-9 0v14c3-1.5 6-1.5 9 0z"/>'
+        '<path d="M12 6.2c-2.4-1.6-5.6-2.1-9.2-1V19c3.6-1.1 6.8-.6 9.2 1 2.4-1.6 5.6-2.1 9.2-1V5.2'
+        'c-3.6-1.1-6.8-.6-9.2 1z"/>'
+        '<line x1="12" y1="6.2" x2="12" y2="20"/>'
     ),
-    "import": '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 4v5"/>',
+    "import": (
+        '<path d="M3 7.2a1 1 0 0 1 1-1h4.4l1.8 1.8H20a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'
+        '<line x1="12" y1="11.7" x2="12" y2="16.7"/>'
+        '<line x1="9.5" y1="14.2" x2="14.5" y2="14.2"/>'
+    ),
     "logs": (
-        '<rect x="4" y="3" width="16" height="18" rx="2"/>'
-        '<line x1="8" y1="8" x2="16" y2="8"/>'
-        '<line x1="8" y1="12" x2="16" y2="12"/>'
-        '<line x1="8" y1="16" x2="12" y2="16"/>'
+        '<path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>'
+        '<path d="M15 3v4h4"/>'
+        '<line x1="8" y1="11.5" x2="16" y2="11.5"/>'
+        '<line x1="8" y1="15" x2="16" y2="15"/>'
+        '<line x1="8" y1="18.5" x2="12.5" y2="18.5"/>'
     ),
     "settings": (
         '<circle cx="12" cy="12" r="3"/>'

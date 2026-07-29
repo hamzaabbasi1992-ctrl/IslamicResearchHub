@@ -547,6 +547,52 @@ def test_lazy_semantic_search_builds_at_most_once_across_searches(
     assert screen._semantic_search_service is fake_service
 
 
+def test_search_target_book_name_only_skips_content_search(qtbot, tmp_path: Path) -> None:
+    """"Book name only" finds real title matches and never runs content search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    title_only_index = screen._search_target_combo.findData("title")
+    screen._search_target_combo.setCurrentIndex(title_only_index)
+    screen._query_edit.setText("Fiqh")
+    screen._run_search()
+
+    assert "title match" in screen._status_label.text()
+    assert "content result" not in screen._status_label.text()
+
+
+def test_search_target_book_content_only_skips_title_search(qtbot, tmp_path: Path) -> None:
+    """"Book content only" finds real content matches and never runs title search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    content_only_index = screen._search_target_combo.findData("content")
+    screen._search_target_combo.setCurrentIndex(content_only_index)
+    screen._query_edit.setText("jurisprudence")
+    screen._run_search()
+
+    assert "content result" in screen._status_label.text()
+    assert "title match" not in screen._status_label.text()
+
+
+def test_search_target_default_runs_both_name_and_content(qtbot, tmp_path: Path) -> None:
+    """The default "Name + content" still runs both, matching prior behavior."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._query_edit.setText("Fiqh")
+    screen._run_search()
+
+    assert "title match" in screen._status_label.text()
+    assert "content result" in screen._status_label.text()
+
+
 def test_scope_dropdown_footnotes_finds_a_real_footnote_only_term(qtbot, tmp_path: Path) -> None:
     """Selecting "Footnotes" in the scope dropdown finds a term only in a footnote,
     and shows it tagged as a footnote match on the result card."""
