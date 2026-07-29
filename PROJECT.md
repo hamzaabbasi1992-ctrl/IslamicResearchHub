@@ -318,10 +318,10 @@ scaled to the full corpus.
   is closer to fully embedded), but no longer doing unnecessary work,
   and never blocking regardless of how slow it gets. See CHANGELOG.
 
-### Phase 8 — Maktaba Shamela import + taxonomy GUI: **scheduled after Phase 7, not started**
+### Phase 8 — Maktaba Shamela import + taxonomy GUI: **in progress**
 
 Explicitly scheduled by the user to come after Phase 7, not before -
-both items below are real, scoped, but deliberately deferred:
+both items below are real and scoped:
 
 - **Maktaba Shamela importer**: `F:\المكتبة الشاملة`, 113 GB, 30,662
   real books, 99.5% new vs. the existing corpus (would more than double
@@ -332,11 +332,20 @@ both items below are real, scoped, but deliberately deferred:
   against an actual Shamela `.mdb` file (`book` table: id/nass/page/
   part/seal; `title` table: id/lvl/sub/tit, real table-of-contents
   hierarchy). The importer itself is not yet built.
-- **Taxonomy dimension browsing/tagging GUI**: migration 6 added the
-  general nine-dimension schema (subject, author, madhhab, language,
-  publisher, region, personality, event, tag) and `TaxonomyRepository` -
-  see CHANGELOG. No data has been migrated into it and no GUI browses it
-  yet; both are this phase's real work, not migration 6's.
+- **Taxonomy population: done.** `TaxonomyRepository` now populates the
+  "subject" and "author" dimensions from the already-normalized
+  `CategoryTaxonomy`/`Authors` tables and links every real book to them
+  - idempotent, verified for real against production: **691 subject
+  terms, 650 author terms, 13,442 book-subject links, 4,466
+  book-author links**, matching this corpus's already-known real
+  category/author counts exactly. See CHANGELOG (includes a real
+  perf bug found and fixed - bulk linking, not one connection per
+  book). The other seven dimensions (madhhab, language, publisher,
+  region, personality, event, tag) have no source data to populate
+  from yet - not part of this pass.
+- **Taxonomy browsing GUI: not yet started.** Real data exists now:
+  next real step is a desktop-app screen to browse/search by these
+  populated dimensions, not just Categories/Authors as before.
 
 ### Phase 9 — Accessibility, engagement, and AI research tools: **scheduled after Phase 8, not started**
 

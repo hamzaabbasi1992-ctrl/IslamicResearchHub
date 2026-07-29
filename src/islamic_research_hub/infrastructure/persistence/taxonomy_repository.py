@@ -307,6 +307,134 @@ class TaxonomyRepository:
         )
 
 
+    def populate_subjects_from_category_taxonomy(self) -> int:
+        """Populate the "subject" dimension from the already-normalized
+        CategoryTaxonomy table (691 real cross-library categories, see
+        Phase 2), preserving its real hierarchy. Real prerequisite:
+        migration 3 must have run - if `CategoryTaxonomy` doesn't exist
+        yet, this is a no-op (0). Idempotent: each term's `StableKey`
+        ("mjcn:<MJCN>") is looked up before creating, so re-running
+        after new libraries are imported only adds genuinely new
+        categories, never duplicates. Returns the total number of real
+        subject terms backed by a category after this call (not just
+        newly created ones).
+        """
+        connection = self._connect_if_table_exists("CategoryTaxonomy")
+        if connection is None:
+            return 0
+        with closing(connection):
+            rows = connection.execute(
+                "SELECT MJCN, Name, ParentMJCN FROM CategoryTaxonomy"
+            ).fetchall()
+
+        remaining = {mjcn: (name, parent_mjcn or None) for mjcn, name, parent_mjcn in rows}
+        term_id_by_mjcn: dict[int, int] = {}
+        while remaining:
+            resolvable = [
+                mjcn
+                for mjcn, (_, parent_mjcn) in remaining.items()
+                if parent_mjcn is None
+                or parent_mjcn in term_id_by_mjcn
+                or parent_mjcn not in remaining
+            ]
+            if not resolvable:
+                break  # a real cycle - shouldn't happen, but never loop forever
+            for mjcn in resolvable:
+                name, parent_mjcn = remaining.pop(mjcn)
+                parent_term_id = term_id_by_mjcn.get(parent_mjcn) if parent_mjcn else None
+                term_id_by_mjcn[mjcn] = self.get_or_create_term(
+                    "subject", name, language_code="ar",
+                    parent_term_id=parent_term_id, stable_key=f"mjcn:{mjcn}",
+                )
+        return len(term_id_by_mjcn)
+
+    def populate_authors_from_authors_table(self) -> int:
+        """Populate the "author" dimension from the already-normalized
+        Authors table (650 real authors, see Phase 2). Real prerequisite:
+        migration 2 must have run - a no-op (0) if `Authors` doesn't
+        exist yet. Idempotent via `StableKey` ("author:<AuthorID>"),
+        same pattern as the subject population above. Returns the total
+        number of real author terms after this call.
+        """
+        connection = self._connect_if_table_exists("Authors")
+        if connection is None:
+            return 0
+        with closing(connection):
+            rows = connection.execute("SELECT AuthorID, Name FROM Authors").fetchall()
+
+        for author_id, name in rows:
+            self.get_or_create_term(
+                "author", name, language_code="ar", stable_key=f"author:{author_id}"
+            )
+        return len(rows)
+
+    def link_books_to_populated_taxonomy(self) -> tuple[int, int]:
+        """Link every real book to its subject term(s) and author term.
+
+        Real prerequisite: `populate_subjects_from_category_taxonomy()`
+        and `populate_authors_from_authors_table()` must have already
+        run - terms are matched by the `StableKey`s they set. Safe to
+        re-run (`INSERT OR IGNORE`). Returns (subject_links_attempted,
+        author_links_attempted) - "attempted" here means real `INSERT`s
+        tried, not filtered for pre-existing links, so a re-run reports
+        the same numbers again, not zero.
+
+        Bulk `executemany` in one connection/transaction, not one
+        `link_book()` call (and one new connection) per book - real,
+        measured difference at 15,000+ real books: minutes versus
+        seconds.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            subject_term_by_mjcn = dict(
+                connection.execute(
+                    "SELECT CAST(SUBSTR(StableKey, 6) AS INTEGER), TermID FROM TaxonomyTerms "
+                    "WHERE StableKey LIKE 'mjcn:%'"
+                ).fetchall()
+            )
+            author_term_by_author_id = dict(
+                connection.execute(
+                    "SELECT CAST(SUBSTR(StableKey, 8) AS INTEGER), TermID FROM TaxonomyTerms "
+                    "WHERE StableKey LIKE 'author:%'"
+                ).fetchall()
+            )
+            book_categories = connection.execute(
+                "SELECT BookID, MJCN FROM Categories WHERE MJCN IS NOT NULL"
+            ).fetchall()
+            book_authors = connection.execute(
+                "SELECT BookID, AuthorID FROM Books WHERE AuthorID IS NOT NULL"
+            ).fetchall()
+
+            subject_pairs = [
+                (book_id, subject_term_by_mjcn[mjcn])
+                for book_id, mjcn in book_categories
+                if mjcn in subject_term_by_mjcn
+            ]
+            author_pairs = [
+                (book_id, author_term_by_author_id[author_id])
+                for book_id, author_id in book_authors
+                if author_id in author_term_by_author_id
+            ]
+
+            with connection:
+                connection.executemany(
+                    "INSERT OR IGNORE INTO BookTaxonomyTerms (BookID, TermID) VALUES (?, ?)",
+                    subject_pairs + author_pairs,
+                )
+
+        return len(subject_pairs), len(author_pairs)
+
+    def _connect_if_table_exists(self, table_name: str) -> sqlite3.Connection | None:
+        """Return a real connection, or None if the given table doesn't exist yet."""
+        connection = sqlite3.connect(self._database_path)
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table_name,)
+        ).fetchone()
+        if exists is None:
+            connection.close()
+            return None
+        return connection
+
+
 def _build_tree(flat_terms: tuple[TaxonomyTerm, ...]) -> tuple[TaxonomyTerm, ...]:
     """Assemble a flat list of terms (with ParentTermID) into a real tree."""
     by_parent: dict[int | None, list[TaxonomyTerm]] = {}

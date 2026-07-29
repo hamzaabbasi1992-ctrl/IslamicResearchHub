@@ -2270,3 +2270,52 @@ honest long-term answer once the corpus is closer to fully embedded),
 but it no longer does unnecessary work, and it never blocks the UI
 regardless of how slow it gets.
 
+## Phase 8, taxonomy population: real subject/author data, no longer empty
+
+Migration 6 built the general nine-dimension taxonomy schema back in
+Phase 2, additive and empty. `TaxonomyRepository` gains three new
+methods: `populate_subjects_from_category_taxonomy()` (backfills the
+"subject" dimension from the already cross-library-normalized
+`CategoryTaxonomy` table, preserving its real hierarchy via a
+topological pass so parents are always created before children),
+`populate_authors_from_authors_table()` (same pattern from `Authors`),
+and `link_books_to_populated_taxonomy()` (links every real book to its
+real subject(s)/author). Each term gets a real `StableKey`
+(`"mjcn:<MJCN>"` / `"author:<AuthorID>"`) so re-running after new
+libraries are imported is genuinely idempotent - verified for real
+(identical numbers on a second run against production). New
+`taxonomy_population_cli.py`, 16 new tests (330/330 total).
+
+**Real bug found and fixed via direct timing, not assumed**: the first
+production run took over 2 minutes and had to be backgrounded, because
+`link_books_to_populated_taxonomy()` called `link_book()` in a loop -
+one new SQLite connection *per book-term link* (thousands of them).
+Rewrote it to build the full list of (BookID, TermID) pairs first, then
+one `executemany` in a single connection/transaction. Re-run against
+production afterward: **6.5 seconds**, identical results.
+
+Applied to production for real (backup first): **691 subject terms,
+650 author terms, 13,442 book-subject links, 4,466 book-author links**
+- matching this corpus's already-known real category/author counts
+exactly, confirming correctness, not just "it ran without error."
+
+## Real cleanup: stale backups (again) and genuinely unreferenced Maktaba Islam files
+
+Same recurring cause as before: every migration this session made a
+fresh full-database backup and none were pruned - `data/backups/` had
+grown back to 4 backups (45.5 GB). Removed the 3 oldest, kept the
+newest (from right before tonight's taxonomy population).
+
+Separately, per explicit request, investigated whether
+`F:\MaktabaIslam` (3.06 GB) could be cleaned up. Real, precise
+approach - not folder-name guessing: cross-checked every one of its
+3,028 real files against every `Books.Source` value in the production
+database. Found exactly 81 files (0.50 GB) are genuinely referenced -
+these are PDF-only books where the database holds *only* a path
+reference, not extracted content, so the PDF file itself is the book's
+only copy. The remaining 2,947 files (2.56 GB) are referenced by
+nothing in the database at all (duplicates of content already fully
+imported elsewhere, or never-imported near-duplicates from the earlier
+94%-overlap finding). Deleted exactly those 2,947 files; verified
+afterward that all 81 referenced files are still present (0 missing).
+

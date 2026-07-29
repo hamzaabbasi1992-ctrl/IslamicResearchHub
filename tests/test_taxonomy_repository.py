@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
@@ -156,3 +156,113 @@ def test_taxonomy_repository_never_touches_the_existing_categories_table(tmp_pat
     with sqlite3.connect(database_path) as connection:
         categories_after = connection.execute("SELECT COUNT(*) FROM Categories").fetchone()[0]
     assert categories_after == categories_before
+
+
+def _migrated_database_with_categories_and_authors(tmp_path: Path) -> Path:
+    """A real, fully-migrated database with real category hierarchy and authors."""
+    database_path = tmp_path / "books.db"
+    fiqh = Category(mjcn=9, name="الفقه", parent_mjcn=0, sort_key=1)
+    zakat = Category(mjcn=10, name="الزكاة", parent_mjcn=9, sort_key=1)
+    book_one = Book(
+        information={"Name": "Book of Zakat", "ANAME": "Imam Al-Ghazali"},
+        categories=(fiqh, zakat),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    book_two = Book(
+        information={"Name": "Book of Fiqh", "ANAME": "Imam Al-Ghazali"},
+        categories=(fiqh,),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    return database_path
+
+
+def test_populate_subjects_creates_real_terms_with_real_hierarchy(tmp_path: Path) -> None:
+    """Subjects are populated from CategoryTaxonomy with the real parent/child structure intact."""
+    database_path = _migrated_database_with_categories_and_authors(tmp_path)
+    repo = TaxonomyRepository(database_path)
+
+    count = repo.populate_subjects_from_category_taxonomy()
+
+    assert count == 2
+    tree = repo.get_term_tree("subject")
+    assert len(tree) == 1
+    assert tree[0].names["ar"] == "الفقه"
+    assert len(tree[0].children) == 1
+    assert tree[0].children[0].names["ar"] == "الزكاة"
+
+
+def test_populate_subjects_is_idempotent_across_repeated_runs(tmp_path: Path) -> None:
+    """Running population twice doesn't create duplicate real terms."""
+    database_path = _migrated_database_with_categories_and_authors(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    repo.populate_subjects_from_category_taxonomy()
+
+    second_count = repo.populate_subjects_from_category_taxonomy()
+
+    assert second_count == 2
+    assert len(repo.list_terms("subject")) == 2
+
+
+def test_populate_authors_creates_one_real_term_per_author(tmp_path: Path) -> None:
+    """Authors are populated from the real, already-deduplicated Authors table."""
+    database_path = _migrated_database_with_categories_and_authors(tmp_path)
+    repo = TaxonomyRepository(database_path)
+
+    count = repo.populate_authors_from_authors_table()
+
+    assert count == 1  # both books share the same real author
+    terms = repo.list_terms("author")
+    assert len(terms) == 1
+    assert terms[0].names["ar"] == "Imam Al-Ghazali"
+
+
+def test_link_books_to_populated_taxonomy_links_real_subjects_and_authors(
+    tmp_path: Path,
+) -> None:
+    """Every real book gets linked to its real subject(s) and author after population."""
+    database_path = _migrated_database_with_categories_and_authors(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    repo.populate_subjects_from_category_taxonomy()
+    repo.populate_authors_from_authors_table()
+
+    subject_links, author_links = repo.link_books_to_populated_taxonomy()
+
+    assert subject_links == 3  # book 1: fiqh+zakat, book 2: fiqh
+    assert author_links == 2  # both books share one real author
+
+    fiqh_term = next(t for t in repo.list_terms("subject") if t.names["ar"] == "الفقه")
+    assert set(repo.list_books_for_term(fiqh_term.term_id)) == {1, 2}
+    zakat_term = next(t for t in repo.list_terms("subject") if t.names["ar"] == "الزكاة")
+    assert repo.list_books_for_term(zakat_term.term_id) == (1,)
+
+    author_terms = repo.list_terms_for_book(1, dimension_code="author")
+    assert len(author_terms) == 1
+    assert author_terms[0].names["ar"] == "Imam Al-Ghazali"
+
+
+def test_populate_subjects_returns_zero_before_categories_migration_has_run(
+    tmp_path: Path,
+) -> None:
+    """Before CategoryTaxonomy exists, population is a safe no-op, not a crash."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book"}, categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    count = TaxonomyRepository(database_path).populate_subjects_from_category_taxonomy()
+
+    assert count == 0
