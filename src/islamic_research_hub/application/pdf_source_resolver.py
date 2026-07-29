@@ -12,6 +12,7 @@ PDF_SOURCE_LIBRARIES = frozenset(
         "Maktaba Jibreel (PDF Archive)",
         "Maktaba Al-Maknoon (PDF Archive)",
         "Jumma Bayanat",
+        "Maktaba Islam (PDF Archive)",
     }
 )
 MAKNOON_TEXT_LIBRARY = "Maktaba Al-Maknoon"

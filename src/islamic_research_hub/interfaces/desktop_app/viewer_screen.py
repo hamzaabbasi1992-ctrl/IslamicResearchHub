@@ -34,6 +34,7 @@ class ViewerScreen(QWidget):
     """Show one book's pages, one at a time, with prev/next/jump navigation."""
 
     bookmark_toggled = Signal(int, int, bool)  # book_id, page_number, is_now_bookmarked
+    pdf_fallback_requested = Signal()
 
     def __init__(
         self,
@@ -78,6 +79,21 @@ class ViewerScreen(QWidget):
         header.addWidget(self._title_label)
         header.addWidget(self._author_label)
         reader_layout.addLayout(header)
+
+        self._pdf_fallback_banner = QWidget()
+        self._pdf_fallback_banner.setVisible(False)
+        banner_layout = QHBoxLayout(self._pdf_fallback_banner)
+        banner_layout.setContentsMargins(16, 0, 16, 8)
+        banner_label = QLabel(
+            "This book's digitized text may be limited to headings - a scanned PDF is available."
+        )
+        banner_label.setStyleSheet(MUTED_LABEL_STYLE)
+        banner_label.setWordWrap(True)
+        banner_layout.addWidget(banner_label, stretch=1)
+        pdf_fallback_button = QPushButton("Open scanned PDF")
+        pdf_fallback_button.clicked.connect(self.pdf_fallback_requested)
+        banner_layout.addWidget(pdf_fallback_button)
+        reader_layout.addWidget(self._pdf_fallback_banner)
 
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(16, 4, 16, 8)
@@ -152,8 +168,13 @@ class ViewerScreen(QWidget):
         self._author_label.setText(author or "Unknown author")
         self._empty_label.setVisible(False)
         self._reader.setVisible(True)
+        self._pdf_fallback_banner.setVisible(False)
         self._render_current_page()
         return True
+
+    def set_pdf_fallback_available(self, available: bool) -> None:
+        """Show or hide the "a scanned PDF may be available" banner for the loaded book."""
+        self._pdf_fallback_banner.setVisible(available)
 
     def jump_to_page_number(self, page_number: int) -> None:
         """Jump directly to a specific page number, if it exists among the loaded pages."""

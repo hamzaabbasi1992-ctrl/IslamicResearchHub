@@ -22,6 +22,9 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.bookmark_repository import (
     BookmarkRepository,
 )
+from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_repository import (
+    PdfMatchCandidateRepository,
+)
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
 )
@@ -78,12 +81,16 @@ class MainWindow(QMainWindow):
         self._browser: BookBrowserRepository | None = None
         self._bookmarks: BookmarkRepository | None = None
         self._recent_books: RecentBookRepository | None = None
+        self._pdf_matches: PdfMatchCandidateRepository | None = None
+        self._pdf_fallback_book_id: int | None = None
+        self._pdf_fallback_path: Path | None = None
         self._viewer_screen: ViewerScreen | None = None
         self._pdf_viewer_screen: PdfViewerScreen | None = None
         if database_path.is_file():
             self._browser = BookBrowserRepository(database_path)
             self._bookmarks = BookmarkRepository(database_path)
             self._recent_books = RecentBookRepository(database_path)
+            self._pdf_matches = PdfMatchCandidateRepository(database_path)
             self._header_bar = HeaderBar(database_path, self._translator)
             search_screen = SearchScreen(
                 database_path,
@@ -110,6 +117,7 @@ class MainWindow(QMainWindow):
                 initial_font_family=initial_font_family,
             )
             self._viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
+            self._viewer_screen.pdf_fallback_requested.connect(self._on_pdf_fallback_requested)
             self._pdf_viewer_screen = PdfViewerScreen()
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
@@ -208,14 +216,57 @@ class MainWindow(QMainWindow):
             self._viewer_stack.setCurrentWidget(self._viewer_screen)
             self._recent_books.record_open(book_id, page_number)
             self._show_screen(1)
+            self._offer_pdf_fallback_if_matched(book_id)
             return
 
         source = self._browser.get_book_source(book_id)
-        if source is None or self._pdf_viewer_screen is None:
+        pdf_path = (
+            resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
+            if source is not None
+            else None
+        )
+        if pdf_path is not None:
+            self._open_pdf(pdf_path, book_id, page_number)
+
+    def _offer_pdf_fallback_if_matched(self, book_id: int) -> None:
+        """Show the "scanned PDF available" banner when this book has a fuzzy-matched PDF.
+
+        `PdfMatchCandidateRepository` only ever stores a match for
+        heading-only "stub" books (see its detect_and_store()), so a stored
+        match is itself the signal that this book's real text is limited -
+        no separate stub check is needed here.
+        """
+        self._pdf_fallback_book_id = None
+        self._pdf_fallback_path = None
+        if self._viewer_screen is None or self._pdf_matches is None or self._browser is None:
             return
-        pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
-        if pdf_path is None:
+        match = self._pdf_matches.get_match(book_id)
+        if match is None:
+            self._viewer_screen.set_pdf_fallback_available(False)
             return
+        source = self._browser.get_book_source(match.pdf_book_id)
+        pdf_path = (
+            resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
+            if source is not None
+            else None
+        )
+        if pdf_path is not None:
+            self._pdf_fallback_book_id = match.pdf_book_id
+            self._pdf_fallback_path = pdf_path
+        self._viewer_screen.set_pdf_fallback_available(pdf_path is not None)
+
+    def _on_pdf_fallback_requested(self) -> None:
+        """Open the fuzzy-matched PDF the user asked for from the Viewer's fallback banner."""
+        if self._pdf_fallback_path is not None and self._pdf_fallback_book_id is not None:
+            self._open_pdf(self._pdf_fallback_path, self._pdf_fallback_book_id, page_number=1)
+
+    def _open_pdf(self, pdf_path: Path, book_id: int, page_number: int) -> None:
+        """Load a real PDF into `PdfViewerScreen` and switch to it."""
+        if self._pdf_viewer_screen is None or self._bookmarks is None or self._recent_books is None:
+            return
+        if self._browser is None:
+            return
+        bookmarked_pages = self._bookmarks.list_bookmarked_pages(book_id)
         metadata = self._browser.get_book_metadata(book_id)
         loaded = self._pdf_viewer_screen.load_pdf(
             pdf_path,

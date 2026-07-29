@@ -41,6 +41,23 @@ def test_resolves_jumma_bayanat_library(tmp_path: Path) -> None:
     assert resolved == pdf_path
 
 
+def test_resolves_maktaba_islam_pdf_archive_library(tmp_path: Path) -> None:
+    """Maktaba Islam (PDF Archive) stores the real PDF path as Source, same as the others.
+
+    Found missing from PDF_SOURCE_LIBRARIES while investigating a heading-only
+    content report - its 81 books had real PDFs on disk that "Open PDF" could
+    never find.
+    """
+    pdf_path = tmp_path / "book.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    resolved = resolve_pdf_path(
+        "Maktaba Islam (PDF Archive)", str(pdf_path), tmp_path / "maknoon_pdfs"
+    )
+
+    assert resolved == pdf_path
+
+
 def test_resolves_original_maknoon_library_via_stem_lookup(tmp_path: Path) -> None:
     """The original Maknoon library's Source is a stale .pdf.txt path."""
     maknoon_pdf_folder = tmp_path / "maknoon_pdfs"

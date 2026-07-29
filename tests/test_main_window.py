@@ -13,7 +13,22 @@ from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
 )
+from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_repository import (  # noqa: E402
+    PdfMatchCandidateRepository,
+)
 from islamic_research_hub.interfaces.desktop_app.main_window import MainWindow  # noqa: E402
+
+# A hand-crafted minimal one-page PDF - real-world PDFs always have a correct
+# xref table, but Qt's QPdfDocument parses this looser form fine, and it
+# avoids depending on a third-party PDF-writing library just for a test.
+_MINIMAL_PDF_BYTES = (
+    b"%PDF-1.4\n"
+    b"1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+    b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+    b"3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\n"
+    b"trailer<</Size 4/Root 1 0 R>>\n"
+    b"%%EOF"
+)
 
 
 def _isolated_settings(tmp_path: Path) -> QSettings:
@@ -124,6 +139,65 @@ def test_search_result_open_in_viewer_switches_screen_and_loads_the_book(
     assert viewer_stack.currentWidget() is window._viewer_screen
     assert window._viewer_screen._title_label.text() == "Book of Fiqh"
     assert window._viewer_screen._content_label.text() == "Some real page content"
+
+
+def test_stub_book_shows_pdf_fallback_banner_and_opens_the_matched_pdf(
+    qtbot, tmp_path: Path
+) -> None:
+    """A heading-only book offers its fuzzy-matched PDF, and opens it on request."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    stub_pages = tuple(Page(i, i, "hd", None) for i in range(1, 26))
+    repository.import_books(
+        database_path,
+        (Book(information={"Name": "Ilm Ul Aasar"}, categories=(), table_of_contents=(), pages=stub_pages),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+    real_pdf_path = tmp_path / "real_book.pdf"
+    real_pdf_path.write_bytes(_MINIMAL_PDF_BYTES)
+    repository.import_books(
+        database_path,
+        (Book(information={"Name": "Ilm Ul Aasar"}, categories=(), table_of_contents=(), pages=()),),
+        (real_pdf_path,),
+        library_name="Maktaba Jibreel (PDF Archive)",
+    )
+    PdfMatchCandidateRepository(database_path).detect_and_store()
+
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    search_screen = window._stack.widget(0)
+    viewer_stack = window._stack.widget(1)
+
+    search_screen.open_in_viewer_requested.emit(1, 1)
+
+    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._viewer_screen._pdf_fallback_banner.isVisible()
+
+    window._viewer_screen.pdf_fallback_requested.emit()
+
+    assert viewer_stack.currentWidget() is window._pdf_viewer_screen
+    assert window._pdf_viewer_screen._current_book_id == 2
+
+
+def test_book_with_real_content_never_shows_the_pdf_fallback_banner(
+    qtbot, tmp_path: Path
+) -> None:
+    """A book with real page text never gets the stub fallback banner, matched title or not."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    search_screen = window._stack.widget(0)
+
+    search_screen.open_in_viewer_requested.emit(1, 1)
+
+    assert not window._viewer_screen._pdf_fallback_banner.isVisible()
 
 
 def test_missing_database_shows_a_clear_message_not_a_broken_search_screen(

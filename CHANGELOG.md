@@ -2299,6 +2299,28 @@ Applied to production for real (backup first): **691 subject terms,
 - matching this corpus's already-known real category/author counts
 exactly, confirming correctness, not just "it ran without error."
 
+## Phase 8 continued: language and publisher taxonomy, for real citations
+
+Requested directly: for a complete, Shamila-standard bibliographic
+citation ("hawala"), a book's real language and publisher need to be
+first-class, linkable taxonomy terms too, not just free-text `Books`
+columns. `TaxonomyRepository` gains `populate_languages_from_books()`,
+`populate_publishers_from_books()`, and
+`link_books_to_languages_and_publishers()` (same bulk-`executemany`
+pattern as the subject/author linking, from the start this time - no
+per-book-connection bug to fix here).
+
+Real-data merge: `_LANGUAGE_CANONICAL_NAMES` folds confirmed spelling
+variants found in this corpus (`"ur"`/`"Urdu"`, `"ar"`/`"Arabic"`,
+`"en"`/`"English"`) into one canonical term each, rather than one term
+per raw spelling. Publisher has no pre-existing normalized ID to key a
+`StableKey` off (unlike subject/author), so its `StableKey` is a
+normalized form of the name itself. `taxonomy_population_cli.py` now
+prints all 8 counts. 10 new tests.
+
+Applied to production for real: **3 language terms, 679 publisher
+terms, 5,212 book-language links, 5,171 book-publisher links.**
+
 ## Real cleanup: stale backups (again) and genuinely unreferenced Maktaba Islam files
 
 Same recurring cause as before: every migration this session made a
@@ -2318,4 +2340,58 @@ nothing in the database at all (duplicates of content already fully
 imported elsewhere, or never-imported near-duplicates from the earlier
 94%-overlap finding). Deleted exactly those 2,947 files; verified
 afterward that all 81 referenced files are still present (0 missing).
+
+## Real "search by book name vs content" control; refined icons
+
+`SearchScreen` gained a "Search in: Name + content / Book name only /
+Book content only" dropdown - title search previously ran unconditionally
+alongside content search with no way to turn either off. Default
+("Name + content") preserves prior behavior exactly. 3 new tests
+(337/337 total).
+
+Redesigned the five nav-rail icons (search/viewer/import/logs/settings)
+with clearer, more intentional shapes - a real open book with a visible
+spine for Viewer, a folder-with-plus for Import (previously a generic
+box, easy to misread), a document-with-folded-corner for Logs. Search
+and Settings kept their existing, already-good shapes.
+
+New custom desktop shortcut icon (`assets/app_icon.ico`) - a book with
+a globe/world map above it, generated with Pillow in the app's own
+theme colors, replacing the default `pythonw.exe` icon.
+
+## Investigated "book shows only a heading" report; PDF fallback for stub books
+
+A user report with a real screenshot ("علم الآثار کے درس و مذاکرات" showing
+almost blank) turned out not to be an import bug. Decrypted the original
+Jibreel Desktop source file directly (`853.mjbx`, via the app's own
+`System.Data.SQLite.dll`) and confirmed `ContentF`/`ContentP` are
+byte-identical in the source itself and average 19 characters/page across
+all 466 pages - we're capturing everything the source contains.
+
+Corpus-wide scan (avg content length < 60 chars/page, PageCount > 20) found
+this is systemic in specific source libraries, not random: **Maktaba
+Jibreel (Desktop) 86% affected (1,843/2,141 books)**, **Maktaba Al-Maknoon
+66% (505/770)**, Maktaba Islam 27% (13/48), vs. Maktaba Jibreel (Mobile)
+0.4% and Maktaba Shamila Urdu 0%. Confirmed the extractor itself is
+correct by checking healthy Library 2 books (500-1,300+ chars/page) - this
+is a real completeness gap in Jibreel's own Desktop app data (looks like a
+free/preview tier), not something re-parsing can recover.
+
+Separately found and fixed a real bug while investigating: `Maktaba Islam
+(PDF Archive)` (81 books, real PDFs confirmed on disk) was missing from
+`PDF_SOURCE_LIBRARIES` in `pdf_source_resolver.py`, so its "Open PDF"
+button silently never worked. One-line fix, 1 new test.
+
+### Added
+
+- `PdfMatchCandidateRepository` (`infrastructure/persistence/pdf_match_candidate_repository.py`) + `PdfMatchCandidate` domain model - fuzzy-matches heading-only "stub" books against PDF Archive titles (which are raw, uncleaned filenames like "12 Masail By SHEIKH MUNEER AHMAD MUNAWWAR", so exact-title matching mostly misses them). Uses inverted-index "blocking" (only compares titles sharing an uncommon normalized word) to make ~2,400 stub x ~9,000 PDF title comparisons practical, reuses the existing `normalize_search_text` Arabic normalizer, and keeps only the single best match per book above a 0.90 `SequenceMatcher.ratio()` threshold.
+- A volume-number/sub-part conflict filter, added after spot-checking real results found it necessary: multi-volume series (e.g. "Fatawa Mahmoodiah Vol 07" vs "... Vol 25", or "Vol 22 A" vs "Vol 22 B") share almost all their text and scored 0.89-0.97 on plain string similarity while being confidently wrong. Both cases are now hard-rejected regardless of similarity score. Verified against real data: 228 raw matches -> 100 after the volume-number filter -> 98 after the sub-part-letter filter, with the remaining lowest-confidence matches (down to 0.90) spot-checked and clean.
+- `ViewerScreen` gained a `pdf_fallback_requested` signal and a dismissible banner ("This book's digitized text may be limited to headings - a scanned PDF is available") shown only when the loaded book has a stored `PdfMatchCandidate` - a stored match is itself the stub signal, no separate detection needed in the UI layer.
+- `MainWindow._open_pdf()` - the PDF-loading logic previously inline in `_open_in_viewer()`'s empty-book fallback is now a shared helper, reused by both that path and the new stub-fallback path (`_offer_pdf_fallback_if_matched()`, `_on_pdf_fallback_requested()`).
+- 9 new tests (`tests/test_pdf_match_candidate_repository.py`) including real production-shaped false-positive regressions (wrong volume, wrong sub-part) and 2 new `MainWindow` tests using a hand-crafted minimal PDF (Qt's `QPdfDocument` parses it fine without a real xref table, avoiding a third-party PDF-writing dependency in tests). 349/349 total passing.
+
+### Notes
+
+- Detection is a batch, recomputable operation (`PdfMatchCandidateRepository.detect_and_store()`, ~38s against the real 15,162-book/9,172-PDF corpus) - not yet wired into an automatic post-import step or a CLI/UI trigger; run manually for now via the repository.
+- Matches are informational and additive only - nothing here deletes, replaces, or auto-opens content; the Viewer always shows the book's own (limited) text by default, with the PDF offered as an explicit, clearly-labeled opt-in.
 
