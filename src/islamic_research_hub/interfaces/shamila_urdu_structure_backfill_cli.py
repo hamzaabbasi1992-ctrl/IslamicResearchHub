@@ -125,11 +125,18 @@ def run(args: argparse.Namespace) -> int:
 
 
 def _reader_for(source_path: Path):
-    """Return the reader matching this book's real source folder."""
-    lower = str(source_path).lower()
-    if "hadith" in lower:
+    """Return the reader matching this book's real source folder.
+
+    Matches a real path *segment* ("...\\Hadith\\...", not just the
+    substring "hadith" anywhere in the path) - real production data has
+    Books/-folder files like "fazail-e-ahle-hadith.db" whose filename
+    alone contains "hadith", which a substring check wrongly routed to
+    the Hadith reader (62 books failed this way on the first real run).
+    """
+    segments = {part.lower() for part in source_path.parts}
+    if "hadith" in segments:
         return _HADITH_READER
-    if "quran" in lower:
+    if "quran" in segments:
         return _QURAN_READER
     return _BOOK_READER
 

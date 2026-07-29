@@ -2522,3 +2522,10 @@ anything. Backed up production first; the real run (698 books, 327,354
 pages) was in progress at commit time - final counts follow in a
 subsequent entry once it completes.
 
+**Real bug found on the first production run, fixed and re-run**: 62 of
+698 books failed with "no such table: hadith" - `_reader_for()` picked the
+reader by checking whether "hadith" appeared anywhere in the source path
+string, and real `Books/`-folder files like `fazail-e-ahle-hadith.db` have
+"hadith" in their own filename, wrongly routing them to the Hadith-schema
+reader. Fixed to match a real path *segment* instead. Added a regression
+test using this exact real filename.

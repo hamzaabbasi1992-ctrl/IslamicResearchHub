@@ -129,6 +129,32 @@ def test_reformats_footnotes_too(tmp_path: Path, capsys) -> None:
     assert footnote == "## نوٹ"
 
 
+def test_a_books_folder_file_with_hadith_in_its_filename_is_not_misrouted(
+    tmp_path: Path, capsys
+) -> None:
+    """A Books/-folder file whose filename contains "hadith" (a real production
+    case: "fazail-e-ahle-hadith.db") must still use the generic Book reader,
+    not the Hadith reader - 62 real books failed this exact way on the first
+    real run, when detection matched "hadith" as a path substring instead of
+    a real path segment."""
+    database_path = tmp_path / "books.db"
+    books_folder = tmp_path / "Books"
+    books_folder.mkdir()
+    source = books_folder / "fazail-e-ahle-hadith.db"
+    _make_book_source(source, html='<span class="mu mb1 ms18">مقدمہ</span>')
+    _seed_old_flattened_book(database_path, source, old_content="old flattened")
+
+    exit_code = run(_build_args(database_path))
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Reformatted 1/1 book(s)" in captured.out
+    assert "read errors: 0" in captured.out
+    with sqlite3.connect(database_path) as connection:
+        content = connection.execute("SELECT Content FROM Pages").fetchone()[0]
+    assert content == "## مقدمہ"
+
+
 def test_reformats_a_hadith_folder_book_by_folder_detection(tmp_path: Path, capsys) -> None:
     """A Source path containing "Hadith" is re-read with the Hadith reader, not the generic one."""
     database_path = tmp_path / "books.db"
