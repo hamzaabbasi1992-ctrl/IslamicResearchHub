@@ -102,6 +102,26 @@ class PdfMatchCandidateRepository:
             return None
         return PdfMatchCandidate(book_id=row[0], pdf_book_id=row[1], confidence=row[2])
 
+    def is_stub(self, book_id: int) -> bool:
+        """Return whether one book matches the same stub definition used for PDF matching.
+
+        Reuses the same thresholds as `_fetch_stub_books()` so the two
+        can't drift apart - this is the check callers use to decide
+        whether a *directly* resolvable PDF (the book's own Source, not
+        a fuzzy match) is still worth offering as a fallback.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            row = connection.execute(
+                "SELECT COUNT(*), AVG(LENGTH(Content)) FROM Pages WHERE BookID = ?",
+                (book_id,),
+            ).fetchone()
+        page_count, avg_length = row if row is not None else (0, None)
+        return (
+            page_count > STUB_MIN_PAGE_COUNT
+            and avg_length is not None
+            and avg_length < STUB_MAX_AVG_CONTENT_LENGTH
+        )
+
     @staticmethod
     def _fetch_pdf_books(connection: sqlite3.Connection) -> tuple[sqlite3.Row, ...]:
         """Return every book from a PDF Archive library that has a title."""

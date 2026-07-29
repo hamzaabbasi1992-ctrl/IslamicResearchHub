@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
             self._viewer_stack.setCurrentWidget(self._viewer_screen)
             self._recent_books.record_open(book_id, page_number)
             self._show_screen(1)
-            self._offer_pdf_fallback_if_matched(book_id)
+            self._offer_pdf_fallback(book_id)
             return
 
         source = self._browser.get_book_source(book_id)
@@ -228,30 +228,44 @@ class MainWindow(QMainWindow):
         if pdf_path is not None:
             self._open_pdf(pdf_path, book_id, page_number)
 
-    def _offer_pdf_fallback_if_matched(self, book_id: int) -> None:
-        """Show the "scanned PDF available" banner when this book has a fuzzy-matched PDF.
+    def _offer_pdf_fallback(self, book_id: int) -> None:
+        """Show the "scanned PDF available" banner for a stub book, if a PDF can be found.
 
-        `PdfMatchCandidateRepository` only ever stores a match for
-        heading-only "stub" books (see its detect_and_store()), so a stored
-        match is itself the signal that this book's real text is limited -
-        no separate stub check is needed here.
+        Tries the book's own Source first - reliable, e.g. the original
+        Al-Maknoon library's filename-stem lookup, which real data showed
+        already resolves for 481 stub books with no fuzzy matching
+        involved - before falling back to a fuzzy cross-library title
+        match from `PdfMatchCandidateRepository`.
         """
         self._pdf_fallback_book_id = None
         self._pdf_fallback_path = None
-        if self._viewer_screen is None or self._pdf_matches is None or self._browser is None:
+        if self._viewer_screen is None or self._browser is None or self._pdf_matches is None:
             return
-        match = self._pdf_matches.get_match(book_id)
-        if match is None:
+        if not self._pdf_matches.is_stub(book_id):
             self._viewer_screen.set_pdf_fallback_available(False)
             return
-        source = self._browser.get_book_source(match.pdf_book_id)
+
+        own_source = self._browser.get_book_source(book_id)
         pdf_path = (
-            resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
-            if source is not None
+            resolve_pdf_path(own_source[1], own_source[0], self._maknoon_pdf_folder)
+            if own_source is not None
             else None
         )
+        fallback_book_id = book_id
+
+        if pdf_path is None:
+            match = self._pdf_matches.get_match(book_id)
+            if match is not None:
+                matched_source = self._browser.get_book_source(match.pdf_book_id)
+                pdf_path = (
+                    resolve_pdf_path(matched_source[1], matched_source[0], self._maknoon_pdf_folder)
+                    if matched_source is not None
+                    else None
+                )
+                fallback_book_id = match.pdf_book_id
+
         if pdf_path is not None:
-            self._pdf_fallback_book_id = match.pdf_book_id
+            self._pdf_fallback_book_id = fallback_book_id
             self._pdf_fallback_path = pdf_path
         self._viewer_screen.set_pdf_fallback_available(pdf_path is not None)
 

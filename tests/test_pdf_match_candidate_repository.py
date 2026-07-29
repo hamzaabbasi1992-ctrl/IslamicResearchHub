@@ -249,3 +249,42 @@ def test_get_match_returns_none_when_no_match_stored(tmp_path: Path) -> None:
     match_repository.detect_and_store()
 
     assert match_repository.get_match(book_id=999) is None
+
+
+def test_is_stub_true_for_heading_only_book(tmp_path: Path) -> None:
+    """A book whose pages average near-empty content is reported as a stub."""
+    database_path = tmp_path / "books.db"
+    MasterBookRepository().import_books(
+        database_path,
+        (_stub_book("کتاب"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+
+    assert PdfMatchCandidateRepository(database_path).is_stub(book_id=1) is True
+
+
+def test_is_stub_false_for_a_book_with_real_content(tmp_path: Path) -> None:
+    """A book with real, substantial page content is never reported as a stub."""
+    database_path = tmp_path / "books.db"
+    MasterBookRepository().import_books(
+        database_path,
+        (_full_book("کتاب"),),
+        (tmp_path / "full.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+
+    assert PdfMatchCandidateRepository(database_path).is_stub(book_id=1) is False
+
+
+def test_is_stub_false_for_an_unknown_book(tmp_path: Path) -> None:
+    """A book id with no pages at all is never reported as a stub."""
+    database_path = tmp_path / "books.db"
+    MasterBookRepository().import_books(
+        database_path,
+        (_stub_book("کتاب"),),
+        (tmp_path / "stub.mjbz",),
+        library_name="Maktaba Jibreel (Desktop)",
+    )
+
+    assert PdfMatchCandidateRepository(database_path).is_stub(book_id=999) is False

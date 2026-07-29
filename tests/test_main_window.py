@@ -182,6 +182,49 @@ def test_stub_book_shows_pdf_fallback_banner_and_opens_the_matched_pdf(
     assert window._pdf_viewer_screen._current_book_id == 2
 
 
+def test_stub_book_offers_its_own_direct_pdf_before_checking_fuzzy_matches(
+    qtbot, tmp_path: Path
+) -> None:
+    """A stub book in the original Al-Maknoon library offers its own real PDF directly.
+
+    Real production data showed 481 stub books already resolve this way
+    via the existing filename-stem lookup, with no fuzzy title matching
+    involved at all - the fallback banner has to check this path too, not
+    only `PdfMatchCandidateRepository`.
+    """
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    stub_pages = tuple(Page(i, i, "hd", None) for i in range(1, 26))
+    maknoon_pdf_folder = tmp_path / "maknoon_pdfs"
+    maknoon_pdf_folder.mkdir()
+    real_pdf_path = maknoon_pdf_folder / "Book One.pdf"
+    real_pdf_path.write_bytes(_MINIMAL_PDF_BYTES)
+    stale_source = tmp_path / "extracted" / "Book One.pdf.txt"
+    repository.import_books(
+        database_path,
+        (Book(information={"Name": "Ilm Ul Aasar"}, categories=(), table_of_contents=(), pages=stub_pages),),
+        (stale_source,),
+        library_name="Maktaba Al-Maknoon",
+    )
+
+    window = MainWindow(database_path, maknoon_pdf_folder, _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitExposed(window)
+    search_screen = window._stack.widget(0)
+    viewer_stack = window._stack.widget(1)
+
+    search_screen.open_in_viewer_requested.emit(1, 1)
+
+    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._viewer_screen._pdf_fallback_banner.isVisible()
+
+    window._viewer_screen.pdf_fallback_requested.emit()
+
+    assert viewer_stack.currentWidget() is window._pdf_viewer_screen
+    assert window._pdf_viewer_screen._current_book_id == 1
+
+
 def test_book_with_real_content_never_shows_the_pdf_fallback_banner(
     qtbot, tmp_path: Path
 ) -> None:

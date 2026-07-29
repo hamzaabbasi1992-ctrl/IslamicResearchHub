@@ -2395,3 +2395,27 @@ button silently never worked. One-line fix, 1 new test.
 - Detection is a batch, recomputable operation (`PdfMatchCandidateRepository.detect_and_store()`, ~38s against the real 15,162-book/9,172-PDF corpus) - not yet wired into an automatic post-import step or a CLI/UI trigger; run manually for now via the repository.
 - Matches are informational and additive only - nothing here deletes, replaces, or auto-opens content; the Viewer always shows the book's own (limited) text by default, with the PDF offered as an explicit, clearly-labeled opt-in.
 
+## PDF fallback: also check a stub book's own direct source, not just fuzzy matches
+
+Checked how much of the stub-book population the fallback banner above
+actually reached, and found a real gap: `resolve_pdf_path()` already
+resolves a PDF directly from a book's own `Source` field for the
+original Al-Maknoon library (filename-stem lookup) - completely
+separate from `PdfMatchCandidateRepository`'s cross-library fuzzy
+matching. Real count: **481 stub books already had a directly
+resolvable PDF**, but the Viewer banner only ever checked the fuzzy
+match table, so none of them ever saw it.
+
+`MainWindow._offer_pdf_fallback()` (renamed from
+`_offer_pdf_fallback_if_matched`) now tries the book's own direct
+`Source` first, falling back to the fuzzy match only when that fails.
+Gated behind a new `PdfMatchCandidateRepository.is_stub()` (same
+thresholds as detection, so the two can't drift) so a book with real
+content is never offered a PDF meant for its "limited text" cousin.
+
+Real combined coverage: **483 of 2,368 stub books** (481 direct + 98
+fuzzy, 96 overlapping) now offer a fallback PDF - up from 98 before
+this fix. 5 new tests (`is_stub()` x3, a direct-resolution
+`MainWindow` test, existing fuzzy-path tests re-verified).
+353/353 total passing.
+
