@@ -1919,3 +1919,53 @@ not assumed same-sized as the rest). See PROJECT.md's Phase 8 section
 for the real scoping/feasibility notes behind each item. Nothing
 implemented yet - this is a roadmap addition only.
 
+## PDF-only libraries: real companion search indexes investigated (no new importable content found yet)
+
+User's hypothesis: the original Maktaba apps let users search inside
+their PDFs, so real extracted/searchable text must exist somewhere
+alongside them. Investigated for real, per PDF-only library - not
+assumed either way, checked with an actual Lucene reader built for the
+purpose (needed a real OpenJDK install - `winget install
+EclipseAdoptium.Temurin.17.JDK` - to run the `lucene.jar`/`h2.jar`
+already bundled with these apps).
+
+- **Maktaba Al-Maknoon (PDF Archive)**: a real, dedicated third-party
+  tool ("Maknoon Mufahris Almakhtotaat" = "Maknoon Manuscripts
+  *Indexer*") ships a 98 MB Lucene index + a 117 MB H2 database
+  alongside its 3,258 PDFs. Read directly and verified: 208,383
+  documents, 99,181 with real text - but confirmed (by content, not
+  guessed) to be **table-of-contents/heading entries** (~160 chars
+  average, e.g. "پیش لفظ", "مقصد تالیف") plus a real metadata catalog
+  (title/author/category/page-count), not full page body text. Real,
+  importable improvement (titles/authors/categories/chapter navigation
+  for 3,258 books currently metadata-only) but not full-text search.
+  The H2 database wasn't readable (auth/format issue on this old a
+  file, deprioritized - the Lucene index alone answers the real
+  question).
+- **Maktaba Jibreel (PDF Archive)**: no companion index of any kind -
+  just a flat PDF folder.
+- **Maktaba Islam (PDF Archive)**: same - no companion index.
+- **Jumma Bayanat**: no companion index either, but a real bonus find -
+  manually organized into ~120 real topic folders (Ramadan, Zakat,
+  Hajj, etc.) that could be mined as real categories later, distinct
+  from this investigation.
+- **A second, separate `Maktaba Jibreel` folder** (`F:\Maktaba
+  Jibreel\`, distinct from `F:\jibreel full pdf\`) has its own 1 GB
+  Lucene index (1,910,947 documents) with genuinely real, substantial
+  page-body text confirmed (real Hadith quotes, real fatwa text, up to
+  14,507 chars per entry - not headings). **Checked directly whether
+  this covers the 3,176 PDF-only files in the same folder: it does
+  not** - a full scan of all 1,910,947 documents' `BookName` field
+  found zero matches for any of several known PDF-only titles; its
+  3,695 distinct books are all Arabic/Urdu-titled, matching the
+  already-imported `.mjbx` books this same app also manages. Real,
+  substantial index, but entirely redundant with content already
+  imported - not a new source.
+
+**Net result**: no new full-text-searchable content found for any
+PDF-only library tonight. The Maknoon metadata/TOC catalog is a real,
+scoped, importable improvement (not yet built). Everything else
+confirmed to still need real OCR to become searchable - same
+conclusion as the original Phase 1 evaluation, now confirmed with
+actual per-library verification instead of one general finding.
+
