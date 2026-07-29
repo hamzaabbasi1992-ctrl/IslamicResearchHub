@@ -15,6 +15,19 @@ from pathlib import Path
 from islamic_research_hub.domain.models.taxonomy import TaxonomyTerm
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 
+_LANGUAGE_CANONICAL_NAMES = {
+    "ur": "Urdu",
+    "urdu": "Urdu",
+    "ar": "Arabic",
+    "arabic": "Arabic",
+    "en": "English",
+    "english": "English",
+}
+"""Maps every real raw `Books.Language` value found in this corpus
+(case-insensitive) to one canonical display name - confirmed for real
+that "ur" and "Urdu" are the same language stored two different ways
+in the real data, not two languages."""
+
 
 class UnknownDimensionError(Exception):
     """Raised when a dimension code isn't one of the nine real taxonomy dimensions."""
@@ -422,6 +435,102 @@ class TaxonomyRepository:
                 )
 
         return len(subject_pairs), len(author_pairs)
+
+    def populate_languages_from_books(self) -> int:
+        """Populate the "language" dimension from `Books.Language`, merging
+        real known variants (see `_LANGUAGE_CANONICAL_NAMES`) into one
+        canonical term per language rather than one term per raw spelling.
+        Idempotent via `StableKey` ("language:<canonical, lowercased>").
+        Returns the total number of real language terms after this call.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT TRIM(Language) FROM Books "
+                "WHERE Language IS NOT NULL AND TRIM(Language) != ''"
+            ).fetchall()
+
+        canonical_names = {
+            _LANGUAGE_CANONICAL_NAMES.get(raw.lower(), raw) for (raw,) in rows
+        }
+        for canonical in sorted(canonical_names):
+            self.get_or_create_term(
+                "language", canonical, language_code="en",
+                stable_key=f"language:{canonical.lower()}",
+            )
+        return len(canonical_names)
+
+    def populate_publishers_from_books(self) -> int:
+        """Populate the "publisher" dimension from `Books.Publisher`, grouped
+        by trimmed text - real free-text publisher names, not a separately
+        normalized table the way `Authors`/`CategoryTaxonomy` are (same
+        real-data shape `_normalize_authors` handled in migration 2).
+        Idempotent via `get_or_create_term`'s own name-match dedup (there's
+        no pre-existing normalized publisher-ID to key a `StableKey` off,
+        so the `StableKey` here is a normalized form of the name itself).
+        Returns the total number of real publisher terms after this call.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT TRIM(Publisher) FROM Books "
+                "WHERE Publisher IS NOT NULL AND TRIM(Publisher) != ''"
+            ).fetchall()
+
+        for (name,) in rows:
+            self.get_or_create_term(
+                "publisher", name, language_code="ar",
+                stable_key=f"publisher:{normalize_search_text(name)}",
+            )
+        return len(rows)
+
+    def link_books_to_languages_and_publishers(self) -> tuple[int, int]:
+        """Link every real book to its real language and publisher term(s).
+
+        Real prerequisite: `populate_languages_from_books()` and
+        `populate_publishers_from_books()` must have already run. Bulk
+        `executemany`, same pattern (and same real perf reasoning) as
+        `link_books_to_populated_taxonomy()`. Returns
+        (language_links_attempted, publisher_links_attempted).
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            language_term_by_key = dict(
+                connection.execute(
+                    "SELECT StableKey, TermID FROM TaxonomyTerms WHERE StableKey LIKE 'language:%'"
+                ).fetchall()
+            )
+            publisher_term_by_key = dict(
+                connection.execute(
+                    "SELECT StableKey, TermID FROM TaxonomyTerms WHERE StableKey LIKE 'publisher:%'"
+                ).fetchall()
+            )
+            book_languages = connection.execute(
+                "SELECT BookID, TRIM(Language) FROM Books "
+                "WHERE Language IS NOT NULL AND TRIM(Language) != ''"
+            ).fetchall()
+            book_publishers = connection.execute(
+                "SELECT BookID, TRIM(Publisher) FROM Books "
+                "WHERE Publisher IS NOT NULL AND TRIM(Publisher) != ''"
+            ).fetchall()
+
+            language_pairs = []
+            for book_id, raw_language in book_languages:
+                canonical = _LANGUAGE_CANONICAL_NAMES.get(raw_language.lower(), raw_language)
+                term_id = language_term_by_key.get(f"language:{canonical.lower()}")
+                if term_id is not None:
+                    language_pairs.append((book_id, term_id))
+
+            publisher_pairs = []
+            for book_id, name in book_publishers:
+                term_id = publisher_term_by_key.get(f"publisher:{normalize_search_text(name)}")
+                if term_id is not None:
+                    publisher_pairs.append((book_id, term_id))
+
+            with connection:
+                connection.executemany(
+                    "INSERT OR IGNORE INTO BookTaxonomyTerms (BookID, TermID) VALUES (?, ?)",
+                    language_pairs + publisher_pairs,
+                )
+
+        return len(language_pairs), len(publisher_pairs)
 
     def _connect_if_table_exists(self, table_name: str) -> sqlite3.Connection | None:
         """Return a real connection, or None if the given table doesn't exist yet."""

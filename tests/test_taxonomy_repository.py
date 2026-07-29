@@ -266,3 +266,93 @@ def test_populate_subjects_returns_zero_before_categories_migration_has_run(
     count = TaxonomyRepository(database_path).populate_subjects_from_category_taxonomy()
 
     assert count == 0
+
+
+def _migrated_database_with_language_and_publisher(tmp_path: Path) -> Path:
+    """A real, fully-migrated database with real, mixed-spelling language values."""
+    database_path = tmp_path / "books.db"
+    book_one = Book(
+        information={"Name": "Book One", "Language": "ur", "PNAME": "Darul Uloom Press"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    book_two = Book(
+        information={"Name": "Book Two", "Language": "Urdu", "PNAME": "Darul Uloom Press"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+    book_three = Book(
+        information={"Name": "Book Three", "Language": "ar"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_three,), (database_path.parent / "three.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    return database_path
+
+
+def test_populate_languages_merges_real_spelling_variants_into_one_term(
+    tmp_path: Path,
+) -> None:
+    """"ur" and "Urdu" are the same real language - they merge into one term, not two."""
+    database_path = _migrated_database_with_language_and_publisher(tmp_path)
+    repo = TaxonomyRepository(database_path)
+
+    count = repo.populate_languages_from_books()
+
+    assert count == 2  # Urdu (merged from "ur"+"Urdu") and Arabic (from "ar")
+    names = {term.names["en"] for term in repo.list_terms("language")}
+    assert names == {"Urdu", "Arabic"}
+
+
+def test_populate_languages_is_idempotent(tmp_path: Path) -> None:
+    """Running language population twice doesn't create duplicate real terms."""
+    database_path = _migrated_database_with_language_and_publisher(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    repo.populate_languages_from_books()
+
+    second_count = repo.populate_languages_from_books()
+
+    assert second_count == 2
+    assert len(repo.list_terms("language")) == 2
+
+
+def test_populate_publishers_creates_one_real_term_per_distinct_publisher(
+    tmp_path: Path,
+) -> None:
+    """Two real books sharing a publisher produce one real publisher term."""
+    database_path = _migrated_database_with_language_and_publisher(tmp_path)
+    repo = TaxonomyRepository(database_path)
+
+    count = repo.populate_publishers_from_books()
+
+    assert count == 1
+    terms = repo.list_terms("publisher")
+    assert terms[0].names["ar"] == "Darul Uloom Press"
+
+
+def test_link_books_to_languages_and_publishers_links_real_data(tmp_path: Path) -> None:
+    """Every real book gets linked to its real (merged) language and publisher."""
+    database_path = _migrated_database_with_language_and_publisher(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    repo.populate_languages_from_books()
+    repo.populate_publishers_from_books()
+
+    language_links, publisher_links = repo.link_books_to_languages_and_publishers()
+
+    assert language_links == 3  # all three books have a real language
+    assert publisher_links == 2  # only books one and two have a real publisher
+
+    urdu_term = next(t for t in repo.list_terms("language") if t.names["en"] == "Urdu")
+    assert set(repo.list_books_for_term(urdu_term.term_id)) == {1, 2}
+    arabic_term = next(t for t in repo.list_terms("language") if t.names["en"] == "Arabic")
+    assert repo.list_books_for_term(arabic_term.term_id) == (3,)

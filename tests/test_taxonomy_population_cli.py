@@ -12,10 +12,16 @@ from islamic_research_hub.interfaces.taxonomy_population_cli import main
 
 
 def _make_migrated_database(path: Path) -> None:
-    """Create a real, fully-migrated database with real categories and an author."""
+    """Create a real, fully-migrated database with real categories, an author,
+    a language, and a publisher."""
     fiqh = Category(mjcn=9, name="الفقه", parent_mjcn=0, sort_key=1)
     book = Book(
-        information={"Name": "Book of Fiqh", "ANAME": "Imam Al-Ghazali"},
+        information={
+            "Name": "Book of Fiqh",
+            "ANAME": "Imam Al-Ghazali",
+            "Language": "ar",
+            "PNAME": "Darul Uloom Press",
+        },
         categories=(fiqh,),
         table_of_contents=(),
         pages=(Page(1, 1, "Some real page content", "Plain"),),
@@ -38,6 +44,10 @@ def test_main_populates_and_links_real_taxonomy_data(tmp_path: Path, capsys) -> 
     assert "Author terms: 1" in captured.out
     assert "Book-subject links: 1" in captured.out
     assert "Book-author links: 1" in captured.out
+    assert "Language terms: 1" in captured.out
+    assert "Publisher terms: 1" in captured.out
+    assert "Book-language links: 1" in captured.out
+    assert "Book-publisher links: 1" in captured.out
 
 
 def test_main_fails_cleanly_when_database_is_missing(tmp_path: Path) -> None:

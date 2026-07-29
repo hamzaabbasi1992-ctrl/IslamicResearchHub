@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
-    """Populate subject/author taxonomy terms and link every real book to them."""
+    """Populate subject/author/language/publisher taxonomy terms and link every real book to them."""
     _configure_unicode_output()
     configure_logging()
     args = build_parser().parse_args(arguments)
@@ -53,12 +53,19 @@ def main(arguments: Sequence[str] | None = None) -> int:
     subject_count = repository.populate_subjects_from_category_taxonomy()
     author_count = repository.populate_authors_from_authors_table()
     subject_links, author_links = repository.link_books_to_populated_taxonomy()
+    language_count = repository.populate_languages_from_books()
+    publisher_count = repository.populate_publishers_from_books()
+    language_links, publisher_links = repository.link_books_to_languages_and_publishers()
 
     print(f"Database: {args.database}")
     print(f"Subject terms: {subject_count}")
     print(f"Author terms: {author_count}")
     print(f"Book-subject links: {subject_links}")
     print(f"Book-author links: {author_links}")
+    print(f"Language terms: {language_count}")
+    print(f"Publisher terms: {publisher_count}")
+    print(f"Book-language links: {language_links}")
+    print(f"Book-publisher links: {publisher_links}")
     return 0
 
 
