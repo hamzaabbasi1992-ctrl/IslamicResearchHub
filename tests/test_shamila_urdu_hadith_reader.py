@@ -145,7 +145,7 @@ def test_commentary_becomes_the_footnote_with_html_stripped(tmp_path: Path) -> N
 
     book = ShamilaUrduHadithReader().read(db_path)
 
-    assert book.pages[0].footnote == "تشریح: یہ ایک حقیقی تشریح ہے"
+    assert book.pages[0].footnote == "تشریح:\nیہ ایک حقیقی تشریح ہے"
     assert book.pages[1].footnote is None
 
 

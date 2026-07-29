@@ -2488,3 +2488,37 @@ coverage. 379/379 total passing.
 - Re-ran `PdfMatchCandidateRepository.detect_and_store()` with hint-based matching live: **817 matches** (up from 98 title-only). Combined with the existing 481 direct-resolve matches (96 overlapping both), **1,202 of 2,368 stub books (50.8%) now offer a fallback PDF** - up from 483 (20.4%) before this round. Spot-checked a sample weighted toward the lowest-confidence matches (down to the 0.90 floor): all correct - mostly exact matches after normalization, with the near-threshold ones being genuine transliteration spelling variants (e.g. "Taleem Ul Sarf" / "Taleem Us Sarf"), not false positives.
 - The production `Books` table didn't yet have `PublishYear` (added via an import-time `_ensure_*_column()` check, like `LibraryID`, not a versioned migration - no import had run since the change to trigger it) - added directly via the same idempotent helper the code itself uses, equivalent to what the next real import would have done.
 
+## Real structural markup preservation for Shamila Urdu content
+
+Investigated the `<qr>`/`<urh1>`/`<ur>` tags asked about earlier this
+session and found they do not actually exist anywhere in this corpus -
+checked all 699 `Books/` source files and all 20 `Quran/`-folder files
+directly; the only tag ever used is `<span>`. What real structure *does*
+exist is undocumented, but not unknowable: `book-styles.html`, the app's
+own real CSS (found on disk, not guessed), defines every span class it
+uses. Two are worth preserving: `mb1` (bold) - real content confirmed
+this always marks a genuine heading ("مقدمہ") or field-label sub-heading
+("نام و نسب:"), never emphasis mid-paragraph; a merely-larger-but-not-bold
+span turned out to just be decorative quote marks, so font size alone is
+not a reliable signal. `ma` (`font-family: "Muhammadi Quranic"`) - real
+content showed this marks *any* embedded Arabic-script quotation (Quran,
+Hadith, or even unrelated modern Arabic prose), not specifically Quran
+text, so it's preserved honestly as "Arabic-script quotation."
+
+`strip_html_to_text()` now promotes a bold span to its own "## heading"
+line (merging adjacent bold spans - e.g. an ayah-number span nested
+inside its own heading span, a real pattern in production tafsir content
+- into one line rather than splitting a single heading in two) and wraps
+an Arabic-script span in Arabic's own guillemets (`«»`), inline with the
+surrounding Urdu prose. A `<br>` now becomes a real forced line break
+(previously silently collapsed into a space - a real, separate bug found
+and fixed while building this). 11 new tests.
+
+New `shamila_urdu_structure_backfill_cli.py` re-extracts already-imported
+content from each book's own real source file (routed to the matching
+`Books`/`Hadith`/`Quran` reader by folder), updating only existing
+`Pages`/`Footnotes` rows - never touches Chapters, Categories, or inserts
+anything. Backed up production first; the real run (698 books, 327,354
+pages) was in progress at commit time - final counts follow in a
+subsequent entry once it completes.
+
