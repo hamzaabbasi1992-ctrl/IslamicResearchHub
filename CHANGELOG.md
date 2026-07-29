@@ -1989,3 +1989,22 @@ work. Everything else from the 18-phase message is recorded in
 PROJECT.md as an unscheduled idea, not lost, but not committed work
 either.
 
+## Full 18-phase vision adopted as real, numbered phases (10-19)
+
+Per explicit follow-up instruction, superseding the entry above: every
+item from the 18-phase vision message is now a real, numbered roadmap
+phase - none dropped. Items that overlapped what Phase 8/9 already
+covered were folded into those existing phases as added detail (extra
+TTS/voice specifics, fuller ratings/community/moderation scope, wider
+encyclopedia/visualization breadth) rather than duplicated as new
+phases, per "nothing overlapped." Genuinely new capabilities became
+Phases 10-19: AI research assistant, translation engine, AI reading
+assistant, personal research workspace, educational features, AI
+content generator, multimedia generation, mobile companion app,
+developer APIs, and advanced research tools. Each phase keeps the same
+honest-caveat discipline as the rest of this roadmap - real
+dependencies between phases called out explicitly (e.g. Phase 12 calls
+into Phase 10/11 rather than re-implementing them), and Phase 19's
+isnad-visualization/literature-review items are explicitly flagged as
+needing real scholarly review before shipping, not just a disclaimer.
+

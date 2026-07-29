@@ -249,26 +249,35 @@ the core search/browse/read experience, and several build on each other
   with the project's offline-first design, same pattern as the semantic
   search pilot). Urdu is the real risk here - fewer good open-source
   Urdu TTS models exist than for Arabic/English; needs a quality check
-  before committing to a specific engine.
+  before committing to a specific engine. Real scope includes multiple
+  voices, adjustable speed, male/female options, and separate
+  pronunciation handling for classical Arabic recitation-style text vs.
+  conversational Urdu/English.
 - **English-language books**: not a technical feature - every library
   imported so far (Jibreel, Al-Maknoon, Islam, Shamila Urdu, Shamela) is
   Arabic/Urdu. This needs its own Phase-1-style source investigation
   (find real English Islamic-book collections, check format/scale/
   overlap) before any importer can be scoped. Per explicit instruction,
   this investigation happens as part of Phase 8, not before it.
-- **Suggestions / questions / ratings**: real per-book ratings and
-  notes/questions, plus a "suggested for you" panel built on the
-  existing taxonomy/author/category data - similar scope to the Phase 5
-  bookmarks/recent-books work.
+- **Suggestions / questions / ratings / community feedback**: real
+  per-book and per-author ratings, notes/questions, tagging, and a
+  "suggested for you" panel built on the existing taxonomy/author/
+  category data - similar scope to the Phase 5 bookmarks/recent-books
+  work. Also covers user-submitted OCR-error reports and correction
+  suggestions once OCR exists (see "Not yet scheduled" below) and a
+  vote/moderation flow before any user feedback is allowed to change
+  what the AI features (Phases 9-19) actually surface - moderation is
+  part of this item's real scope, not a later add-on.
 - **Voice search with AI**: local speech-to-text (a Whisper-class model
   handles Arabic/Urdu/English) feeding the existing search pipeline -
   no cloud dependency, same local-AI pattern as the embedding pilot.
-- **NotebookLM-style AI research tools** (summaries, audio overviews,
-  visual reports): summaries and audio-overview-style output are
-  realistic with a local LLM plus the TTS item above. Real AI-generated
-  *video* is a materially bigger, separate undertaking - treated as a
-  stretch goal needing its own feasibility check, not assumed to be the
-  same size as the rest of this phase.
+- **NotebookLM-style AI research workspace** (summaries, audio
+  overviews, visual reports): a user selects a scope - one book, several
+  books, or a whole taxonomy-defined collection - and generates a book/
+  chapter/topic summary, or a multi-voice audio-overview-style
+  discussion using the TTS item above. Real AI-generated *video* is a
+  materially bigger, separate undertaking - see Phase 16, not assumed
+  to be the same size as the rest of this phase.
 
 ### Phase 9 — Knowledge graph and encyclopedia builder: **scheduled after Phase 8, not started**
 
@@ -302,25 +311,123 @@ not a committed phase.
   personalities, places, events), auto-assembling "every book/page
   linked to this term" into an encyclopedia-style page is a direct
   application of data that will already be there. Depends on Phase 7's
-  taxonomy population happening first.
-- **Visualizations** (mind maps, timelines, relationship/topic graphs):
-  a rendering layer on top of the same knowledge-graph data above, not
-  a separate data problem - scoped together with it, not before it.
+  taxonomy population happening first. Real scope spans every taxonomy
+  dimension already designed for this in migration 6 - prophets and
+  companions (biography, teachers, students, narrations, linked books),
+  places (with maps once geographic data exists), and general topics
+  (animals, plants, medicine, trade, ethics, etc.) - each becomes an
+  auto-assembled page from real linked content, not hand-written.
+- **Visualizations** (mind maps, timelines, relationship/topic graphs,
+  family trees, maps, infographics, flowcharts): a rendering layer on
+  top of the same knowledge-graph data above, not a separate data
+  problem - scoped together with it, not before it. Different chart
+  *types* over the same underlying graph/timeline data, not different
+  data problems - built as one flexible visualization layer, not one
+  bespoke feature per chart type.
 
-## Ideas not adopted as scheduled phases (from the 18-phase vision message)
+### Phase 10 — AI research assistant: **scheduled after Phase 9, not started**
 
-Recorded so nothing is silently lost, explicitly **not** committed work:
-translation engine (Arabic/Urdu/English/word-by-word/grammar), AI
-reading assistant (inline highlight-to-ask), personal research
-workspace (folders/notes/exports), educational features (quizzes/
-flashcards/teaching mode), AI content generator (slides/khutbah drafts/
-articles), multimedia generation (podcasts/videos/infographics), mobile
-companion app, public developer APIs, and the advanced-research-tool
-subset with real accuracy risk (isnad-chain visualization, automatic
-literature reviews, AI-compared scholarly opinions, duplicate-edition/
-manuscript-variant comparison). Any of these can be pulled into a real,
-scoped phase later, the same way every other phase in this document was
-- verified against real data and real feasibility first.
+Goes beyond search: a user asks a real comparative question ("how did
+the four madhhabs differ on raising the hands in salah?") and the
+assistant gathers real evidence across the corpus (via Phase 6/9's
+semantic search and knowledge graph), quotes original passages with
+real page references, and presents differing positions side by side.
+**Hard requirement, not optional**: every claim must link back to a
+real, openable page in a real book - no unsourced/unverifiable output.
+Comparing scholarly positions is exactly the kind of feature flagged
+earlier as carrying real accuracy risk in a religious-scholarship
+domain - this phase's output is explicitly evidence-plus-citations, not
+the assistant rendering its own verdict on which position is correct.
+
+### Phase 11 — Translation engine: **scheduled after Phase 10, not started**
+
+Real per-paragraph translation chain: original Arabic → Urdu → English,
+plus word-by-word breakdown, grammar notes, and root-word analysis
+(particularly valuable for Arabic morphology). A local translation
+model is the realistic offline-first approach (consistent with every
+other AI item in this roadmap); quality/accuracy needs a real check
+before this is presented as authoritative, same caveat as Phase 10.
+
+### Phase 12 — AI reading assistant: **scheduled after Phase 11, not started**
+
+The in-reader interaction layer: highlight text while reading, then
+ask the AI to explain, compare, translate (Phase 11), or summarize it,
+and save the result as a note or bookmark (Phase 5's bookmark schema
+already exists as a foundation). This phase is the UI/interaction
+layer specifically - it calls into Phase 10 (research assistant) and
+Phase 11 (translation) rather than re-implementing their logic, so
+there's one real place each capability lives, not several.
+
+### Phase 13 — Personal research workspace: **scheduled after Phase 12, not started**
+
+Folders, collections, saved searches, saved AI conversations, and
+export tools, built on top of Phase 5's existing bookmarks/recent-books
+tables rather than replacing them. Real new scope: organizing
+bookmarks/notes into named research projects and exporting a
+collection (with real citations) as a document.
+
+### Phase 14 — Educational features: **scheduled after Phase 13, not started**
+
+Quizzes, flashcards, MCQs, spaced-repetition-style revision, lesson
+plans, and a "teaching mode" view. Real dependency: question generation
+needs to be grounded in real page content (same sourcing discipline as
+Phase 10), not free-floating AI-generated trivia.
+
+### Phase 15 — AI content generator: **scheduled after Phase 14, not started**
+
+Produces structured output documents - lecture notes, khutbah outlines,
+research-paper drafts, book reviews, comparison tables, citation lists
+- from real evidence gathered the same way Phase 10 gathers it. This
+phase is the "turn evidence into a formatted document" layer; it
+depends on Phase 10 for the underlying evidence-gathering rather than
+duplicating it.
+
+### Phase 16 — Multimedia generation: **scheduled after Phase 15, not started**
+
+Extends Phase 8's audio-overview stretch goal into a full multimedia
+set: narrated podcasts, whiteboard-style animated explanations,
+auto-generated slide decks, and timeline videos. Real AI-generated
+*video* (as opposed to audio, already covered by Phase 8's TTS) is a
+materially larger, separate engineering undertaking - each output
+format in this phase needs its own feasibility check before being
+committed to, not assumed to work at the same effort level as the rest.
+
+### Phase 17 — Mobile companion app: **scheduled after Phase 16, not started**
+
+The project's own stated goal already names this ("Windows desktop app
+first, Android app later" - see Goal, above) - this phase is that
+"later" spelled out for real: an offline mobile library, camera-based
+OCR capture, and bookmark/download sync with the desktop app's
+database. A materially different platform/tech stack from the current
+PySide6 desktop app, not a small extension of it.
+
+### Phase 18 — Developer APIs: **scheduled after Phase 17, not started**
+
+Public APIs (search, translation, citation, book metadata, knowledge
+graph, TTS) so other Islamic-research tools could build on this
+platform's data. Real prerequisite: everything these APIs would expose
+needs to already exist and be trustworthy (Phases 6-11) before it's
+worth exposing to outside consumers.
+
+### Phase 19 — Advanced research tools: **scheduled after Phase 18, not started**
+
+The most research-grade, and most accuracy-sensitive, item set in this
+roadmap - grouped together because they share one real requirement:
+**scholarly review as a hard design constraint, not an afterthought**,
+given this is Islamic scholarship, not general-purpose text analysis.
+OCR confidence heatmaps, duplicate-edition detection, and variant-text
+comparison between editions are comparatively low-risk (they're about
+identifying differences, not asserting religious conclusions).
+Citation-chain tracing, named-entity recognition, root-word/morphology
+search, and automatic bibliography generation are real, buildable NLP
+tasks with existing tooling to evaluate. **Isnad (chain-of-narration)
+visualization and automatic literature-review generation are the
+highest-risk items in this entire roadmap** - hadith authentication is
+specialized scholarly work; an AI system that visualizes or summarizes
+narrator chains without rigorous, expert-reviewed grounding risks
+presenting unverified or wrong authentication judgments as fact. These
+two sub-items specifically should not ship without real scholarly
+review in the loop, not just a disclaimer.
 
 ## Items existing outside phase discipline (frozen, by explicit decision)
 
