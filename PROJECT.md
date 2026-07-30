@@ -253,8 +253,28 @@ AI capability, only infrastructure that already exists:
   bookmark structure**. Real, accurate scoping data for a future
   no-OCR-needed import of those 1,101 books and a TOC-only import of
   the outline books; the extractor/importer itself is not yet built.
+- **Heading-only "stub book" PDF fallback: done** (not part of the
+  original Phase 6 scope, but the same "use the corpus we already have"
+  differentiator - see CHANGELOG). Investigated a real user report
+  (screenshot of an almost-blank page) and found it's systemic in
+  specific libraries (Maktaba Jibreel Desktop 86%, Al-Maknoon 66% of
+  books), not a bug - confirmed by decrypting the original source
+  directly. Built real, verified matching against the corpus's own PDF
+  Archive libraries (direct source resolution + fuzzy title matching +
+  Jibreel's own embedded PDF-filename cross-reference, the last of
+  which required backfilling a field that had been read into memory at
+  import time since day one but never persisted): **1,202 of 2,368
+  stub books (50.8%) now offer a real fallback PDF** in the Viewer,
+  opt-in via a clearly-labeled banner.
+- **Real structural markup + bibliographic completeness for Shamila
+  Urdu: done** (see CHANGELOG). Shamila Urdu's real (undocumented) span
+  classes let heading structure and embedded Arabic-script quotations
+  survive HTML-stripping instead of flattening to one plain-text blob -
+  applied to all 698 already-imported books for real (283,425 pages,
+  88,185 footnotes reformatted). Publish Year, previously discarded
+  unread, is now captured (61.7% of books had one) and backfilled.
 
-### Phase 7 — AI: semantic search: **in progress**
+### Phase 7 — AI: semantic search: **done**
 
 Semantic search, embeddings-based QA, citation engine, cross-book
 comparison, research assistant. Note: a semantic search pilot
@@ -276,16 +296,18 @@ scaled to the full corpus.
 - **WAL journal mode: done** (migration 9, applied to production) - lets
   the desktop app keep reading/searching while a long background
   indexing job writes, instead of risking "database is locked".
-- **Full-corpus run: in progress.** The original ~18 hour estimate used
-  a smaller, older corpus and an unmeasured throughput guess; the real,
-  measured throughput on this machine is ~8.5-8.7 pages/sec (CPU only),
-  giving an updated estimate of **~76-78 hours** for all 2,385,159
-  pages. Running unbounded in the background per explicit request,
-  resumable at any point (migration 9 + the resume/skip logic above).
-  A real bug was found and fixed right after starting it (see
-  CHANGELOG: an unbounded run tried to load the entire remaining
-  corpus into memory in one query before embedding anything - fixed
-  with bounded internal chunking).
+- **Full-corpus run: done.** Ran unbounded in the background over
+  several sessions (resumable throughout via migration 9 + the
+  resume/skip logic above; survived at least one real interruption for
+  a competing write-lock from a concurrent backfill job, resumed
+  cleanly). Real completion, verified directly: **every one of the
+  1,697,553 pages with real (non-whitespace) content is embedded** -
+  the other 687,606 of the corpus's 2,385,159 total page rows are
+  either NULL or whitespace-only content with genuinely nothing to
+  embed, not a gap. A real bug was found and fixed right after
+  starting it (see CHANGELOG: an unbounded run tried to load the
+  entire remaining corpus into memory in one query before embedding
+  anything - fixed with bounded internal chunking).
 - **Real differentiating application, not generic "AI search"**: once
   this and Phase 8's taxonomy population exist, cross-*tradition*
   comparative search becomes possible - this corpus already spans
@@ -332,22 +354,22 @@ both items below are real and scoped:
   against an actual Shamela `.mdb` file (`book` table: id/nass/page/
   part/seal; `title` table: id/lvl/sub/tit, real table-of-contents
   hierarchy). The importer itself is not yet built.
-- **Taxonomy population: done.** `TaxonomyRepository` now populates the
-  "subject" and "author" dimensions from the already-normalized
-  `CategoryTaxonomy`/`Authors` tables and links every real book to them
-  - idempotent, verified for real against production: **691 subject
-  terms, 650 author terms, 13,442 book-subject links, 4,466
-  book-author links**, matching this corpus's already-known real
-  category/author counts exactly. See CHANGELOG (includes a real
-  perf bug found and fixed - bulk linking, not one connection per
-  book). The other seven dimensions (madhhab, language, publisher,
+- **Taxonomy population: done, four dimensions.** `TaxonomyRepository`
+  populates "subject"/"author" from the already-normalized
+  `CategoryTaxonomy`/`Authors` tables, and "language"/"publisher"
+  directly from `Books` - idempotent, verified for real against
+  production: **691 subject terms, 650 author terms, 3 language terms,
+  679 publisher terms, 13,442 book-subject links, 4,466 book-author
+  links, 5,212 book-language links, 5,171 book-publisher links**. See
+  CHANGELOG (includes a real perf bug found and fixed - bulk linking,
+  not one connection per book). The other five dimensions (madhhab,
   region, personality, event, tag) have no source data to populate
   from yet - not part of this pass.
 - **Taxonomy browsing GUI: not yet started.** Real data exists now:
   next real step is a desktop-app screen to browse/search by these
   populated dimensions, not just Categories/Authors as before.
 
-### Phase 9 — Accessibility, engagement, and AI research tools: **scheduled after Phase 8, not started**
+### Phase 9 — Accessibility, engagement, and AI research tools: **in progress**
 
 Added at the user's explicit request. Five real, distinct items - grouped
 into one phase because they're all later-stage, all optional relative to
@@ -371,17 +393,24 @@ differentiator the way Phase 6/10's items are:
   imported so far (Jibreel, Al-Maknoon, Islam, Shamila Urdu, Shamela) is
   Arabic/Urdu. This needs its own Phase-1-style source investigation
   (find real English Islamic-book collections, check format/scale/
-  overlap) before any importer can be scoped. Per explicit instruction,
-  this investigation happens as part of Phase 9, not before it.
-- **Suggestions / questions / ratings / community feedback**: real
-  per-book and per-author ratings, notes/questions, tagging, and a
-  "suggested for you" panel built on the existing taxonomy/author/
-  category data - similar scope to the Phase 5 bookmarks/recent-books
-  work. Also covers user-submitted OCR-error reports and correction
-  suggestions once OCR exists (see "Not yet scheduled" below) and a
-  vote/moderation flow before any user feedback is allowed to change
-  what the AI features (Phases 10-20) actually surface - moderation is
-  part of this item's real scope, not a later add-on.
+  overlap) before any importer can be scoped. **Investigation started,
+  deliberately paused**: `islamhouse.com` has a real, documented public
+  API (developers.islamhouse.com, MIT-licensed client code, content
+  requires attribution) - a genuinely legitimate candidate, but the
+  first *network-API* source this project would import from (every
+  library so far has been local files), needing a registered API key
+  from the user plus real architecture decisions (rate limits, one-time
+  vs. incremental sync) before building. Explicitly deprioritized below
+  Phase 6's readiness work per direct instruction - not resumed yet.
+- **Suggestions / questions / ratings / community feedback**: scoped
+  down to what this project's real architecture supports - a
+  single-user local desktop app, not a multi-user backend. **Personal
+  per-book rating: done** (migration 12, `BookRatingRepository`, wired
+  into `SearchScreen`'s detail panel - see CHANGELOG). Notes/questions,
+  tagging, a "suggested for you" panel, and any real vote/moderation
+  flow are real, separate scope for whenever (if ever) this project
+  gains actual multi-user/community infrastructure - not assumed to be
+  the same size as the rating slice just shipped.
 - **Voice search with AI**: local speech-to-text by default (a
   Whisper-class model handles Arabic/Urdu/English) feeding the existing
   search pipeline, same local-AI pattern as the embedding pilot; cloud
