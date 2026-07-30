@@ -451,6 +451,32 @@ def _add_source_pdf_hint_column(connection: sqlite3.Connection) -> None:
     connection.execute("ALTER TABLE Books ADD COLUMN SourcePdfHint TEXT")
 
 
+def _add_book_ratings(connection: sqlite3.Connection) -> None:
+    """Add BookRatings, additive - Phase 9's ratings item, scoped down to what
+    this app's real architecture supports today.
+
+    PROJECT.md describes this as "community feedback" with voting and
+    moderation, but this is a single-user local desktop app with no
+    accounts or network backend at all - building a moderation/voting
+    flow for a user base that doesn't exist would be speculative, not
+    real. Scoped to a personal per-book rating instead, the same real
+    slice `BookBookmarks` (migration 8) took of a similarly large
+    original ambition. One rating per book (BookID is the primary key,
+    not a composite with a user id) matches the single-user reality;
+    community features are a real, separate undertaking for whenever
+    this app actually has a backend to support them.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS BookRatings (
+            BookID INTEGER PRIMARY KEY REFERENCES Books(BookID),
+            Rating INTEGER NOT NULL,
+            RatedAt TEXT NOT NULL
+        );
+        """
+    )
+
+
 def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
     """Switch the database file to WAL journal mode for real read/write concurrency.
 
@@ -489,6 +515,7 @@ BOOKMARKS_AND_RECENT_BOOKS_VERSION = 8
 WAL_JOURNAL_MODE_VERSION = 9
 FOOTNOTES_SEARCH_INDEX_VERSION = 10
 SOURCE_PDF_HINT_VERSION = 11
+BOOK_RATINGS_VERSION = 12
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -559,6 +586,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add Books.SourcePdfHint, additive and NULL until a backfill runs - "
         "captures Jibreel's own book-to-PDF filename cross-reference.",
         _add_source_pdf_hint_column,
+    ),
+    Migration(
+        BOOK_RATINGS_VERSION,
+        "Add BookRatings, additive - a personal per-book rating (Phase 9, "
+        "scoped to what this single-user local app's architecture supports).",
+        _add_book_ratings,
     ),
 )
 

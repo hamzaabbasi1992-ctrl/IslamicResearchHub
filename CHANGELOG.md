@@ -2518,9 +2518,10 @@ New `shamila_urdu_structure_backfill_cli.py` re-extracts already-imported
 content from each book's own real source file (routed to the matching
 `Books`/`Hadith`/`Quran` reader by folder), updating only existing
 `Pages`/`Footnotes` rows - never touches Chapters, Categories, or inserts
-anything. Backed up production first; the real run (698 books, 327,354
-pages) was in progress at commit time - final counts follow in a
-subsequent entry once it completes.
+anything. Backed up production first; applied for real: **698/698 books
+reformatted, 283,425 pages and 88,185 footnotes updated, 0 errors** on
+the re-run after the folder-detection fix below (the first run hit 62
+read errors from the bug it fixes).
 
 **Real bug found on the first production run, fixed and re-run**: 62 of
 698 books failed with "no such table: hadith" - `_reader_for()` picked the
@@ -2529,3 +2530,23 @@ string, and real `Books/`-folder files like `fazail-e-ahle-hadith.db` have
 "hadith" in their own filename, wrongly routing them to the Hadith-schema
 reader. Fixed to match a real path *segment* instead. Added a regression
 test using this exact real filename.
+
+## Phase 9, first slice: personal book ratings
+
+Phase 9 groups five items (TTS, English-language books, community
+feedback, voice search, an AI research workspace) under one "later-stage,
+optional" phase - real ambition, but PROJECT.md's "community feedback"
+description (voting, moderation) assumes a backend/accounts system this
+project doesn't have at all: a single-user local desktop app. Scoped the
+ratings item down to what the real architecture actually supports today -
+a personal per-book rating, the same size slice `BookBookmarks` took of a
+similarly large original ambition (migration 8) - rather than building
+speculative multi-user infrastructure for a user base that doesn't exist.
+
+Migration 12 adds `BookRatings` (one rating per book, 1-5, upsert on
+re-rate). New `BookRatingRepository` mirrors `BookmarkRepository`'s exact
+shape (graceful no-op degrade on a pre-migration database, real
+`closing()`-connection pattern). Wired into `SearchScreen`'s detail
+panel as a "Your rating" dropdown, next to the existing catalog fields.
+18 new tests.
+

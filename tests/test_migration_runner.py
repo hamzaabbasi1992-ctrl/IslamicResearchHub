@@ -23,6 +23,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     VOLUMES_VERSION,
     FOOTNOTES_SEARCH_INDEX_VERSION,
     SOURCE_PDF_HINT_VERSION,
+    BOOK_RATINGS_VERSION,
     WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
 )
@@ -136,8 +137,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
+            BOOK_RATINGS_VERSION,
         ]
-        assert runner.current_version(connection) == SOURCE_PDF_HINT_VERSION
+        assert runner.current_version(connection) == BOOK_RATINGS_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -179,6 +181,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
+            BOOK_RATINGS_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -233,6 +236,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
+            BOOK_RATINGS_VERSION,
         ]
 
         rows = connection.execute(
@@ -299,6 +303,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             WAL_JOURNAL_MODE_VERSION,
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
+            BOOK_RATINGS_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -657,6 +662,26 @@ def test_source_pdf_hint_migration_adds_a_null_column(tmp_path: Path) -> None:
         connection.execute("UPDATE Books SET SourcePdfHint = 'REAL_PDF_NAME.pdf'")
         updated = connection.execute("SELECT SourcePdfHint FROM Books").fetchone()[0]
         assert updated == "REAL_PDF_NAME.pdf"
+
+
+def test_book_ratings_migration_creates_an_empty_table(tmp_path: Path) -> None:
+    """Migration 12 creates BookRatings, additive and empty until a user rates a book."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        book_id = connection.execute("SELECT BookID FROM Books").fetchone()[0]
+        runner_migrate_all(connection)
+
+        count = connection.execute("SELECT COUNT(*) FROM BookRatings").fetchone()[0]
+        assert count == 0
+
+        connection.execute(
+            "INSERT INTO BookRatings (BookID, Rating, RatedAt) VALUES (?, 5, datetime('now'))",
+            (book_id,),
+        )
+        rating = connection.execute("SELECT Rating FROM BookRatings").fetchone()[0]
+        assert rating == 5
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

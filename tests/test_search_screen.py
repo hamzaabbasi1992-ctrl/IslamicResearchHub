@@ -165,6 +165,50 @@ def test_details_button_populates_the_inline_detail_panel(qtbot, tmp_path: Path)
     assert "Author One" in all_labels_text
 
 
+def test_detail_panel_shows_not_rated_by_default(qtbot, tmp_path: Path) -> None:
+    """A book with no stored rating shows "Not rated" selected, not an error."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    screen._show_details(1, page_number=1)
+
+    assert screen._rating_combo.currentData() is None
+    assert screen._rating_combo.currentText() == "Not rated"
+
+
+def test_selecting_a_rating_persists_it(qtbot, tmp_path: Path) -> None:
+    """Picking a star rating in the detail panel really saves it."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    screen._show_details(1, page_number=1)
+
+    screen._rating_combo.setCurrentIndex(screen._rating_combo.findData(4))
+
+    assert screen._ratings.get_rating(1) == 4
+
+
+def test_reopening_details_shows_the_previously_saved_rating(qtbot, tmp_path: Path) -> None:
+    """Re-opening a rated book's details pre-selects its real stored rating."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    screen._ratings.set_rating(1, 5)
+
+    screen._show_details(1, page_number=1)
+
+    assert screen._rating_combo.currentData() == 5
+    assert screen._rating_combo.currentText() == "★★★★★"
+
+
 def test_clicking_a_category_in_the_tree_filters_and_searches(qtbot, tmp_path: Path) -> None:
     """Clicking a real category node sets the category filter and runs a search."""
     database_path = tmp_path / "books.db"

@@ -35,6 +35,9 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     MAX_BROWSE_RESULTS,
     BookBrowserRepository,
 )
+from islamic_research_hub.infrastructure.persistence.book_rating_repository import (
+    BookRatingRepository,
+)
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
 )
@@ -74,6 +77,7 @@ class SearchScreen(QWidget):
         search_service: BookSearchService | None = None,
         browser: BookBrowserRepository | None = None,
         recent_books: RecentBookRepository | None = None,
+        ratings: BookRatingRepository | None = None,
         semantic_search_service: SemanticBookSearchService | None = None,
         enable_lazy_semantic_search: bool = False,
         parent: QWidget | None = None,
@@ -95,6 +99,7 @@ class SearchScreen(QWidget):
         self._browser = browser or BookBrowserRepository(database_path)
         self._semantic_search_service = semantic_search_service
         self._recent_books = recent_books or RecentBookRepository(database_path)
+        self._ratings = ratings or BookRatingRepository(database_path)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -809,6 +814,13 @@ class SearchScreen(QWidget):
         pane.setWidget(self._detail_content)
         return pane
 
+    def _on_rating_changed(self, book_id: int) -> None:
+        value = self._rating_combo.currentData()
+        if value is None:
+            self._ratings.clear_rating(book_id)
+        else:
+            self._ratings.set_rating(book_id, value)
+
     def _show_details(self, book_id: int, page_number: int | None = None) -> None:
         metadata = self._browser.get_book_metadata(book_id)
         if metadata is None:
@@ -849,6 +861,18 @@ class SearchScreen(QWidget):
 
         for label_text, value in rows:
             self._detail_layout.addWidget(_detail_row(label_text, value))
+
+        self._detail_layout.addWidget(_pane_title("Your rating"))
+        self._rating_combo = QComboBox()
+        self._rating_combo.addItem("Not rated", None)
+        for value in range(1, 6):
+            self._rating_combo.addItem("★" * value, value)
+        current_rating = self._ratings.get_rating(metadata.book_id)
+        self._rating_combo.setCurrentIndex(max(self._rating_combo.findData(current_rating), 0))
+        self._rating_combo.currentIndexChanged.connect(
+            lambda _index, book_id=metadata.book_id: self._on_rating_changed(book_id)
+        )
+        self._detail_layout.addWidget(self._rating_combo)
 
         open_viewer_button = QPushButton("Open in Viewer")
         open_viewer_button.setObjectName("primaryButton")
