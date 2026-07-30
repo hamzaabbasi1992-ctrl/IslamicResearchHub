@@ -2550,3 +2550,67 @@ shape (graceful no-op degrade on a pre-migration database, real
 panel as a "Your rating" dropdown, next to the existing catalog fields.
 18 new tests.
 
+## New `process_all_cli.py`: every post-import step, one command
+
+Requested directly: importing is still format-specific (each source
+needs its own reader/decryptor/credentials - there's no honest way to
+unify that step), but everything *after* import had grown into five to
+seven separate commands that had to be run in a specific order, from
+memory. This chains them: schema migrations, the Jibreel PDF-hint
+backfill (opt-in - needs real decryption credentials), the Shamila Urdu
+Publish Year and structure backfills, PDF match candidate detection,
+taxonomy population, and - opt-in via `--run-semantic-index`, since a
+full run can take hours - the semantic embedding indexer. One step
+failing doesn't stop the rest, matching the resilience pattern
+`jibreel_desktop_import_cli.py` already uses for individual files.
+
+**Real bug found and fixed while testing this**: `semantic_index_cli`
+imports `sentence-transformers`/`torch` at module level (a real ~20s
+cost), so it's imported lazily inside `main()`, only when
+`--run-semantic-index` is actually passed - otherwise every other step
+would pay that cost unconditionally just for importing this file. Testing
+that lazy import correctly took two attempts: patching `sys.modules`
+alone worked in isolation but silently ran the real model when the full
+suite ran first, because `from package import name` resolves via
+`getattr(package, name)` before ever falling back to `sys.modules` - and
+that attribute already exists once any other test (e.g.
+`test_semantic_index_cli.py`) has really imported it earlier in the same
+run. Both need patching to be robust to import order.
+
+7 new tests.
+
+## Real book inventory delivered: searchable-text lists, multi-volume gaps, availability check
+
+Real investigation, not guesses. Searchable-text books (`PageCount > 0`,
+5,990 total): 4,876 Urdu, 335 Arabic, 778 with `Language` never set (real
+content, just untagged from older imports) - and only 1 nominally
+"English" entry, which turned out to be an Urdu-titled book *about* an
+English translation, not real English content. Every library imported so
+far is genuinely Arabic/Urdu.
+
+Multi-volume series gap analysis (412 series) found a real bug in its own
+first pass: several "missing" volumes were already in the corpus, just
+never linked to their `Series` row, because `VOLUME_TITLE_PATTERN`
+requires the volume number at the very end of the title (`\s*$`) and real
+titles like "کشف الباری ... جلد 7 - کتاب الخمس ..." have a subtitle
+after it, and combined-volume books ("جلد 3-4") were only credited for
+their first number. Rechecking the full `Books` table (not just
+already-linked ones) for each missing volume, and deduplicating series
+counted twice under an English-transliterated title and its Urdu-script
+title, brought the real gap count from an initial 59 down to **24 missing
+volumes across 17 distinct series** - a meaningfully more accurate number
+than the first pass produced. (The regex itself was not changed - a real
+fix belongs in its own migration with a considered answer for how
+combined-volume books should be represented, not bolted on here.)
+
+Web-searched all 24: **7 confirmed found** (exact matches on Internet
+Archive/Scribd), **9 likely available** (found the right publisher/author
+site, not a volume-specific link), **3 not found**, **1 uncertain** (the
+original work may only have 3 volumes plus a separately-titled 4th, so
+the "gap" may not be real).
+
+Delivered to `docs/book_inventory/` (gitignored, like the project's other
+generated reports): `all_books.csv`, four `searchable_books_*.csv` files
+split by language, `multi_volume_series.csv` (corrected), and
+`missing_volumes_availability.csv`.
+
