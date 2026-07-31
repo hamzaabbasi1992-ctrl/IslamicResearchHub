@@ -61,6 +61,54 @@ model powers a feature. The UI names the *capability* ("AI Summary",
 Settings entry for "enable enhanced AI (requires internet + your own
 API key)" is as technical as it should ever get for a general user.
 
+## Internal dependency graph: what the data foundation unlocks
+
+Real dependencies between the foundational data-layer pieces (built or in
+progress now) and the later phases that need them - not a phase
+renumbering, a map of *why* the foundation work matters before those
+phases can start for real.
+
+- **Paragraph IDs** (`Paragraphs.ParagraphID`, migration 13, `paragraphs_backfill_cli.py`)
+  → the addressable unit every later citation-level feature points at.
+  Needed by: Phase 10's citation graph (a link is only real if both ends
+  resolve to an actual paragraph), Phase 10's contradiction/knowledge-gap
+  detectors (need to cite *which* passage), Phase 11's AI research
+  assistant (an answer must open the exact paragraph, not just a page),
+  Phase 13's AI reading assistant, Phase 16's AI content generator (every
+  generated claim needs a real source pointer).
+- **Citation mapping** (`HadeesNumber`/`AyahNumber`, migration 14;
+  `get_volume_siblings()` + `format_citation()`) → real, human-readable
+  citation strings ("Book X, Volume Y, Page Z, Paragraph N" / a real
+  hadith or ayah number) instead of internal row IDs. Needed by: every
+  phase above that surfaces a citation to a user, not just internally.
+- **Search indexes** (`BooksFTS`/`PagesFTS`/`FootnotesFTS`/`ParagraphsFTS`,
+  all bm25-ranked, migration 15 completing the set) → the retrieval layer
+  everything else queries against. Needed by: Phase 7 (already depends on
+  it), Phase 10's cross-language/knowledge-gap work, Phase 11's AI
+  assistant (retrieval-augmented generation needs a real retriever - this
+  *is* that retriever), Phase 14's research workspace.
+- **Taxonomy** (`TaxonomyDimensions`/`TaxonomyTerms`/`BookTaxonomyTerms`,
+  migration 6 - schema exists, population is Phase 8) → the structured
+  entity/subject graph. Needed by: Phase 10's knowledge graph and
+  encyclopedia builder directly (an encyclopedia page *is* "everything
+  linked to one taxonomy term"), Phase 15's educational features. Real
+  gap today: `personality`/`event`/`madhhab`/`region`/`tag` dimensions
+  are still empty placeholders (only `author`/`subject`/`publisher`/
+  `language` are populated) - Phase 8 has to close this before Phase 10
+  can build on it for real.
+- **Metadata normalization** (`Books.AuthorID`, `Books.SeriesID`/
+  `VolumeNumber`, `CategoryTaxonomy`, diagnostics coverage in
+  `DatabaseVerifier`) → guarantees every record is reachable by a real
+  identifier, not just free text, and that broken links get caught before
+  they reach a user. Needed by: everything above, transitively - a
+  knowledge graph or AI assistant built on inconsistent foreign keys
+  fails silently in ways that are much harder to debug once AI-generated
+  content is layered on top.
+
+Deliberately **not** in this list: anything AI-generated (embeddings,
+extraction, summarization). Every item above is real, verifiable,
+non-AI infrastructure - the explicit point of building it first.
+
 ## Phased roadmap (governs what gets worked on)
 
 Strict phase discipline: each phase must be complete before the next
@@ -185,6 +233,27 @@ library; those capabilities aren't required to get v1.0's core value.
   Both wired to real data, verified for real against the actual
   production log and real search results. Closes out the original
   8-tab Phase 4 list.
+- UI/UX redesign toward a modern research workspace - **done**, an
+  11-milestone effort (approved via plan mode, backend/persistence
+  untouched throughout - see each "Desktop app UI/UX redesign,
+  Milestone N" CHANGELOG entry for full detail): a real design-token
+  system (`Palette`/`Spacing`/`Type`) with live dark mode + font scale;
+  Search and the Reader merged into one persistent `WorkspaceScreen`
+  (`QSplitter`-based) instead of separate full-screen tabs, plus a
+  collapsible AI-assistant panel (honest "similar books" chrome, no fake
+  chat - no LLM exists anywhere in this codebase); a new Home dashboard
+  (4 of 6 cards wired to real data; Collections and true AI Suggestions
+  stay documented placeholders - no "list rated/bookmarked books" query
+  or book-similarity method exists to back them); Duplicate Manager split
+  into its own screen with a working session-only Skip and an honestly
+  disabled Merge (no merge operation exists in the persistence layer);
+  recent-search history + autocomplete; a friendlier default Logs view
+  (raw log moved behind "Advanced"); 11 real keyboard shortcuts; and
+  panel-collapse/expand animations. Full inline-style spacing/typography
+  adoption of the new tokens was deliberately deferred - real, reviewable
+  follow-up work once appearance can be confirmed visually (this sandbox
+  cannot screenshot the running app). Test suite grew from 427 to 507
+  across the whole effort, zero regressions at every step.
 
 ### Phase 5 — Book Viewer: **done**
 
@@ -340,34 +409,96 @@ scaled to the full corpus.
   is closer to fully embedded), but no longer doing unnecessary work,
   and never blocking regardless of how slow it gets. See CHANGELOG.
 
-### Phase 8 — Maktaba Shamela import + taxonomy GUI: **in progress**
+### Phase 8 — Maktaba Shamela import + taxonomy GUI: **core work done, full corpus import pending**
 
 Explicitly scheduled by the user to come after Phase 7, not before -
 both items below are real and scoped:
 
-- **Maktaba Shamela importer**: `F:\المكتبة الشاملة`, 113 GB, 30,662
-  real books, 99.5% new vs. the existing corpus (would more than double
-  it). Investigated, not yet built - see CHANGELOG. **Blocker resolved**:
-  the modern ACE engine (ODBC, DAO, and the newer OLEDB provider) refuses
-  these Jet 3/Access-97 files, but the older `Microsoft.Jet.OLEDB.4.0`
-  provider (32-bit only) opens them correctly - confirmed for real
-  against an actual Shamela `.mdb` file (`book` table: id/nass/page/
-  part/seal; `title` table: id/lvl/sub/tit, real table-of-contents
-  hierarchy). The importer itself is not yet built.
+- **Maktaba Shamela importer: built, pilot-verified, full corpus not yet
+  run.** `F:\المكتبة الشاملة`, 113 GB, 30,662 real books under `Books\`.
+  Real architecture (re-investigated properly before building, since the
+  originally-documented schema turned out incomplete):
+  - Individual `.mdb` files carry **no title/author metadata at all** -
+    only `book` (page content; real columns vary per file - some carry
+    `seal`, others `hno`/`Sora`/`Aya`/`na` - read dynamically, not
+    assumed) and `title` (TOC headings). Real per-book metadata lives in
+    a separate catalog, `book_index.db` - despite the `.db` extension
+    this is plain SQLite (no COM/OLEDB needed for it), keyed by
+    `shamelaID` (matches each `.mdb`'s filename stem, not the catalog's
+    own `id` or its stale `filePath`). Author coverage is honestly sparse
+    (7,032 of 36,042 catalog rows have a real author name).
+  - A single `.mdb` can be a genuine multi-volume work - `book.page`
+    resets per `book.part` (confirmed: an 8-part file with 8
+    independently-numbered page ranges). The importer splits these into
+    one real `Book` per part and reuses the existing Series/VolumeNumber
+    grouping (`model_volumes`, now safely re-runnable as a post-import
+    backfill, not just a one-time migration) rather than building a new
+    grouping mechanism.
+  - `title.id`/`title.sub` are not a reliable unique parent link (the
+    same `id` recurs across different `lvl`s in real data) - the chapter
+    hierarchy is built from `lvl` alone via a level-based stack instead.
+  - A `book.id` row is closer to a paragraph than a page - real pilot
+    data showed ~12% of rows sharing a page number with another row.
+    Same-page rows are merged into one `Page` (content joined in
+    reading order), so the existing paragraph-backfill pass picks up
+    real sub-page structure automatically, same as the rest of the corpus.
+  - Access mechanism: `Microsoft.Jet.OLEDB.4.0` (32-bit only) via
+    PowerShell + ADODB, the same shell-out-to-32-bit-PowerShell shape
+    already used for Jibreel's `.mjbx` decryption - every modern
+    ACE-based provider refuses these Jet 3/Access-97 files outright.
+  - Category mapping deliberately **not** attempted: Shamela's own `cat`
+    id has no name lookup anywhere in the source data and is a different
+    namespace from this project's `MJCN` system - mapping it in would
+    silently corrupt `Categories`/`CategoryTaxonomy`.
+  - **Pilot run** (30 real files from `Books\0`, per user's explicit
+    "pilot first" scope decision): 47 real books (multi-volume splits
+    included), **0 read failures**, 5 real Series correctly grouped
+    (e.g. Tafsir Ibn Kathir's 8 volumes, Tafsir al-Khazin's 7), spot-
+    checked page content/chapter hierarchy against the real source by
+    hand. `verify_database_cli.py` against the pilot database: **0
+    errors, 0 warnings**. Full ~30,662-book corpus import is a
+    deliberately separate, later step - not run yet.
 - **Taxonomy population: done, four dimensions.** `TaxonomyRepository`
   populates "subject"/"author" from the already-normalized
   `CategoryTaxonomy`/`Authors` tables, and "language"/"publisher"
   directly from `Books` - idempotent, verified for real against
   production: **691 subject terms, 650 author terms, 3 language terms,
-  679 publisher terms, 13,442 book-subject links, 4,466 book-author
+  679 publisher terms, 14,046 book-subject links, 4,466 book-author
   links, 5,212 book-language links, 5,171 book-publisher links**. See
   CHANGELOG (includes a real perf bug found and fixed - bulk linking,
-  not one connection per book). The other five dimensions (madhhab,
-  region, personality, event, tag) have no source data to populate
-  from yet - not part of this pass.
-- **Taxonomy browsing GUI: not yet started.** Real data exists now:
-  next real step is a desktop-app screen to browse/search by these
-  populated dimensions, not just Categories/Authors as before.
+  not one connection per book, and a real term-matching bug found and
+  fixed - `get_or_create_term` used to match by display text instead of
+  `StableKey`, silently collapsing 43 of 691 real subject categories
+  that share Name text under different parents into one wrong term;
+  fixed, backfilled, and now guarded by a `DatabaseVerifier` uniqueness
+  check). The other five dimensions (madhhab, region, personality,
+  event, tag) have **no real source data anywhere in the current
+  schema** - re-verified directly against the live database, not
+  assumed: no matching column, free-text field, or category text exists
+  for madhhab/event/tag/personality; region has only a crude, unstructured
+  signal (city/country names embedded in ~20-30% of `Books.Publisher`
+  free text) that would need real text-extraction work, not just wiring.
+  Left empty and documented honestly rather than filled with fabricated
+  or unverifiable low-confidence data - not part of this pass.
+- **Taxonomy browsing GUI: done.** New standalone `TaxonomyBrowserScreen`
+  rail entry (`main_window.py`, `rail-taxonomy`), following
+  `DuplicateManagerScreen`'s DI-with-real-defaults constructor pattern and
+  `SearchScreen`'s `QTreeWidget` tree/search-filter pattern exactly. Real
+  dimension selector (populated dimensions selectable; empty ones shown
+  disabled with an honest "no data yet" tooltip, not hidden), real
+  search-within-taxonomy filter, node click -> real linked books via
+  `TaxonomyRepository.list_books_for_term()` bulk-hydrated with
+  `BookBrowserRepository.list_books_by_ids()` (the same N+1-avoiding
+  method `DuplicateManagerScreen` already uses), real "Read in app"
+  wired to the existing viewer via `open_in_viewer_requested`. Degrades
+  honestly (no crash, no dimension selectable) against a database that
+  hasn't run migration 6 yet. Verified against the real production
+  database (smoke-tested end to end) and with 8 new pytest-qt tests.
+
+**Phase 8 status: all three priorities complete** (Shamela importer
+built and pilot-verified, taxonomy validated/fixed, Taxonomy Browser GUI
+shipped). Full ~30,662-book Shamela corpus import remains a deliberately
+separate, later step, not part of this phase's scope.
 
 ### Phase 9 — Accessibility, engagement, and AI research tools: **in progress**
 
@@ -424,6 +555,25 @@ differentiator the way Phase 6/10's items are:
   to be the same size as the rest of this phase.
 
 ### Phase 10 — Knowledge graph and encyclopedia builder: **scheduled after Phase 9, not started**
+
+**Real foundational step already done, ahead of the rest of this phase**:
+permanent paragraph-level citation IDs - migration 13 (`Paragraphs` +
+`ParagraphsFTS`/`ParagraphsFTSNormalized`, backfilled for real against
+all 15,162 books), migration 14 (`Pages.HadeesNumber`/`AyahNumber`,
+previously-dropped real citation numbers now captured), migration 15
+(`BooksFTS`/`BooksFTSNormalized`, bm25-ranked title/author search,
+replacing the old unranked `LIKE` scan), and
+`BookBrowserRepository.get_volume_siblings()` +
+`shared/citation_formatting.py::format_citation()` for the "Book X,
+Volume Y, Page Z, Paragraph N" display format. See the CHANGELOG entry
+"Milestone 1 resumed: permanent paragraph citation IDs + search
+foundation" for full detail. This is exactly the addressable-citation
+infrastructure the citation graph/knowledge graph items below need - a
+`Paragraphs.ParagraphID` is the natural foreign key for a future
+passage-level entity-link table (today's `BookTaxonomyTerms` only links
+at whole-book granularity). Deliberately did **not** start on Waqi'at
+extraction, entity population, or any AI-driven step yet, per your own
+stated preference to build the non-AI data foundation first.
 
 The user proposed a much larger 18-phase "AI Research Operating System"
 vision in one message (semantic search, NotebookLM workspaces, TTS,

@@ -13,6 +13,8 @@ pyinstaller `
     --name IslamicResearchHub `
     --windowed `
     --noconfirm `
+    --icon "assets\app_icon.ico" `
+    --add-data "assets;assets" `
     --distpath installation `
     --workpath build_temp `
     --specpath build_temp `
