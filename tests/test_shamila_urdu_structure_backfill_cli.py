@@ -42,14 +42,14 @@ def _make_book_source(path: Path, html: str, fnotes_html: str | None = None) -> 
         connection.close()
 
 
-def _make_hadith_source(path: Path, arabic: str, urdu: str) -> None:
+def _make_hadith_source(path: Path, arabic: str, urdu: str, hadees_number: str = "") -> None:
     """Create a real, minimal Shamila Urdu Hadith/-style source file."""
     columns_sql = ", ".join(f"{name} TEXT" for name in _HADITH_COLUMNS if name != "ID")
     values = {name: "" for name in _HADITH_COLUMNS}
     values.update(
         {"ID": 1, "HadithArabicText": arabic, "HadithUrduText": urdu, "KitabID": 1,
          "KitaabNameArabic": "Kitab", "KitaabNameUrdu": "Kitab", "BaabID": 1,
-         "BaabNameArabic": "Baab", "BaabNameUrdu": "Baab"}
+         "BaabNameArabic": "Baab", "BaabNameUrdu": "Baab", "HadeesNumber": hadees_number}
     )
     connection = sqlite3.connect(path)
     try:
@@ -104,7 +104,7 @@ def test_reformats_a_books_folder_book_from_its_real_source(tmp_path: Path, caps
 
     captured = capsys.readouterr()
     assert exit_code == 0
-    assert "Reformatted 1/1 book(s): 1 page(s), 0 footnote(s) updated." in captured.out
+    assert "Reformatted 1/1 book(s): 1 page(s), 0 footnote(s) updated" in captured.out
     with sqlite3.connect(database_path) as connection:
         content = connection.execute("SELECT Content FROM Pages").fetchone()[0]
     assert content == "## مقدمہ\nمتن"
@@ -172,6 +172,26 @@ def test_reformats_a_hadith_folder_book_by_folder_detection(tmp_path: Path, caps
     with sqlite3.connect(database_path) as connection:
         content = connection.execute("SELECT Content FROM Pages").fetchone()[0]
     assert content == "نص عربی\n\nترجمہ اردو"
+
+
+def test_captures_hadees_number_during_the_same_re_read_pass(tmp_path: Path, capsys) -> None:
+    """Migration 14's HadeesNumber is backfilled alongside the structure re-read,
+    not via a separate CLI - the real hadith number, previously dropped."""
+    database_path = tmp_path / "books.db"
+    hadith_folder = tmp_path / "Hadith"
+    hadith_folder.mkdir()
+    source = hadith_folder / "bukhari.db"
+    _make_hadith_source(source, arabic="نص عربی", urdu="ترجمہ اردو", hadees_number="42")
+    _seed_old_flattened_book(database_path, source, old_content="old flattened hadith text")
+
+    exit_code = run(_build_args(database_path))
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "1 HadeesNumber(s)" in captured.out
+    with sqlite3.connect(database_path) as connection:
+        hadees_number = connection.execute("SELECT HadeesNumber FROM Pages").fetchone()[0]
+    assert hadees_number == "42"
 
 
 def test_skips_a_book_whose_source_file_no_longer_exists(tmp_path: Path, capsys) -> None:

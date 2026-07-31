@@ -68,6 +68,35 @@ def test_get_or_create_term_resolves_via_a_recorded_alias(tmp_path: Path) -> Non
     assert len(repo.list_terms("subject")) == 1
 
 
+def test_get_or_create_term_with_stable_key_never_collapses_same_name_terms(
+    tmp_path: Path,
+) -> None:
+    """Two source records sharing display text stay distinct when each has its own StableKey.
+
+    Real bug this guards against: 43 of 691 real `CategoryTaxonomy` rows
+    share exact `Name` text with an unrelated category under a different
+    parent - matching by text alone silently collapsed them into one term.
+    """
+    repo = TaxonomyRepository(_migrated_database(tmp_path))
+
+    first_id = repo.get_or_create_term("subject", "2009", "ar", stable_key="mjcn:70")
+    second_id = repo.get_or_create_term("subject", "2009", "ar", stable_key="mjcn:89")
+
+    assert first_id != second_id
+    assert len(repo.list_terms("subject")) == 2
+
+
+def test_get_or_create_term_with_stable_key_is_idempotent(tmp_path: Path) -> None:
+    """Calling it twice with the same StableKey returns the same term, not a duplicate."""
+    repo = TaxonomyRepository(_migrated_database(tmp_path))
+
+    first_id = repo.get_or_create_term("subject", "الزكاة", "ar", stable_key="mjcn:10")
+    second_id = repo.get_or_create_term("subject", "الزكاة", "ar", stable_key="mjcn:10")
+
+    assert first_id == second_id
+    assert len(repo.list_terms("subject")) == 1
+
+
 def test_get_or_create_term_raises_for_an_unknown_dimension(tmp_path: Path) -> None:
     """A dimension code that isn't one of the nine real ones raises clearly."""
     repo = TaxonomyRepository(_migrated_database(tmp_path))
@@ -201,6 +230,55 @@ def test_populate_subjects_creates_real_terms_with_real_hierarchy(tmp_path: Path
     assert tree[0].children[0].names["ar"] == "الزكاة"
 
 
+def test_populate_subjects_keeps_categories_with_duplicate_display_text_distinct(
+    tmp_path: Path,
+) -> None:
+    """Two real, unrelated categories that happen to share Name text stay two real terms.
+
+    Reproduces the real production bug: `CategoryTaxonomy` can legitimately
+    contain two different MJCNs under two different parents with the exact
+    same `Name` (confirmed for real: 43 of 691 rows). Population must not
+    silently merge them.
+    """
+    database_path = tmp_path / "books.db"
+    root_a = Category(mjcn=100, name="Root A", parent_mjcn=0, sort_key=1)
+    root_b = Category(mjcn=200, name="Root B", parent_mjcn=0, sort_key=2)
+    duplicate_under_a = Category(mjcn=101, name="2009", parent_mjcn=100, sort_key=1)
+    duplicate_under_b = Category(mjcn=201, name="2009", parent_mjcn=200, sort_key=1)
+    book_one = Book(
+        information={"Name": "Book One"},
+        categories=(root_a, duplicate_under_a),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    book_two = Book(
+        information={"Name": "Book Two"},
+        categories=(root_b, duplicate_under_b),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    repo = TaxonomyRepository(database_path)
+
+    count = repo.populate_subjects_from_category_taxonomy()
+
+    assert count == 4  # Root A, Root B, and both distinct "2009" categories
+    duplicate_named_terms = [t for t in repo.list_terms("subject") if t.names["ar"] == "2009"]
+    assert len(duplicate_named_terms) == 2
+    assert duplicate_named_terms[0].term_id != duplicate_named_terms[1].term_id
+    assert {t.parent_term_id for t in duplicate_named_terms} == {
+        next(t for t in repo.list_terms("subject") if t.names["ar"] == "Root A").term_id,
+        next(t for t in repo.list_terms("subject") if t.names["ar"] == "Root B").term_id,
+    }
+
+
 def test_populate_subjects_is_idempotent_across_repeated_runs(tmp_path: Path) -> None:
     """Running population twice doesn't create duplicate real terms."""
     database_path = _migrated_database_with_categories_and_authors(tmp_path)
@@ -248,6 +326,27 @@ def test_link_books_to_populated_taxonomy_links_real_subjects_and_authors(
     author_terms = repo.list_terms_for_book(1, dimension_code="author")
     assert len(author_terms) == 1
     assert author_terms[0].names["ar"] == "Imam Al-Ghazali"
+
+
+def test_link_books_to_populated_taxonomy_resyncs_away_stale_subject_links(
+    tmp_path: Path,
+) -> None:
+    """A stale subject link (e.g. left over from the StableKey collision bug,
+    now fixed) is removed on the next link call, not just added-to."""
+    database_path = _migrated_database_with_categories_and_authors(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    repo.populate_subjects_from_category_taxonomy()
+    repo.populate_authors_from_authors_table()
+    real_fiqh_term = next(t for t in repo.list_terms("subject") if t.names["ar"] == "الفقه")
+    fake_term_id = repo.get_or_create_term("subject", "Stale Wrong Term", "ar")
+    repo.link_book(1, fake_term_id)  # simulate a stale link left over from the old bug
+
+    subject_links, _ = repo.link_books_to_populated_taxonomy()
+
+    assert fake_term_id not in {t.term_id for t in repo.list_terms_for_book(1, "subject")}
+    assert real_fiqh_term.term_id in {t.term_id for t in repo.list_terms_for_book(1, "subject")}
+    assert repo.list_books_for_term(fake_term_id) == ()
+    assert subject_links == 3
 
 
 def test_populate_subjects_returns_zero_before_categories_migration_has_run(

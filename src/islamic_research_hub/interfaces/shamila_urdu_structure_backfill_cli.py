@@ -11,9 +11,13 @@ would have no way to recover it.
 
 Re-reads each book with the same reader class its Source path indicates
 (`Books/`, `Hadith/`, or `Quran/` folder - all three of Shamila Urdu's real
-schemas), then updates only `Pages.Content` and `Footnotes.FootnoteText`
-for existing rows, matched by (BookID, PageNo) - never touches Chapters,
-Categories, or any other table, and never inserts/deletes a row.
+schemas), then updates only `Pages.Content`, `Footnotes.FootnoteText`, and
+(since migration 14) `Pages.HadeesNumber`/`Pages.AyahNumber` for existing
+rows, matched by (BookID, PageNo) - never touches Chapters, Categories, or
+any other table, and never inserts/deletes a row. The two number columns
+piggyback on this same re-read pass rather than getting their own CLI,
+since `ShamilaUrduHadithReader`/`ShamilaUrduQuranReader` now capture them
+directly and every book here is already being re-read anyway.
 """
 
 import argparse
@@ -75,6 +79,8 @@ def run(args: argparse.Namespace) -> int:
     updated_books = 0
     updated_pages = 0
     updated_footnotes = 0
+    updated_hadees_numbers = 0
+    updated_ayah_numbers = 0
     missing_source_count = 0
     read_error_count = 0
 
@@ -103,6 +109,16 @@ def run(args: argparse.Namespace) -> int:
                 for page in book.pages
                 if page.footnote is not None
             ]
+            hadees_number_updates = [
+                (page.hadees_number, book_id, page.page_number)
+                for page in book.pages
+                if page.hadees_number is not None
+            ]
+            ayah_number_updates = [
+                (page.ayah_number, book_id, page.page_number)
+                for page in book.pages
+                if page.ayah_number is not None
+            ]
             connection.executemany(
                 "UPDATE Pages SET Content = ? WHERE BookID = ? AND PageNo = ?",
                 page_updates,
@@ -111,14 +127,25 @@ def run(args: argparse.Namespace) -> int:
                 "UPDATE Footnotes SET FootnoteText = ? WHERE BookID = ? AND PageNo = ?",
                 footnote_updates,
             )
+            connection.executemany(
+                "UPDATE Pages SET HadeesNumber = ? WHERE BookID = ? AND PageNo = ?",
+                hadees_number_updates,
+            )
+            connection.executemany(
+                "UPDATE Pages SET AyahNumber = ? WHERE BookID = ? AND PageNo = ?",
+                ayah_number_updates,
+            )
             connection.commit()
             updated_books += 1
             updated_pages += len(page_updates)
             updated_footnotes += len(footnote_updates)
+            updated_hadees_numbers += len(hadees_number_updates)
+            updated_ayah_numbers += len(ayah_number_updates)
 
     print(
         f"Reformatted {updated_books}/{len(targets)} book(s): "
-        f"{updated_pages} page(s), {updated_footnotes} footnote(s) updated."
+        f"{updated_pages} page(s), {updated_footnotes} footnote(s) updated, "
+        f"{updated_hadees_numbers} HadeesNumber(s), {updated_ayah_numbers} AyahNumber(s) captured."
     )
     print(f"Source file missing: {missing_source_count}, read errors: {read_error_count}.")
     return 0

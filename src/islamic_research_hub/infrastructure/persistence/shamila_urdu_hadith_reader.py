@@ -112,7 +112,16 @@ def _build_page(page_number: int, row: sqlite3.Row) -> Page:
         content_f=content or None,
         content_p=None,
         footnote=strip_html_to_text(row["HadithHashiaText"]),
+        hadees_number=_clean_number(row["HadeesNumber"]),
     )
+
+
+def _clean_number(value: object) -> str | None:
+    """Return a real citation number as a stripped string, or None if absent."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _build_chapters(rows: tuple[sqlite3.Row, ...]) -> tuple[Chapter, ...]:

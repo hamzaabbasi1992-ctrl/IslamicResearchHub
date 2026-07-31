@@ -3,6 +3,9 @@
 import sqlite3
 from pathlib import Path
 
+from islamic_research_hub.infrastructure.persistence.database_backup import (
+    DatabaseBackupService,
+)
 from islamic_research_hub.interfaces.database_backup_cli import main
 
 
@@ -75,6 +78,87 @@ def test_list_subcommand_reports_existing_backups(tmp_path: Path, capsys) -> Non
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "books_backup_" in captured.out
+
+
+def test_backup_subcommand_prunes_old_backups_beyond_keep(tmp_path: Path, capsys) -> None:
+    """The `backup` subcommand prunes old backups down to --keep after creating a new one."""
+    database_path = tmp_path / "books.db"
+    backup_folder = tmp_path / "backups"
+    _make_database(database_path, "original")
+    seed_service = DatabaseBackupService(backup_folder)
+    seed_service.create_backup(database_path, timestamp="20260101_000000")
+    seed_service.create_backup(database_path, timestamp="20260102_000000")
+
+    exit_code = main(
+        [
+            "backup",
+            "--database",
+            str(database_path),
+            "--backup-folder",
+            str(backup_folder),
+            "--keep",
+            "1",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Pruned old backup:" in captured.out
+    assert len(list(backup_folder.glob("*_backup_*.db"))) == 1
+
+
+def test_backup_subcommand_keeps_all_backups_when_keep_is_zero(
+    tmp_path: Path, capsys
+) -> None:
+    """--keep 0 disables pruning entirely."""
+    database_path = tmp_path / "books.db"
+    backup_folder = tmp_path / "backups"
+    _make_database(database_path, "original")
+    seed_service = DatabaseBackupService(backup_folder)
+    seed_service.create_backup(database_path, timestamp="20260101_000000")
+
+    exit_code = main(
+        [
+            "backup",
+            "--database",
+            str(database_path),
+            "--backup-folder",
+            str(backup_folder),
+            "--keep",
+            "0",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Pruned old backup:" not in captured.out
+    assert len(list(backup_folder.glob("*_backup_*.db"))) == 2
+
+
+def test_prune_subcommand_deletes_old_backups(tmp_path: Path, capsys) -> None:
+    """The standalone `prune` subcommand deletes backups beyond --keep."""
+    database_path = tmp_path / "books.db"
+    backup_folder = tmp_path / "backups"
+    _make_database(database_path, "original")
+    seed_service = DatabaseBackupService(backup_folder)
+    seed_service.create_backup(database_path, timestamp="20260101_000000")
+    seed_service.create_backup(database_path, timestamp="20260102_000000")
+
+    exit_code = main(["prune", "--backup-folder", str(backup_folder), "--keep", "1"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Pruned old backup:" in captured.out
+    assert len(list(backup_folder.glob("*_backup_*.db"))) == 1
+
+
+def test_prune_subcommand_reports_when_nothing_to_prune(tmp_path: Path, capsys) -> None:
+    """Pruning an empty backup folder reports nothing to do, exit 0."""
+    exit_code = main(["prune", "--backup-folder", str(tmp_path / "backups")])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Nothing to prune." in captured.out
 
 
 def test_restore_subcommand_requires_explicit_confirmation(tmp_path: Path) -> None:

@@ -24,8 +24,12 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     FOOTNOTES_SEARCH_INDEX_VERSION,
     SOURCE_PDF_HINT_VERSION,
     BOOK_RATINGS_VERSION,
+    PARAGRAPHS_VERSION,
+    HADEES_AND_AYAH_NUMBERS_VERSION,
+    BOOKS_SEARCH_INDEX_VERSION,
     WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
+    model_volumes,
 )
 
 
@@ -138,8 +142,11 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
             BOOK_RATINGS_VERSION,
+            PARAGRAPHS_VERSION,
+            HADEES_AND_AYAH_NUMBERS_VERSION,
+            BOOKS_SEARCH_INDEX_VERSION,
         ]
-        assert runner.current_version(connection) == BOOK_RATINGS_VERSION
+        assert runner.current_version(connection) == BOOKS_SEARCH_INDEX_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -182,6 +189,9 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
             BOOK_RATINGS_VERSION,
+            PARAGRAPHS_VERSION,
+            HADEES_AND_AYAH_NUMBERS_VERSION,
+            BOOKS_SEARCH_INDEX_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -237,6 +247,9 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
             BOOK_RATINGS_VERSION,
+            PARAGRAPHS_VERSION,
+            HADEES_AND_AYAH_NUMBERS_VERSION,
+            BOOKS_SEARCH_INDEX_VERSION,
         ]
 
         rows = connection.execute(
@@ -304,6 +317,9 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             FOOTNOTES_SEARCH_INDEX_VERSION,
             SOURCE_PDF_HINT_VERSION,
             BOOK_RATINGS_VERSION,
+            PARAGRAPHS_VERSION,
+            HADEES_AND_AYAH_NUMBERS_VERSION,
+            BOOKS_SEARCH_INDEX_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
@@ -348,6 +364,33 @@ def test_volumes_migration_leaves_non_volume_titles_untouched(tmp_path: Path) ->
             "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'A Standalone Book'"
         ).fetchone()
         assert row == (None, None)
+
+
+def test_model_volumes_is_safe_to_call_again_as_a_post_import_backfill(
+    tmp_path: Path,
+) -> None:
+    """Calling `model_volumes` a second time (e.g. after a new importer adds
+    more volumes of an existing work) doesn't error and re-derives the same
+    real grouping - the guarantee a post-import backfill caller relies on."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "کفایت المفتی جلد 1", None, "one.mjbz")
+    _seed_book(database_path, "کفایت المفتی جلد 2", None, "two.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        model_volumes(connection)  # re-run, simulating a post-import backfill call
+        connection.commit()
+
+        series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
+        assert series_rows == [(1, "کفایت المفتی")]
+        rows = connection.execute(
+            "SELECT Title, SeriesID, VolumeNumber FROM Books ORDER BY VolumeNumber"
+        ).fetchall()
+        assert rows == [
+            ("کفایت المفتی جلد 1", 1, 1),
+            ("کفایت المفتی جلد 2", 1, 2),
+        ]
 
 
 def _seed_book_with_page_content(database_path: Path, title: str, content: str, source: str) -> None:
@@ -682,6 +725,64 @@ def test_book_ratings_migration_creates_an_empty_table(tmp_path: Path) -> None:
         )
         rating = connection.execute("SELECT Rating FROM BookRatings").fetchone()[0]
         assert rating == 5
+
+
+def test_books_search_migration_indexes_real_existing_books(tmp_path: Path) -> None:
+    """Migration 15 backfills BooksFTS/BooksFTSNormalized from real existing rows."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Kashf Al-Bari", "Imam Al-Ghazali", "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        title_match = connection.execute(
+            "SELECT COUNT(*) FROM BooksFTS WHERE BooksFTS MATCH 'Kashf'"
+        ).fetchone()[0]
+        assert title_match == 1
+
+        author_match = connection.execute(
+            "SELECT COUNT(*) FROM BooksFTS WHERE BooksFTS MATCH 'Ghazali'"
+        ).fetchone()[0]
+        assert author_match == 1
+
+
+def test_books_search_migration_trigger_indexes_future_books(tmp_path: Path) -> None:
+    """After the migration, a book imported afterward still gets indexed."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Book One", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+    _seed_book(database_path, "A Later Real Title", "A Later Real Author", "two.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        match = connection.execute(
+            "SELECT COUNT(*) FROM BooksFTS WHERE BooksFTS MATCH 'Later'"
+        ).fetchone()[0]
+        assert match == 1
+
+
+def test_books_search_migration_normalized_index_matches_variant_spellings(
+    tmp_path: Path,
+) -> None:
+    """BooksFTSNormalized tolerates real cross-keyboard spelling variants."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "کتاب علی", None, "one.mjbz")
+
+    with sqlite3.connect(database_path) as connection:
+        runner_migrate_all(connection)
+
+        from islamic_research_hub.shared.arabic_text_normalization import (
+            normalize_search_text,
+        )
+
+        normalized_query = normalize_search_text("علي")  # variant spelling of علی
+        match = connection.execute(
+            "SELECT COUNT(*) FROM BooksFTSNormalized WHERE BooksFTSNormalized MATCH ?",
+            (normalized_query,),
+        ).fetchone()[0]
+        assert match == 1
 
 
 def runner_migrate_all(connection: sqlite3.Connection) -> tuple[Migration, ...]:

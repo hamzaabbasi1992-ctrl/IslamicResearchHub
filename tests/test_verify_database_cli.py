@@ -52,6 +52,32 @@ def test_main_exits_nonzero_when_errors_found(tmp_path: Path, capsys) -> None:
     assert "ERROR" in captured.out
 
 
+def test_main_reports_real_corpus_statistics(tmp_path: Path, capsys) -> None:
+    """The report includes real counts, doubling as the project's diagnostics command."""
+    database_path = tmp_path / "books.db"
+    _seed_valid_database(database_path)
+
+    exit_code = main(["--database", str(database_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Corpus statistics:" in captured.out
+    assert "Books: 1" in captured.out
+    assert "Pages: 1" in captured.out
+
+
+def test_main_reports_unmigrated_tables_honestly(tmp_path: Path, capsys) -> None:
+    """A database that hasn't run every migration says so, instead of crashing."""
+    database_path = tmp_path / "books.db"
+    _seed_valid_database(database_path)
+
+    exit_code = main(["--database", str(database_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Paragraphs: not migrated yet" in captured.out
+
+
 def test_main_fails_cleanly_when_database_is_missing(tmp_path: Path) -> None:
     """A missing database returns a non-zero exit code instead of raising."""
     exit_code = main(["--database", str(tmp_path / "missing.db")])

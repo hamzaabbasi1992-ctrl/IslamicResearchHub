@@ -81,6 +81,25 @@ def test_base_text_uses_an_honest_title_not_the_placeholder_metadata(tmp_path: P
     assert book.table_of_contents[1].page_number == 3
 
 
+def test_ayah_number_is_captured_not_dropped(tmp_path: Path) -> None:
+    """The real ayah number (previously silently dropped) is captured on each page."""
+    db_path = tmp_path / BASE_TEXT_FILE_NAME
+    _make_base_text_db(
+        db_path,
+        rows=[
+            (1, 1, 1, "بِسْمِ اللَّهِ", "الفاتحۃ"),
+            (2, 1, 2, "الْحَمْدُ لِلَّهِ", "الفاتحۃ"),
+            (3, 2, 1, "الم", "البقرۃ"),
+        ],
+    )
+
+    book = ShamilaUrduQuranReader().read(db_path)
+
+    assert book.pages[0].ayah_number == "1"
+    assert book.pages[1].ayah_number == "2"
+    assert book.pages[2].ayah_number == "1"
+
+
 def test_translation_strips_html_and_keeps_real_metadata(tmp_path: Path) -> None:
     """A Tarjuma file's HTML-styled verse text is stripped; its real title is kept."""
     db_path = tmp_path / "01_TarjumaJunagarhi.db"

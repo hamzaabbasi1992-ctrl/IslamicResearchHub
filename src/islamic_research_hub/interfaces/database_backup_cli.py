@@ -15,6 +15,7 @@ from islamic_research_hub.shared.logging_config import configure_logging
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_PATH = Path("data/books.db")
+DEFAULT_KEEP = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,9 +26,21 @@ def build_parser() -> argparse.ArgumentParser:
     backup_parser = subparsers.add_parser("backup", help="Create a timestamped backup")
     backup_parser.add_argument("--database", type=Path, default=DEFAULT_DATABASE_PATH)
     backup_parser.add_argument("--backup-folder", type=Path, default=DEFAULT_BACKUP_FOLDER)
+    backup_parser.add_argument(
+        "--keep",
+        type=int,
+        default=DEFAULT_KEEP,
+        help=f"Backups to retain after pruning (default {DEFAULT_KEEP}); 0 disables pruning",
+    )
 
     list_parser = subparsers.add_parser("list", help="List existing backups")
     list_parser.add_argument("--backup-folder", type=Path, default=DEFAULT_BACKUP_FOLDER)
+
+    prune_parser = subparsers.add_parser(
+        "prune", help="Delete all but the most recent backups"
+    )
+    prune_parser.add_argument("--backup-folder", type=Path, default=DEFAULT_BACKUP_FOLDER)
+    prune_parser.add_argument("--keep", type=int, default=DEFAULT_KEEP)
 
     restore_parser = subparsers.add_parser(
         "restore", help="Restore a backup over the live database (destructive)"
@@ -55,17 +68,35 @@ def main(arguments: Sequence[str] | None = None) -> int:
         return _run_list(args)
     if args.command == "restore":
         return _run_restore(args)
+    if args.command == "prune":
+        return _run_prune(args)
     return 1
 
 
 def _run_backup(args: argparse.Namespace) -> int:
-    """Create a backup and print its path."""
+    """Create a backup, print its path, and prune old backups beyond --keep."""
     if not args.database.is_file():
         LOGGER.error("Database does not exist: %s", args.database)
         return 1
     service = DatabaseBackupService(args.backup_folder)
     backup_path = service.create_backup(args.database)
     print(f"Backup created: {backup_path}")
+    if args.keep > 0:
+        pruned = service.prune_backups(args.keep)
+        for pruned_path in pruned:
+            print(f"Pruned old backup: {pruned_path.name}")
+    return 0
+
+
+def _run_prune(args: argparse.Namespace) -> int:
+    """Delete all but the most recent --keep backups."""
+    service = DatabaseBackupService(args.backup_folder)
+    pruned = service.prune_backups(args.keep)
+    if not pruned:
+        print("Nothing to prune.")
+        return 0
+    for pruned_path in pruned:
+        print(f"Pruned old backup: {pruned_path.name}")
     return 0
 
 

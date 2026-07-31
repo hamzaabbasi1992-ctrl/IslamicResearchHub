@@ -128,7 +128,7 @@ def _parse_volume_title(title: str) -> tuple[str, int] | None:
     return base_title, int(match.group("volume"))
 
 
-def _model_volumes(connection: sqlite3.Connection) -> None:
+def model_volumes(connection: sqlite3.Connection) -> None:
     """Add a Series entity grouping books that are volumes of the same work.
 
     Titles like 'کفایت المفتی جلد 6' are parsed into a base title and a
@@ -137,6 +137,13 @@ def _model_volumes(connection: sqlite3.Connection) -> None:
     at least two books share it - a single 'volume 1' with no siblings in
     this database is not a demonstrated series. `Books.Title` is left
     untouched; `SeriesID`/`VolumeNumber` are additive.
+
+    Public (not migration-only): safe to call again after new books are
+    imported (idempotent - `CREATE TABLE IF NOT EXISTS`/`INSERT OR IGNORE`,
+    and the final `UPDATE` just re-derives the same values for titles
+    already grouped), so an importer whose books carry a real, structural
+    volume/part number (not just a parseable title suffix) can re-run this
+    as a post-import backfill instead of duplicating the grouping logic.
     """
     connection.execute(
         """
@@ -146,8 +153,7 @@ def _model_volumes(connection: sqlite3.Connection) -> None:
         )
         """
     )
-    connection.execute("ALTER TABLE Books ADD COLUMN SeriesID INTEGER REFERENCES Series(SeriesID)")
-    connection.execute("ALTER TABLE Books ADD COLUMN VolumeNumber INTEGER")
+    _ensure_series_columns(connection)
     connection.execute("CREATE INDEX IF NOT EXISTS idx_books_series_id ON Books(SeriesID)")
 
     book_ids_by_base_title: dict[str, list[tuple[int, int]]] = defaultdict(list)
@@ -171,6 +177,19 @@ def _model_volumes(connection: sqlite3.Connection) -> None:
             "UPDATE Books SET SeriesID = ?, VolumeNumber = ? WHERE BookID = ?",
             ((series_id, volume_number, book_id) for book_id, volume_number in members),
         )
+
+
+def _ensure_series_columns(connection: sqlite3.Connection) -> None:
+    """Add Books.SeriesID/VolumeNumber if missing - checked defensively so
+    `model_volumes` stays safe to call more than once (a fresh migration
+    run vs. a later post-import backfill call both hit this)."""
+    existing_columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)").fetchall()}
+    if "SeriesID" not in existing_columns:
+        connection.execute(
+            "ALTER TABLE Books ADD COLUMN SeriesID INTEGER REFERENCES Series(SeriesID)"
+        )
+    if "VolumeNumber" not in existing_columns:
+        connection.execute("ALTER TABLE Books ADD COLUMN VolumeNumber INTEGER")
 
 
 def _add_normalized_search_index(connection: sqlite3.Connection) -> None:
@@ -477,6 +496,160 @@ def _add_book_ratings(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_paragraphs(connection: sqlite3.Connection) -> None:
+    """Add Paragraphs (+ its FTS indexes), additive and empty until a backfill runs.
+
+    The first step of a real paragraph-level citation system ("Book X,
+    Volume Y, Page Z, Paragraph N"). Deliberately honest about a real
+    limit in the source data: only Shamila Urdu's 698 books have any
+    embedded paragraph-boundary signal at all (the "## heading"/"«quote»"
+    convention `strip_html_to_text()` already writes into `Pages.Content`
+    - see that module). Every other library's readers store completely
+    flat per-page text with zero paragraph markers - inventing a
+    heuristic splitter for those would fabricate boundaries the source
+    never marked, the same false-precision trap this project has
+    consistently refused elsewhere (honest `None` over a misleading 0%
+    similarity score, the conservative PDF-match threshold, the
+    already-rejected Arabic root stemmer).
+
+    So the real rule `paragraphs_backfill_cli.py` applies: every real page
+    becomes at least one Paragraph row (ParagraphIndex 1) everywhere: only
+    where `Pages.Content` actually contains real "\\n"-separated lines
+    (Shamila Urdu) does a page get more than one. No book is ever credited
+    with paragraph granularity it doesn't have. `IsHeading` is set only
+    where a line literally starts with "## " - a real, checkable
+    predicate, not a guess.
+
+    `Books`/`Pages`/`Footnotes` are untouched - `Paragraphs` is a derived,
+    re-buildable layer over already-stored `Pages.Content`, the same
+    relationship `PagesFTSNormalized` already has to `Pages`. Footnote
+    paragraph-splitting is deliberately out of scope here (footnotes are
+    commentary, not the primary citation target) - a real, separate,
+    later fast-follow.
+    """
+    normalize_new_content = build_sql_normalize_expression("new.Content")
+
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS Paragraphs (
+            ParagraphID    INTEGER PRIMARY KEY,
+            BookID         INTEGER NOT NULL REFERENCES Books(BookID),
+            PageNo         INTEGER NOT NULL,
+            ParagraphIndex INTEGER NOT NULL,
+            IsHeading      INTEGER NOT NULL DEFAULT 0,
+            Content        TEXT NOT NULL,
+            UNIQUE (BookID, PageNo, ParagraphIndex)
+        );
+        CREATE INDEX IF NOT EXISTS idx_paragraphs_book_page ON Paragraphs(BookID, PageNo);
+
+        CREATE VIRTUAL TABLE ParagraphsFTS USING fts5(
+            Content,
+            content='Paragraphs',
+            content_rowid='rowid'
+        );
+        CREATE TRIGGER paragraphs_after_insert AFTER INSERT ON Paragraphs BEGIN
+            INSERT INTO ParagraphsFTS(rowid, Content)
+            VALUES (new.rowid, new.Content);
+        END;
+
+        CREATE VIRTUAL TABLE ParagraphsFTSNormalized USING fts5(Content);
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE TRIGGER paragraphs_after_insert_normalized AFTER INSERT ON Paragraphs BEGIN
+            INSERT INTO ParagraphsFTSNormalized (rowid, Content)
+            VALUES (new.rowid, {normalize_new_content});
+        END
+        """
+    )
+    # No backfill INSERT here, unlike _add_footnotes_search_index - Paragraphs
+    # starts empty; paragraphs_backfill_cli.py populates it (splitting
+    # Pages.Content needs the same per-line heading logic already in
+    # html_text_extraction.py, awkward to reimplement as pure SQL).
+
+
+def _add_hadees_and_ayah_number_columns(connection: sqlite3.Connection) -> None:
+    """Add Pages.HadeesNumber/AyahNumber, additive and NULL until a backfill runs.
+
+    Both already exist in Shamila Urdu's own source schemas -
+    `ShamilaUrduHadithReader`/`ShamilaUrduQuranReader` read a hadith's
+    `HadeesNumber`/an ayah's `AyahNumber` from their source `.db` files but
+    silently dropped them (confirmed via the readers' own test fixtures).
+    A real hadith number or Surah:Ayah reference is a more precise
+    citation than a generic paragraph number for this part of the corpus,
+    and structurally free once captured: each hadith/ayah is already
+    exactly one `Page` row. `shamila_urdu_structure_backfill_cli.py`'s
+    existing per-book re-read pass fills this in for already-imported
+    books; every future import captures it directly via the updated
+    readers.
+
+    Defensively checks for each column first: `MasterBookRepository`'s own
+    `_ensure_hadees_and_ayah_number_columns` guard already adds both on
+    every import (needed so a fresh import never depends on this migration
+    having run yet), so a database imported after that guard existed may
+    already have them by the time this migration runs.
+    """
+    existing_columns = {row[1] for row in connection.execute("PRAGMA table_info(Pages)").fetchall()}
+    if "HadeesNumber" not in existing_columns:
+        connection.execute("ALTER TABLE Pages ADD COLUMN HadeesNumber TEXT")
+    if "AyahNumber" not in existing_columns:
+        connection.execute("ALTER TABLE Pages ADD COLUMN AyahNumber TEXT")
+
+
+def _add_books_search_index(connection: sqlite3.Connection) -> None:
+    """Add real, bm25-ranked full-text indexes over Books.Title/Author, both
+    raw and normalized.
+
+    `book_browser_repository.py::search_by_title()` was a plain `LIKE
+    '%...%'` scan with no relevance ranking - the weakest of this
+    project's independent search indexes. `BooksFTS` mirrors `PagesFTS`
+    (literal matching); `BooksFTSNormalized` mirrors `PagesFTSNormalized`
+    (diacritic/letter-form/cross-keyboard-tolerant, same
+    `_NORMALIZATION_PAIRS` used everywhere else). A single `AFTER INSERT`
+    trigger is sufficient - unlike Pages/Footnotes, `Books` rows are only
+    ever inserted at import time, never edited row-by-row afterward.
+    """
+    normalize_new_title = build_sql_normalize_expression("new.Title")
+    normalize_new_author = build_sql_normalize_expression("new.Author")
+    normalize_existing_title = build_sql_normalize_expression("Title")
+    normalize_existing_author = build_sql_normalize_expression("Author")
+
+    connection.executescript(
+        """
+        CREATE VIRTUAL TABLE BooksFTS USING fts5(
+            Title,
+            Author,
+            content='Books',
+            content_rowid='BookID'
+        );
+        CREATE TRIGGER books_after_insert AFTER INSERT ON Books BEGIN
+            INSERT INTO BooksFTS(rowid, Title, Author)
+            VALUES (new.BookID, new.Title, new.Author);
+        END;
+
+        CREATE VIRTUAL TABLE BooksFTSNormalized USING fts5(Title, Author);
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE TRIGGER books_after_insert_normalized AFTER INSERT ON Books BEGIN
+            INSERT INTO BooksFTSNormalized (rowid, Title, Author)
+            VALUES (new.BookID, {normalize_new_title}, {normalize_new_author});
+        END
+        """
+    )
+    connection.execute(
+        "INSERT INTO BooksFTS(rowid, Title, Author) SELECT BookID, Title, Author FROM Books"
+    )
+    connection.execute(
+        f"""
+        INSERT INTO BooksFTSNormalized (rowid, Title, Author)
+        SELECT BookID, {normalize_existing_title}, {normalize_existing_author} FROM Books
+        """
+    )
+
+
 def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
     """Switch the database file to WAL journal mode for real read/write concurrency.
 
@@ -516,6 +689,9 @@ WAL_JOURNAL_MODE_VERSION = 9
 FOOTNOTES_SEARCH_INDEX_VERSION = 10
 SOURCE_PDF_HINT_VERSION = 11
 BOOK_RATINGS_VERSION = 12
+PARAGRAPHS_VERSION = 13
+HADEES_AND_AYAH_NUMBERS_VERSION = 14
+BOOKS_SEARCH_INDEX_VERSION = 15
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -540,7 +716,7 @@ MIGRATIONS: tuple[Migration, ...] = (
         VOLUMES_VERSION,
         "Add a Series table and Books.SeriesID/VolumeNumber, grouping books "
         "whose titles share a base title with a volume/جلد suffix.",
-        _model_volumes,
+        model_volumes,
     ),
     Migration(
         NORMALIZED_SEARCH_VERSION,
@@ -592,6 +768,24 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add BookRatings, additive - a personal per-book rating (Phase 9, "
         "scoped to what this single-user local app's architecture supports).",
         _add_book_ratings,
+    ),
+    Migration(
+        PARAGRAPHS_VERSION,
+        "Add Paragraphs + ParagraphsFTS/ParagraphsFTSNormalized, additive and "
+        "empty until paragraphs_backfill_cli.py runs.",
+        _add_paragraphs,
+    ),
+    Migration(
+        HADEES_AND_AYAH_NUMBERS_VERSION,
+        "Add Pages.HadeesNumber/AyahNumber, additive and NULL until "
+        "shamila_urdu_structure_backfill_cli.py's extended pass runs.",
+        _add_hadees_and_ayah_number_columns,
+    ),
+    Migration(
+        BOOKS_SEARCH_INDEX_VERSION,
+        "Add BooksFTS/BooksFTSNormalized, bm25-ranked title/author search, "
+        "backfilled inline.",
+        _add_books_search_index,
     ),
 )
 

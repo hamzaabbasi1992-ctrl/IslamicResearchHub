@@ -128,6 +128,24 @@ def test_reads_real_hadith_collection_with_kitab_baab_hierarchy(tmp_path: Path) 
     assert second_kitab.page_number == 4
 
 
+def test_hadees_number_is_captured_not_dropped(tmp_path: Path) -> None:
+    """The real hadith number (previously silently dropped) is captured on each page."""
+    db_path = tmp_path / "bukhari.db"
+    _make_hadith_db(
+        db_path,
+        metadata={"Book Name": "صحیح البخاری"},
+        rows=[
+            _row(1, 1, "کتاب الایمان", 1, "باب اول", "نص عربی اول", "پہلی حدیث"),
+            _row(2, 1, "کتاب الایمان", 1, "باب اول", "نص عربی دوم", "دوسری حدیث"),
+        ],
+    )
+
+    book = ShamilaUrduHadithReader().read(db_path)
+
+    assert book.pages[0].hadees_number == "1"
+    assert book.pages[1].hadees_number == "2"
+
+
 def test_commentary_becomes_the_footnote_with_html_stripped(tmp_path: Path) -> None:
     """HadithHashiaText (real commentary) is stripped of HTML and stored as the footnote."""
     db_path = tmp_path / "abu-dawood.db"

@@ -36,6 +36,7 @@ class MasterBookRepository:
             self._create_schema(connection)
             self._ensure_library_id_column(connection)
             self._ensure_publish_year_column(connection)
+            self._ensure_hadees_and_ayah_number_columns(connection)
             self._backfill_legacy_library(connection)
             if not fts_index_already_existed:
                 self._backfill_pages_fts(connection)
@@ -173,6 +174,16 @@ class MasterBookRepository:
             connection.commit()
 
     @staticmethod
+    def _ensure_hadees_and_ayah_number_columns(connection: sqlite3.Connection) -> None:
+        """Add Pages.HadeesNumber/AyahNumber to a Pages table created before they existed."""
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Pages)").fetchall()}
+        if "HadeesNumber" not in columns:
+            connection.execute("ALTER TABLE Pages ADD COLUMN HadeesNumber TEXT")
+        if "AyahNumber" not in columns:
+            connection.execute("ALTER TABLE Pages ADD COLUMN AyahNumber TEXT")
+        connection.commit()
+
+    @staticmethod
     def _get_or_create_library_id(connection: sqlite3.Connection, name: str) -> int:
         """Return the id for a library, creating it if it does not yet exist."""
         connection.execute("INSERT OR IGNORE INTO Libraries (Name) VALUES (?)", (name,))
@@ -295,9 +306,10 @@ class MasterBookRepository:
     ) -> None:
         """Insert every page, preferring ContentF and falling back to ContentP."""
         connection.executemany(
-            "INSERT INTO Pages (BookID, PageNo, Content) VALUES (?, ?, ?)",
+            "INSERT INTO Pages (BookID, PageNo, Content, HadeesNumber, AyahNumber) "
+            "VALUES (?, ?, ?, ?, ?)",
             (
-                (book_id, page.page_number, _page_content(page))
+                (book_id, page.page_number, _page_content(page), page.hadees_number, page.ayah_number)
                 for page in pages
             ),
         )

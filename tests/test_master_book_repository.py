@@ -97,6 +97,63 @@ def test_repository_adds_publish_year_column_to_a_database_created_before_it_exi
     assert year == "1998"
 
 
+def test_repository_stores_hadees_and_ayah_numbers_when_present(tmp_path: Path) -> None:
+    """HadeesNumber/AyahNumber are written from Page fields, NULL when absent."""
+    book = Book(
+        information={"Name": "Book A"},
+        categories=(),
+        table_of_contents=(),
+        pages=(
+            Page(1, 1, "Content", None, hadees_number="42"),
+            Page(2, 2, "Content", None, ayah_number="3"),
+            Page(3, 3, "Content", None),
+        ),
+    )
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+
+    repository.import_books(database_path, (book,), (tmp_path / "a.db",))
+
+    with sqlite3.connect(database_path) as connection:
+        rows = connection.execute(
+            "SELECT PageNo, HadeesNumber, AyahNumber FROM Pages ORDER BY PageNo"
+        ).fetchall()
+    assert rows == [(1, "42", None), (2, None, "3"), (3, None, None)]
+
+
+def test_repository_adds_hadees_and_ayah_number_columns_to_a_database_created_before_they_existed(
+    tmp_path: Path,
+) -> None:
+    """A Pages table from before these columns existed still imports cleanly afterward."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE Books (
+                BookID INTEGER PRIMARY KEY, Source TEXT NOT NULL UNIQUE,
+                SourceBookID TEXT, Title TEXT, Author TEXT, Publisher TEXT,
+                Language TEXT, Category TEXT, PageCount INTEGER NOT NULL,
+                ChapterCount INTEGER NOT NULL
+            )
+            """
+        )
+        connection.execute("CREATE TABLE Pages (BookID INTEGER NOT NULL, PageNo INTEGER, Content TEXT)")
+    book = Book(
+        information={"Name": "Book A"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", None, hadees_number="7"),),
+    )
+
+    imported, skipped, failed = repository.import_books(database_path, (book,), (tmp_path / "a.db",))
+
+    assert (imported, skipped, failed) == (1, 0, 0)
+    with sqlite3.connect(database_path) as connection:
+        hadees_number = connection.execute("SELECT HadeesNumber FROM Pages").fetchone()[0]
+    assert hadees_number == "7"
+
+
 def test_repository_stores_footnotes_for_pages_that_have_them(tmp_path: Path) -> None:
     """A page carrying real footnote text gets a Footnotes row; others don't."""
     source = tmp_path / "book.db"

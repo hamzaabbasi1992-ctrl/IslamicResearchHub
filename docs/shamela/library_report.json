@@ -1,0 +1,40 @@
+{
+  "totals": {
+    "books": 2,
+    "pages": 2,
+    "toc_entries": 2,
+    "categories": 0
+  },
+  "metadata_quality": {
+    "missing_title": 0,
+    "missing_author": 2,
+    "missing_publisher": 2,
+    "missing_language": 0,
+    "missing_category": 2
+  },
+  "content_quality": {
+    "empty_pages": 0,
+    "duplicate_page_numbers": 0,
+    "duplicate_toc_entries": 0,
+    "books_with_zero_pages": 0,
+    "books_with_zero_toc": 0
+  },
+  "statistics": {
+    "largest_book": {
+      "title": "2",
+      "pages": 1,
+      "chapters": 1
+    },
+    "smallest_book": {
+      "title": "1",
+      "pages": 1,
+      "chapters": 1
+    },
+    "average_pages": 1.0,
+    "average_chapters": 1.0
+  },
+  "duplicates": {
+    "titles": [],
+    "authors": []
+  }
+}

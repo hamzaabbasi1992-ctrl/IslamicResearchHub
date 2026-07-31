@@ -52,6 +52,38 @@ def test_list_backups_returns_empty_when_no_backup_folder(tmp_path: Path) -> Non
     assert service.list_backups() == ()
 
 
+def test_prune_backups_deletes_all_but_the_most_recent(tmp_path: Path) -> None:
+    """Pruning keeps only the newest `keep` backups and deletes the rest."""
+    database_path = tmp_path / "books.db"
+    _make_database(database_path, "original")
+    service = DatabaseBackupService(tmp_path / "backups")
+    service.create_backup(database_path, timestamp="20260101_000000")
+    service.create_backup(database_path, timestamp="20260102_000000")
+    kept_backup = service.create_backup(database_path, timestamp="20260103_000000")
+
+    pruned = service.prune_backups(keep=1)
+
+    assert [path.name for path in pruned] == [
+        "books_backup_20260102_000000.db",
+        "books_backup_20260101_000000.db",
+    ]
+    assert not any(path.exists() for path in pruned)
+    assert service.list_backups() == (kept_backup,)
+
+
+def test_prune_backups_does_nothing_when_within_the_keep_limit(tmp_path: Path) -> None:
+    """Pruning is a no-op when there are no more backups than `keep`."""
+    database_path = tmp_path / "books.db"
+    _make_database(database_path, "original")
+    service = DatabaseBackupService(tmp_path / "backups")
+    service.create_backup(database_path, timestamp="20260101_000000")
+
+    pruned = service.prune_backups(keep=3)
+
+    assert pruned == ()
+    assert len(service.list_backups()) == 1
+
+
 def test_restore_backup_overwrites_the_live_database(tmp_path: Path) -> None:
     """Restoring a backup replaces the live database's content with the backup's."""
     database_path = tmp_path / "books.db"

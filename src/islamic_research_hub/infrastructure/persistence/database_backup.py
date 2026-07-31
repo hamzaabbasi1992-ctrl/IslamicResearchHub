@@ -48,3 +48,10 @@ class DatabaseBackupService:
             closing(sqlite3.connect(database_path)) as destination,
         ):
             source.backup(destination)
+
+    def prune_backups(self, keep: int, database_stem: str | None = None) -> tuple[Path, ...]:
+        """Delete all but the `keep` most recent backups, returning the deleted paths."""
+        stale_backups = self.list_backups(database_stem)[keep:]
+        for backup_path in stale_backups:
+            backup_path.unlink()
+        return stale_backups

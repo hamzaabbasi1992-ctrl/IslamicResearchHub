@@ -47,39 +47,58 @@ class TaxonomyRepository:
         parent_term_id: int | None = None,
         stable_key: str | None = None,
     ) -> int:
-        """Return an existing term's id (matched by name or alias), or create one.
+        """Return an existing term's id, or create one.
 
-        Matching checks the exact primary name first, then aliases (via the
-        same diacritic/letter-form normalization search already uses), so
-        importing "الزكاة" twice - or once as "الزكاة" and once as an
-        alternate spelling already recorded as an alias - resolves to the
-        same real term instead of silently creating a duplicate.
+        When `stable_key` is given, matching is by `StableKey` ONLY - the
+        source record's own real identity (e.g. `"mjcn:97"`,
+        `"author:181"`), never by display text. Two distinct source
+        records that happen to share the same `Name` (confirmed for real:
+        43 of 691 `CategoryTaxonomy` rows share Name text with an
+        unrelated category under a different parent) must become two
+        distinct terms, not silently collapse into one - `StableKey` is
+        the only thing that can tell them apart.
+
+        Name/alias matching (via the same diacritic/letter-form
+        normalization search already uses) only applies when no
+        `stable_key` is supplied, for the rare case of a term with no
+        natural stable source id - so importing "الزكاة" twice by hand
+        still resolves to the same term instead of duplicating.
         """
         with closing(sqlite3.connect(self._database_path)) as connection:
             with connection:
                 dimension_id = self._dimension_id(connection, dimension_code)
-                existing = connection.execute(
-                    """
-                    SELECT t.TermID FROM TaxonomyTerms t
-                    JOIN TaxonomyTermNames n ON n.TermID = t.TermID
-                    WHERE t.DimensionID = ? AND n.LanguageCode = ? AND n.Name = ?
-                    """,
-                    (dimension_id, language_code, name),
-                ).fetchone()
-                if existing is not None:
-                    return existing[0]
 
-                normalized = normalize_search_text(name)
-                alias_match = connection.execute(
-                    """
-                    SELECT t.TermID FROM TaxonomyTerms t
-                    JOIN TaxonomyAliases a ON a.TermID = t.TermID
-                    WHERE t.DimensionID = ? AND a.NormalizedAliasText = ?
-                    """,
-                    (dimension_id, normalized),
-                ).fetchone()
-                if alias_match is not None:
-                    return alias_match[0]
+                if stable_key is not None:
+                    stable_match = connection.execute(
+                        "SELECT TermID FROM TaxonomyTerms "
+                        "WHERE DimensionID = ? AND StableKey = ?",
+                        (dimension_id, stable_key),
+                    ).fetchone()
+                    if stable_match is not None:
+                        return stable_match[0]
+                else:
+                    existing = connection.execute(
+                        """
+                        SELECT t.TermID FROM TaxonomyTerms t
+                        JOIN TaxonomyTermNames n ON n.TermID = t.TermID
+                        WHERE t.DimensionID = ? AND n.LanguageCode = ? AND n.Name = ?
+                        """,
+                        (dimension_id, language_code, name),
+                    ).fetchone()
+                    if existing is not None:
+                        return existing[0]
+
+                    normalized = normalize_search_text(name)
+                    alias_match = connection.execute(
+                        """
+                        SELECT t.TermID FROM TaxonomyTerms t
+                        JOIN TaxonomyAliases a ON a.TermID = t.TermID
+                        WHERE t.DimensionID = ? AND a.NormalizedAliasText = ?
+                        """,
+                        (dimension_id, normalized),
+                    ).fetchone()
+                    if alias_match is not None:
+                        return alias_match[0]
 
                 cursor = connection.execute(
                     "INSERT INTO TaxonomyTerms (DimensionID, ParentTermID, StableKey) "
@@ -386,11 +405,18 @@ class TaxonomyRepository:
 
         Real prerequisite: `populate_subjects_from_category_taxonomy()`
         and `populate_authors_from_authors_table()` must have already
-        run - terms are matched by the `StableKey`s they set. Safe to
-        re-run (`INSERT OR IGNORE`). Returns (subject_links_attempted,
-        author_links_attempted) - "attempted" here means real `INSERT`s
-        tried, not filtered for pre-existing links, so a re-run reports
-        the same numbers again, not zero.
+        run - terms are matched by the `StableKey`s they set. Returns
+        (subject_links_attempted, author_links_attempted) - "attempted"
+        here means real `INSERT`s tried, not filtered for pre-existing
+        links, so a re-run reports the same numbers again, not zero.
+
+        Subject links are fully resynced on every call (existing
+        `BookTaxonomyTerms` rows for the "subject" dimension are cleared,
+        then rebuilt from `Categories`/`TaxonomyTerms` fresh) rather than
+        only ever added to - real fix for the `StableKey` collision bug
+        where a book could be left linked to a since-corrected wrong
+        subject term after a re-run. Author links stay purely additive
+        (`INSERT OR IGNORE`), unaffected by that bug.
 
         Bulk `executemany` in one connection/transaction, not one
         `link_book()` call (and one new connection) per book - real,
@@ -429,6 +455,11 @@ class TaxonomyRepository:
             ]
 
             with connection:
+                connection.execute(
+                    "DELETE FROM BookTaxonomyTerms WHERE TermID IN ("
+                    "SELECT TermID FROM TaxonomyTerms WHERE DimensionID = ("
+                    "SELECT DimensionID FROM TaxonomyDimensions WHERE Code = 'subject'))"
+                )
                 connection.executemany(
                     "INSERT OR IGNORE INTO BookTaxonomyTerms (BookID, TermID) VALUES (?, ?)",
                     subject_pairs + author_pairs,

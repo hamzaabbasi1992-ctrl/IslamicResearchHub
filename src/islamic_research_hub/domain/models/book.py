@@ -35,6 +35,10 @@ class Page:
     content_f: str | None
     content_p: str | None
     footnote: str | None = None
+    hadees_number: str | None = None
+    """Real hadith number, from Shamila Urdu's `Hadith/` collections only."""
+    ayah_number: str | None = None
+    """Real ayah number, from Shamila Urdu's `Quran/` collection only."""
 
 
 @dataclass(frozen=True, slots=True)

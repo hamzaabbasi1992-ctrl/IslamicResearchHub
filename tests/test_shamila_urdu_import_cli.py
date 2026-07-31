@@ -82,15 +82,15 @@ def _make_hadith_db(path: Path, book_name: str) -> None:
             "CREATE TABLE hadith (ID INTEGER PRIMARY KEY, KitabID INTEGER, "
             "KitabHiddenID TEXT, KitaabNameArabic TEXT, KitaabNameUrdu TEXT, "
             "BaabID INTEGER, BaabHiddenID TEXT, BaabNameArabic TEXT, BaabNameUrdu TEXT, "
-            "HadithArabicText TEXT, HadithUrduText TEXT, HadithHashiaText TEXT, "
-            "HadithHukamAjmali TEXT)"
+            "HadeesNumber TEXT, HadithArabicText TEXT, HadithUrduText TEXT, "
+            "HadithHashiaText TEXT, HadithHukamAjmali TEXT)"
         )
         connection.execute("CREATE TABLE metadata (fieldName TEXT, fieldValue TEXT)")
         connection.execute(
             "INSERT INTO hadith (ID, KitabID, KitabHiddenID, KitaabNameArabic, "
             "KitaabNameUrdu, BaabID, BaabHiddenID, BaabNameArabic, BaabNameUrdu, "
-            "HadithArabicText, HadithUrduText, HadithHashiaText, HadithHukamAjmali) "
-            "VALUES (1, 1, '1', 'کتاب', 'کتاب', 1, '1', 'باب', 'باب', 'عربی', 'اردو', NULL, 'صحیح')"
+            "HadeesNumber, HadithArabicText, HadithUrduText, HadithHashiaText, HadithHukamAjmali) "
+            "VALUES (1, 1, '1', 'کتاب', 'کتاب', 1, '1', 'باب', 'باب', '1', 'عربی', 'اردو', NULL, 'صحیح')"
         )
         connection.execute(
             "INSERT INTO metadata (fieldName, fieldValue) VALUES ('Book Name', ?)", (book_name,)

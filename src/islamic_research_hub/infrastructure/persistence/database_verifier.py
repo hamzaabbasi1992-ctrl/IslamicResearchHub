@@ -22,6 +22,21 @@ _ORPHAN_CHECKS = (
     ("Chapters", "BookID", "Books", "BookID"),
     ("Pages", "BookID", "Books", "BookID"),
     ("Footnotes", "BookID", "Books", "BookID"),
+    ("Paragraphs", "BookID", "Books", "BookID"),
+    ("BookTaxonomyTerms", "BookID", "Books", "BookID"),
+    ("BookTaxonomyTerms", "TermID", "TaxonomyTerms", "TermID"),
+    ("TaxonomyTerms", "ParentTermID", "TaxonomyTerms", "TermID"),
+)
+
+# (content table, FTS table) pairs whose row counts must match - an
+# external-content FTS5 index that's fallen out of sync with its content
+# table means search results are silently stale/missing, not an error
+# SQLite itself would ever report.
+_FTS_SYNC_CHECKS = (
+    ("Pages", "PagesFTS"),
+    ("Footnotes", "FootnotesFTS"),
+    ("Paragraphs", "ParagraphsFTS"),
+    ("Books", "BooksFTS"),
 )
 
 
@@ -40,6 +55,10 @@ class DatabaseVerifier:
             issues.extend(self._check_stale_counts(connection))
             issues.extend(self._check_fts_sync(connection))
             issues.extend(self._check_duplicate_pages(connection))
+            issues.extend(self._check_duplicate_paragraphs(connection))
+            issues.extend(self._check_missing_metadata(connection))
+            issues.extend(self._check_taxonomy_quality(connection))
+            issues.extend(self._check_taxonomy_stable_key_uniqueness(connection))
         return VerificationReport(issues=tuple(issues))
 
     @staticmethod
@@ -126,19 +145,33 @@ class DatabaseVerifier:
 
     @staticmethod
     def _check_fts_sync(connection: sqlite3.Connection) -> list[VerificationIssue]:
-        """Use FTS5's own integrity-check command to verify the search index is consistent."""
+        """Use FTS5's own integrity-check command on every real FTS index.
+
+        Checks `PagesFTS`, `FootnotesFTS`, `ParagraphsFTS`, and `BooksFTS`
+        (skipping any that don't exist yet, e.g. a database that hasn't run
+        every migration) - an external-content FTS5 index that's fallen out
+        of sync with its content table means search silently returns
+        stale/missing results, not something SQLite itself would ever flag
+        on its own.
+        """
         issues: list[VerificationIssue] = []
-        table_exists = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'PagesFTS'"
-        ).fetchone()
-        if not table_exists:
-            return issues
-        try:
-            connection.execute("INSERT INTO PagesFTS(PagesFTS) VALUES('integrity-check')")
-        except sqlite3.DatabaseError as error:
-            issues.append(
-                VerificationIssue("error", "fts_sync", f"PagesFTS integrity check failed: {error}")
-            )
+        for content_table, fts_table in _FTS_SYNC_CHECKS:
+            table_exists = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                (fts_table,),
+            ).fetchone()
+            if not table_exists:
+                continue
+            try:
+                connection.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('integrity-check')")
+            except sqlite3.DatabaseError as error:
+                issues.append(
+                    VerificationIssue(
+                        "error",
+                        "fts_sync",
+                        f"{fts_table} (indexing {content_table}) integrity check failed: {error}",
+                    )
+                )
         return issues
 
     @staticmethod
@@ -158,6 +191,137 @@ class DatabaseVerifier:
                     "warning",
                     "duplicate_pages",
                     f"{count} (BookID, PageNo) pair(s) appear more than once in Pages",
+                )
+            )
+        return issues
+
+    @staticmethod
+    def _check_duplicate_paragraphs(connection: sqlite3.Connection) -> list[VerificationIssue]:
+        """Find (BookID, PageNo, ParagraphIndex) triples that appear more than
+        once in Paragraphs - should be structurally impossible given the
+        table's own UNIQUE constraint, but checked directly rather than
+        assumed, since a schema built before that constraint existed (an
+        old backup, say) wouldn't have it enforced."""
+        issues: list[VerificationIssue] = []
+        table_exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Paragraphs'"
+        ).fetchone()
+        if not table_exists:
+            return issues
+        count = connection.execute(
+            """
+            SELECT COUNT(*) FROM (
+                SELECT BookID, PageNo, ParagraphIndex FROM Paragraphs
+                GROUP BY BookID, PageNo, ParagraphIndex HAVING COUNT(*) > 1
+            )
+            """
+        ).fetchone()[0]
+        if count:
+            issues.append(
+                VerificationIssue(
+                    "error",
+                    "duplicate_paragraphs",
+                    f"{count} (BookID, PageNo, ParagraphIndex) triple(s) appear more than "
+                    "once in Paragraphs",
+                )
+            )
+        return issues
+
+    @staticmethod
+    def _check_missing_metadata(connection: sqlite3.Connection) -> list[VerificationIssue]:
+        """Find Books rows missing a title - the one field every real book must have."""
+        issues: list[VerificationIssue] = []
+        missing_title = connection.execute(
+            "SELECT COUNT(*) FROM Books WHERE Title IS NULL OR TRIM(Title) = ''"
+        ).fetchone()[0]
+        if missing_title:
+            issues.append(
+                VerificationIssue(
+                    "warning",
+                    "missing_metadata",
+                    f"{missing_title} book(s) have no Title",
+                )
+            )
+        return issues
+
+    @staticmethod
+    def _check_taxonomy_quality(connection: sqlite3.Connection) -> list[VerificationIssue]:
+        """Find real data-quality problems in CategoryTaxonomy specific to
+        this schema (not generic orphaned-row shapes, since `0` - not NULL -
+        is this table's real root-category sentinel, confirmed against
+        production data)."""
+        issues: list[VerificationIssue] = []
+        table_exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'CategoryTaxonomy'"
+        ).fetchone()
+        if not table_exists:
+            return issues
+
+        orphaned_parents = connection.execute(
+            """
+            SELECT COUNT(*) FROM CategoryTaxonomy
+            WHERE ParentMJCN != 0
+            AND ParentMJCN NOT IN (SELECT MJCN FROM CategoryTaxonomy)
+            """
+        ).fetchone()[0]
+        if orphaned_parents:
+            issues.append(
+                VerificationIssue(
+                    "error",
+                    "taxonomy_quality",
+                    f"{orphaned_parents} categor(y/ies) reference a ParentMJCN that "
+                    "doesn't exist",
+                )
+            )
+
+        blank_names = connection.execute(
+            "SELECT COUNT(*) FROM CategoryTaxonomy WHERE TRIM(Name) = ''"
+        ).fetchone()[0]
+        if blank_names:
+            issues.append(
+                VerificationIssue(
+                    "warning",
+                    "taxonomy_quality",
+                    f"{blank_names} categor(y/ies) have a blank Name",
+                )
+            )
+        return issues
+
+    @staticmethod
+    def _check_taxonomy_stable_key_uniqueness(
+        connection: sqlite3.Connection,
+    ) -> list[VerificationIssue]:
+        """Find `TaxonomyTerms.StableKey` values reused within one dimension.
+
+        `StableKey` exists precisely so two distinct source records (e.g.
+        two `CategoryTaxonomy` rows with different MJCNs) never collapse
+        into one term - a duplicate `StableKey` in the same dimension means
+        that guarantee has broken (real production bug found and fixed
+        once already: `TaxonomyRepository.get_or_create_term` used to match
+        by display text instead of `StableKey`)."""
+        issues: list[VerificationIssue] = []
+        table_exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'TaxonomyTerms'"
+        ).fetchone()
+        if not table_exists:
+            return issues
+
+        duplicate_keys = connection.execute(
+            """
+            SELECT COUNT(*) FROM (
+                SELECT DimensionID, StableKey FROM TaxonomyTerms
+                WHERE StableKey IS NOT NULL
+                GROUP BY DimensionID, StableKey HAVING COUNT(*) > 1
+            )
+            """
+        ).fetchone()[0]
+        if duplicate_keys:
+            issues.append(
+                VerificationIssue(
+                    "error",
+                    "taxonomy_quality",
+                    f"{duplicate_keys} StableKey value(s) are reused by more than one "
+                    "term within the same taxonomy dimension",
                 )
             )
         return issues
