@@ -56,6 +56,37 @@ _SVG_PATHS: dict[str, str] = {
         '<path d="M10.3 14.7 15 10"/>'
         '<path d="M11 10h4v4"/>'
     ),
+    "home": (
+        '<path d="M4 12 12 4.5 20 12"/>'
+        '<path d="M6 10.5V19a1 1 0 0 0 1 1h3.5v-5.5h3V20H17a1 1 0 0 0 1-1v-8.5"/>'
+    ),
+    "duplicates": '<rect x="3" y="3" width="12" height="12" rx="2"/><rect x="9" y="9" width="12" height="12" rx="2"/>',
+    "ai-assistant": '<path d="M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.1 10.2 12.6 4.5 10.8 10.2 9z"/>',
+    "sun": (
+        '<circle cx="12" cy="12" r="4"/>'
+        '<line x1="12" y1="2" x2="12" y2="5"/>'
+        '<line x1="12" y1="19" x2="12" y2="22"/>'
+        '<line x1="2" y1="12" x2="5" y2="12"/>'
+        '<line x1="19" y1="12" x2="22" y2="12"/>'
+        '<line x1="4.9" y1="4.9" x2="7" y2="7"/>'
+        '<line x1="17" y1="17" x2="19.1" y2="19.1"/>'
+        '<line x1="4.9" y1="19.1" x2="7" y2="17"/>'
+        '<line x1="17" y1="7" x2="19.1" y2="4.9"/>'
+    ),
+    "moon": '<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
+    "filter": '<line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10.5" y1="18" x2="13.5" y2="18"/>',
+    "star": '<path d="M12 4 14.5 9.5 20.5 10.3 16 14.3 17.2 20.2 12 17.1 6.8 20.2 8 14.3 3.5 10.3 9.5 9.5z"/>',
+    "star-filled": (
+        '<path d="M12 4 14.5 9.5 20.5 10.3 16 14.3 17.2 20.2 12 17.1 6.8 20.2 8 14.3 3.5 10.3 9.5 9.5z" '
+        'fill="{color}"/>'
+    ),
+    "clock": '<circle cx="12" cy="12" r="8.5"/><polyline points="12 7.5 12 12 15.5 14"/>',
+    "x": '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+    "taxonomy": (
+        '<circle cx="12" cy="4.5" r="2"/><circle cx="5" cy="19.5" r="2"/><circle cx="19" cy="19.5" r="2"/>'
+        '<path d="M12 6.5v4a2 2 0 0 1-2 2H7a2 2 0 0 0-2 2v3"/>'
+        '<path d="M12 10.5a2 2 0 0 0 2 2h3a2 2 0 0 1 2 2v3"/>'
+    ),
 }
 
 
@@ -80,10 +111,14 @@ def button_icon_size() -> QSize:
 
 
 def _render(name: str, color: str, size: QSize) -> QPixmap:
+    # `.format(color=...)` is a no-op for the (majority) of path strings that
+    # don't reference `{color}` - it only matters for icons like "star-filled"
+    # that need a solid fill matching the icon's own color instead of "none".
+    path_svg = _SVG_PATHS[name].format(color=color)
     svg = (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
         f'stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-        f"{_SVG_PATHS[name]}</svg>"
+        f"{path_svg}</svg>"
     )
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
     pixmap = QPixmap(size)

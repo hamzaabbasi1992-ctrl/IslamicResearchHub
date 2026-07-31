@@ -53,6 +53,47 @@ class RecentBookRepository:
             ).fetchall()
         return tuple(BookSummary(*row) for row in rows)
 
+    def list_recent_categories(self, limit: int = 5) -> tuple[str, ...]:
+        """Return real, distinct category names from recently-opened books,
+        most-recent-book-first - a new read-only JOIN against the existing
+        `RecentBooks`/`Categories` tables, no new persistence. A book can
+        belong to more than one category; only its first (by MJCN) is used
+        here, to keep one book from crowding out other recently-viewed
+        categories.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            if not self._table_exists(connection) or not self._categories_table_exists(
+                connection
+            ):
+                return ()
+            rows = connection.execute(
+                """
+                SELECT c.Name
+                FROM RecentBooks r
+                JOIN (
+                    SELECT BookID, MIN(MJCN) AS FirstMJCN FROM Categories GROUP BY BookID
+                ) first_cat ON first_cat.BookID = r.BookID
+                JOIN Categories c ON c.BookID = first_cat.BookID AND c.MJCN = first_cat.FirstMJCN
+                ORDER BY r.OpenedAt DESC
+                """
+            ).fetchall()
+        seen: list[str] = []
+        for (name,) in rows:
+            if name and name not in seen:
+                seen.append(name)
+            if len(seen) >= limit:
+                break
+        return tuple(seen)
+
+    @staticmethod
+    def _categories_table_exists(connection: sqlite3.Connection) -> bool:
+        return (
+            connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Categories'"
+            ).fetchone()
+            is not None
+        )
+
     def last_page_number(self, book_id: int) -> int | None:
         """Return the real last-read page for a book, or None if never opened."""
         with closing(sqlite3.connect(self._database_path)) as connection:

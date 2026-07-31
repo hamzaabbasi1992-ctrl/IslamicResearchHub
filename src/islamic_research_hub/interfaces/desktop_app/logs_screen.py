@@ -1,4 +1,6 @@
-"""Logs screen: show the real, on-disk application log, most recent first."""
+"""Logs screen: a friendly recent-activity view for normal users, with the
+raw on-disk application log available behind an "Advanced" toggle.
+"""
 
 from pathlib import Path
 
@@ -9,18 +11,22 @@ from PySide6.QtWidgets import (
     QLabel,
     QPlainTextEdit,
     QPushButton,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
+from islamic_research_hub.shared.logging_config import get_friendly_log_handler
 
 LOG_FILE_NAME = "islamic_research_hub.log"
 MAX_LINES_SHOWN = 500
+_NO_ACTIVITY_TEXT = "No recent activity."
 
 
 class LogsScreen(QWidget):
-    """Read-only view of the app's own log file, newest entries first."""
+    """Friendly recent-activity view by default; the raw log file is one
+    "Advanced" click away, unchanged, for troubleshooting."""
 
     def __init__(self, log_directory: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -35,21 +41,47 @@ class LogsScreen(QWidget):
         self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
         header_row.addWidget(self._status_label)
         header_row.addStretch(1)
+        self._advanced_toggle = QPushButton("Advanced")
+        self._advanced_toggle.setCheckable(True)
+        self._advanced_toggle.setObjectName("navTab")
+        self._advanced_toggle.toggled.connect(self._on_advanced_toggled)
+        header_row.addWidget(self._advanced_toggle)
         refresh_button = QPushButton("Refresh")
         refresh_button.clicked.connect(self.refresh)
         header_row.addWidget(refresh_button)
         layout.addLayout(header_row)
 
+        self._view_stack = QStackedWidget()
+
+        self._friendly_area = QPlainTextEdit()
+        self._friendly_area.setReadOnly(True)
+        self._friendly_area.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self._view_stack.addWidget(self._friendly_area)
+
         self._text_area = QPlainTextEdit()
         self._text_area.setReadOnly(True)
         self._text_area.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self._text_area.setFont(QFont("Consolas", 9))
-        layout.addWidget(self._text_area, stretch=1)
+        self._view_stack.addWidget(self._text_area)
+
+        layout.addWidget(self._view_stack, stretch=1)
 
         self.refresh()
 
+    def _on_advanced_toggled(self, checked: bool) -> None:
+        self._view_stack.setCurrentIndex(1 if checked else 0)
+
     def refresh(self) -> None:
-        """Reload the log file from disk."""
+        """Reload both the friendly activity view and the raw log file."""
+        self._refresh_friendly_view()
+        self._refresh_raw_view()
+
+    def _refresh_friendly_view(self) -> None:
+        handler = get_friendly_log_handler()
+        messages = handler.messages() if handler is not None else []
+        self._friendly_area.setPlainText("\n".join(messages) if messages else _NO_ACTIVITY_TEXT)
+
+    def _refresh_raw_view(self) -> None:
         if not self._log_path.is_file():
             self._status_label.setText(f"No log file yet at {self._log_path}")
             self._text_area.setPlainText("")

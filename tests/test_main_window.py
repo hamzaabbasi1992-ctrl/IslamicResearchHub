@@ -53,8 +53,8 @@ def _seed_database(database_path: Path) -> None:
     )
 
 
-def test_main_window_constructs_with_search_screen_active(qtbot, tmp_path: Path) -> None:
-    """The window opens on the Search screen without raising."""
+def test_main_window_constructs_with_home_screen_active(qtbot, tmp_path: Path) -> None:
+    """The window opens on the new Home dashboard screen without raising."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
 
@@ -73,12 +73,53 @@ def test_rail_buttons_switch_the_visible_screen(qtbot, tmp_path: Path) -> None:
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
 
-    viewer_button = window._rail_buttons[1]
-    qtbot.mouseClick(viewer_button, Qt.MouseButton.LeftButton)
+    libraries_button = window._rail_buttons[2]
+    qtbot.mouseClick(libraries_button, Qt.MouseButton.LeftButton)
 
-    assert window._stack.currentIndex() == 1
-    assert viewer_button.isChecked()
+    assert window._stack.currentIndex() == 2
+    assert libraries_button.isChecked()
     assert not window._rail_buttons[0].isChecked()
+
+
+def test_header_shows_a_real_current_location_breadcrumb(qtbot, tmp_path: Path) -> None:
+    """Navigation fix: a real 'you are here' indicator, updated on every
+    rail switch - the rail alone doesn't make the current screen obvious
+    at a glance once there are 7 entries."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    assert "Home" in window._header_bar._location_label.text()
+
+    qtbot.mouseClick(window._rail_buttons[2], Qt.MouseButton.LeftButton)
+
+    assert "Libraries" in window._header_bar._location_label.text()
+
+
+def test_quick_open_navigates_to_the_requested_screen(
+    qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ctrl+P's Quick Open dialog, once a screen is picked, really switches
+    to it (dialog `.exec()` is patched out - it would block)."""
+    from PySide6.QtWidgets import QDialog
+
+    from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    def _fake_exec(self: QuickOpenDialog) -> int:
+        self.screen_requested.emit(2)
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QuickOpenDialog, "exec", _fake_exec)
+
+    window.open_quick_open()
+
+    assert window._stack.currentIndex() == 2
 
 
 def test_settings_screen_is_real_and_shows_real_app_info(qtbot, tmp_path: Path) -> None:
@@ -89,7 +130,7 @@ def test_settings_screen_is_real_and_shows_real_app_info(qtbot, tmp_path: Path) 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
 
-    settings_screen = window._stack.widget(4)
+    settings_screen = window._stack.widget(6)
     assert settings_screen._language_combo.count() == 3
     assert settings_screen.default_font_size() > 0
 
@@ -108,13 +149,13 @@ def test_changing_language_updates_rail_labels_and_layout_direction(
 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
-    settings_screen = window._stack.widget(4)
+    settings_screen = window._stack.widget(6)
 
     try:
         ur_index = settings_screen._language_combo.findData("ur")
         settings_screen._language_combo.setCurrentIndex(ur_index)
 
-        assert window._rail_buttons[0].text() == "تلاش"
+        assert window._rail_buttons[0].text() == "ہوم"
         assert window._translator.layout_direction == Qt.LayoutDirection.RightToLeft
     finally:
         QApplication.instance().setLayoutDirection(Qt.LayoutDirection.LeftToRight)
@@ -123,20 +164,20 @@ def test_changing_language_updates_rail_labels_and_layout_direction(
 def test_search_result_open_in_viewer_switches_screen_and_loads_the_book(
     qtbot, tmp_path: Path
 ) -> None:
-    """Clicking 'Read in app' on a search result switches to Viewer with that book loaded."""
+    """Clicking 'Read in app' on a search result opens the Workspace with that
+    book loaded in the inline reader - search stays reachable, not replaced."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
-    search_screen = window._stack.widget(0)
-    viewer_stack = window._stack.widget(1)
 
-    search_screen.open_in_viewer_requested.emit(1, 1)
+    window._search_screen.open_in_viewer_requested.emit(1, 1)
 
     assert window._stack.currentIndex() == 1
     assert window._rail_buttons[1].isChecked()
-    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._stack.widget(1) is window._workspace_screen
+    assert window._viewer_stack.currentWidget() is window._viewer_screen
     assert window._viewer_screen._title_label.text() == "Book of Fiqh"
     assert window._viewer_screen._content_label.text() == "Some real page content"
 
@@ -168,17 +209,15 @@ def test_stub_book_shows_pdf_fallback_banner_and_opens_the_matched_pdf(
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
-    search_screen = window._stack.widget(0)
-    viewer_stack = window._stack.widget(1)
 
-    search_screen.open_in_viewer_requested.emit(1, 1)
+    window._search_screen.open_in_viewer_requested.emit(1, 1)
 
-    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._viewer_stack.currentWidget() is window._viewer_screen
     assert window._viewer_screen._pdf_fallback_banner.isVisible()
 
     window._viewer_screen.pdf_fallback_requested.emit()
 
-    assert viewer_stack.currentWidget() is window._pdf_viewer_screen
+    assert window._viewer_stack.currentWidget() is window._pdf_viewer_screen
     assert window._pdf_viewer_screen._current_book_id == 2
 
 
@@ -211,17 +250,15 @@ def test_stub_book_offers_its_own_direct_pdf_before_checking_fuzzy_matches(
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
-    search_screen = window._stack.widget(0)
-    viewer_stack = window._stack.widget(1)
 
-    search_screen.open_in_viewer_requested.emit(1, 1)
+    window._search_screen.open_in_viewer_requested.emit(1, 1)
 
-    assert viewer_stack.currentWidget() is window._viewer_screen
+    assert window._viewer_stack.currentWidget() is window._viewer_screen
     assert window._viewer_screen._pdf_fallback_banner.isVisible()
 
     window._viewer_screen.pdf_fallback_requested.emit()
 
-    assert viewer_stack.currentWidget() is window._pdf_viewer_screen
+    assert window._viewer_stack.currentWidget() is window._pdf_viewer_screen
     assert window._pdf_viewer_screen._current_book_id == 1
 
 
@@ -236,9 +273,8 @@ def test_book_with_real_content_never_shows_the_pdf_fallback_banner(
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
-    search_screen = window._stack.widget(0)
 
-    search_screen.open_in_viewer_requested.emit(1, 1)
+    window._search_screen.open_in_viewer_requested.emit(1, 1)
 
     assert not window._viewer_screen._pdf_fallback_banner.isVisible()
 

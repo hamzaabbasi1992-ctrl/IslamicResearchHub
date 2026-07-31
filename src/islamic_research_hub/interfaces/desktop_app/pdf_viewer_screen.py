@@ -22,8 +22,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
-from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
+from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE, Type
 
 MIN_ZOOM = 0.5
 MAX_ZOOM = 4.0
@@ -46,9 +47,9 @@ class PdfViewerScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._empty_label = QLabel("Open a PDF-only book from Search to read it here.")
-        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_label.setStyleSheet(f"{MUTED_LABEL_STYLE} padding: 2rem;")
+        self._empty_label = EmptyStateLabel(
+            "Open a PDF-only book from Search to read it here.", centered=True
+        )
         layout.addWidget(self._empty_label)
 
         self._reader = QWidget()
@@ -63,7 +64,7 @@ class PdfViewerScreen(QWidget):
         self._title_label.setStyleSheet(f"font-size: 16px; font-weight: 700; {RTL_TEXT_STYLE}")
         self._title_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._author_label = QLabel()
-        self._author_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        self._author_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         self._author_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         header.addWidget(self._title_label)
         header.addWidget(self._author_label)
@@ -97,7 +98,7 @@ class PdfViewerScreen(QWidget):
         self._bookmark_button = QPushButton("Bookmark this page")
         self._bookmark_button.setIcon(button_icon("bookmark"))
         self._bookmark_button.setIconSize(button_icon_size())
-        self._bookmark_button.clicked.connect(self._toggle_bookmark)
+        self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
 
         zoom_out_button = QPushButton("-")
@@ -187,7 +188,8 @@ class PdfViewerScreen(QWidget):
     def _apply_zoom(self) -> None:
         self._pdf_view.setZoomFactor(self._zoom)
 
-    def _toggle_bookmark(self) -> None:
+    def toggle_bookmark(self) -> None:
+        """Toggle the bookmark on the current page (also reachable via Ctrl+B)."""
         if self._current_book_id is None:
             return
         page_number = self.current_page_number()

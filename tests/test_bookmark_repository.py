@@ -78,6 +78,45 @@ def test_list_bookmarked_pages_returns_empty_for_a_book_with_none(tmp_path: Path
     assert repo.list_bookmarked_pages(1) == set()
 
 
+def test_list_recent_bookmarks_returns_newest_first_across_books(tmp_path: Path) -> None:
+    """Home Dashboard: real bookmarks across every book, most recent first."""
+    database_path = tmp_path / "books.db"
+    book_two = Book(
+        information={"Name": "Book Two"}, categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+    book_one = Book(
+        information={"Name": "Book of Fiqh"}, categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"), Page(2, 2, "More content", "Plain")),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    repo = BookmarkRepository(database_path)
+
+    repo.add_bookmark(1, 1)  # Book Two (BookID 1, imported first), bookmarked first
+    repo.add_bookmark(2, 2)  # Book of Fiqh (BookID 2), bookmarked second (most recent)
+
+    recent = repo.list_recent_bookmarks(limit=5)
+
+    assert len(recent) == 2
+    assert recent[0].title == "Book of Fiqh"
+    assert recent[0].page_number == 2
+    assert recent[1].title == "Book Two"
+
+
+def test_list_recent_bookmarks_is_empty_before_migration_or_with_none_added(
+    tmp_path: Path,
+) -> None:
+    """Honest empty result, not a crash, when there's nothing to show."""
+    assert BookmarkRepository(_migrated_database(tmp_path)).list_recent_bookmarks() == ()
+
+
 def test_all_operations_degrade_gracefully_on_a_pre_migration_database(tmp_path: Path) -> None:
     """Before migration 8 runs, every real operation is a safe no-op, not a crash."""
     database_path = tmp_path / "books.db"

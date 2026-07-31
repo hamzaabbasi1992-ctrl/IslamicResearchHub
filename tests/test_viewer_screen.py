@@ -6,11 +6,17 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtGui import QGuiApplication  # noqa: E402
+
+from islamic_research_hub.domain.models.book import Book, Chapter, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
 )
-from islamic_research_hub.interfaces.desktop_app.viewer_screen import ViewerScreen  # noqa: E402
+from islamic_research_hub.interfaces.desktop_app.viewer_screen import (  # noqa: E402
+    MAX_READING_COLUMN_WIDTH,
+    ViewerScreen,
+)
 
 
 def _seed_database(database_path: Path) -> None:
@@ -47,6 +53,134 @@ def test_load_book_shows_title_author_and_first_page(qtbot, tmp_path: Path) -> N
     assert screen._page_count_label.text() == "/ 3"
     assert not screen._prev_button.isEnabled()
     assert screen._next_button.isEnabled()
+
+
+def test_reading_content_is_capped_to_a_real_column_width(qtbot, tmp_path: Path) -> None:
+    """Reader Redesign fix: text no longer fills the whole width of a wide
+    monitor - a real, enforced max-width reading column, matching Acrobat/
+    Zotero, instead of unconstrained full-bleed text."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    assert screen._content_label.maximumWidth() == MAX_READING_COLUMN_WIDTH
+
+
+def test_load_book_populates_the_real_table_of_contents(qtbot, tmp_path: Path) -> None:
+    """Reader Redesign: a real, browsable TOC panel, not just page-by-page
+    navigation - reads the existing Chapters table for real."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book With Chapters"},
+        categories=(),
+        table_of_contents=(
+            Chapter(title_id=1, title="Introduction", page_number=1, parent_id=None, sort_key=0),
+            Chapter(title_id=2, title="Chapter One", page_number=2, parent_id=None, sort_key=1),
+        ),
+        pages=(Page(1, 1, "Intro content", "Plain"), Page(2, 2, "Chapter content", "Plain")),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert screen._toc_tree.topLevelItemCount() == 2
+    assert screen._toc_tree.topLevelItem(1).text(0) == "Chapter One"
+
+
+def test_toc_tree_uses_rtl_layout_for_real_chapter_titles(qtbot, tmp_path: Path) -> None:
+    """Typography fix: real Arabic/Urdu chapter titles need RTL layout
+    direction, matching every other title tree/row in the app."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book With Chapters"},
+        categories=(),
+        table_of_contents=(
+            Chapter(title_id=1, title="Introduction", page_number=1, parent_id=None, sort_key=0),
+        ),
+        pages=(Page(1, 1, "Intro content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert screen._toc_tree.layoutDirection() == Qt.LayoutDirection.RightToLeft
+
+
+def test_clicking_a_toc_item_jumps_to_its_page(qtbot, tmp_path: Path) -> None:
+    """A real click on a TOC entry navigates the reader to that chapter's page."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book With Chapters"},
+        categories=(),
+        table_of_contents=(
+            Chapter(title_id=1, title="Chapter Two", page_number=2, parent_id=None, sort_key=0),
+        ),
+        pages=(Page(1, 1, "First", "Plain"), Page(2, 2, "Second", "Plain")),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    item = screen._toc_tree.topLevelItem(0)
+    screen._on_toc_item_clicked(item, 0)
+
+    assert screen._content_label.text() == "Second"
+
+
+def test_bookmarking_a_page_adds_it_to_the_bookmarks_list(qtbot, tmp_path: Path) -> None:
+    """Reader Redesign: bookmarks are now a real, browsable list, not just a
+    per-page toggle - reflects live as pages are bookmarked."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    screen.toggle_bookmark()
+
+    assert screen._bookmarks_list.count() == 1
+    assert screen._bookmarks_list.item(0).text() == "Page 1"
+
+
+def test_clicking_a_bookmark_jumps_to_its_page(qtbot, tmp_path: Path) -> None:
+    """A real click on a bookmark entry navigates to that page."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1, bookmarked_pages={3})
+
+    item = screen._bookmarks_list.item(0)
+    screen._on_bookmark_item_clicked(item)
+
+    assert screen._content_label.text() == "Third page content"
+
+
+def test_copy_citation_puts_a_real_citation_on_the_clipboard(qtbot, tmp_path: Path) -> None:
+    """Copy Citation uses the existing format_citation() with real, already-
+    loaded data (title, current page) - no new backend needed."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen.jump_to_page_number(2)
+
+    screen.copy_citation()
+
+    assert QGuiApplication.clipboard().text() == "Book Book of Fiqh, Page 2, Paragraph 1"
 
 
 def test_load_book_returns_false_for_unknown_book(qtbot, tmp_path: Path) -> None:

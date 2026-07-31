@@ -4,7 +4,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
@@ -90,6 +90,44 @@ def test_list_recent_respects_the_limit(tmp_path: Path) -> None:
     repo.record_open(2)
 
     assert len(repo.list_recent(limit=1)) == 1
+
+
+def test_list_recent_categories_returns_real_categories_newest_book_first(
+    tmp_path: Path,
+) -> None:
+    """Home Dashboard: real category names from recently-opened books' real
+    Categories rows, most-recently-opened book first."""
+    database_path = tmp_path / "books.db"
+    fiqh = Category(mjcn=9, name="الفقه", parent_mjcn=0, sort_key=1)
+    hadith = Category(mjcn=10, name="الحديث", parent_mjcn=0, sort_key=1)
+    book_one = Book(
+        information={"Name": "Book One"}, categories=(fiqh,), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    book_two = Book(
+        information={"Name": "Book Two"}, categories=(hadith,), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    repo = RecentBookRepository(database_path)
+
+    repo.record_open(1)
+    time.sleep(1.1)  # SQLite datetime('now') has 1-second resolution
+    repo.record_open(2)
+
+    assert repo.list_recent_categories() == ("الحديث", "الفقه")
+
+
+def test_list_recent_categories_is_empty_with_nothing_opened(tmp_path: Path) -> None:
+    """Honest empty result, not a crash, when nothing has been opened yet."""
+    assert RecentBookRepository(_migrated_database(tmp_path)).list_recent_categories() == ()
 
 
 def test_all_operations_degrade_gracefully_on_a_pre_migration_database(tmp_path: Path) -> None:

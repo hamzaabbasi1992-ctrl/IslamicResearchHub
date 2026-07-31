@@ -13,7 +13,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
     BookBrowserRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import LANGUAGES, Translator
-from islamic_research_hub.interfaces.desktop_app.theme import ACCENT, INK_FAINT
+from islamic_research_hub.interfaces.desktop_app.theme import ACCENT, INK_FAINT, Type
 
 _STAT_KEYS = ("stat-books", "stat-libraries", "stat-authors", "stat-categories", "stat-series")
 
@@ -49,12 +49,19 @@ class HeaderBar(QWidget):
         wordmark_column.addWidget(self._tagline_label)
         layout.addLayout(wordmark_column)
 
+        # Navigation fix: a real "where am I" indicator - the rail alone
+        # doesn't make the current screen obvious at a glance once there
+        # are 7 entries plus a 3-panel workspace inside "Search".
+        self._location_label = QLabel()
+        self._location_label.setStyleSheet(f"font-size: {Type.BODY_SM}px; color: {INK_FAINT};")
+        layout.addWidget(self._location_label)
+
         self._stats_labels: list[QLabel] = []
         stats_row = QHBoxLayout()
         stats_row.setSpacing(18)
         for _ in _STAT_KEYS:
             label = QLabel()
-            label.setStyleSheet("font-size: 12px;")
+            label.setStyleSheet(f"font-size: {Type.BODY_SM}px;")
             stats_row.addWidget(label)
             self._stats_labels.append(label)
         layout.addLayout(stats_row)
@@ -75,6 +82,10 @@ class HeaderBar(QWidget):
         self._translator.language_changed.connect(self._retranslate)
         self.refresh_stats()
         self._sync_language_buttons()
+
+    def set_current_location(self, location: str) -> None:
+        """Show a real "You are here" breadcrumb for the active rail screen."""
+        self._location_label.setText(f"› {location}")
 
     def refresh_stats(self) -> None:
         """Reload the live corpus stats from the real database."""

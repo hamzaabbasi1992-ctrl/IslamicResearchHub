@@ -28,7 +28,12 @@ from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_reposit
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel
+from islamic_research_hub.interfaces.desktop_app.duplicate_manager_screen import (
+    DuplicateManagerScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.header_bar import HeaderBar
+from islamic_research_hub.interfaces.desktop_app.home_screen import HomeScreen
 from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_APPLICATION,
     SETTINGS_ORGANIZATION,
@@ -38,6 +43,7 @@ from islamic_research_hub.interfaces.desktop_app.icons import rail_icon
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
 from islamic_research_hub.interfaces.desktop_app.logs_screen import LogsScreen
 from islamic_research_hub.interfaces.desktop_app.pdf_viewer_screen import PdfViewerScreen
+from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
@@ -45,16 +51,45 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     FONT_SIZE_KEY,
     SettingsScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.shortcuts import install_shortcuts
+from islamic_research_hub.interfaces.desktop_app.taxonomy_browser_screen import (
+    TaxonomyBrowserScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.theme import INK, MUTED_LABEL_STYLE
+from islamic_research_hub.interfaces.desktop_app.theme_controller import ThemeController
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
     DEFAULT_FONT_PX,
     ViewerScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.workspace_screen import WorkspaceScreen
 
 RAIL_WIDTH = 84
-_RAIL_KEYS = ("rail-search", "rail-viewer", "rail-import", "rail-logs", "rail-settings")
-_RAIL_ICON_NAMES = ("search", "viewer", "import", "logs", "settings")
-_PLACEHOLDER_TITLES = ("Database not found", "Viewer", "Import", "Logs", "Settings")
+# "rail-viewer" is gone: the reader no longer has its own destination - it
+# opens inline inside the Search/Workspace screen (see WorkspaceScreen).
+_RAIL_KEYS = (
+    "rail-home",
+    "rail-search",
+    "rail-libraries",
+    "rail-duplicates",
+    "rail-taxonomy",
+    "rail-logs",
+    "rail-settings",
+)
+_RAIL_ICON_NAMES = ("home", "search", "import", "duplicates", "taxonomy", "logs", "settings")
+_PLACEHOLDER_TITLES = (
+    "Database not found",
+    "Search",
+    "Libraries",
+    "Duplicates",
+    "Taxonomy",
+    "Logs",
+    "Settings",
+)
+# Index of the Search/Workspace page in `self._stack`, once a real database
+# is loaded. `_open_in_viewer`/`_open_pdf` switch to this page directly -
+# named as one constant, rather than a hardcoded index, so it stays correct
+# as the rail is reordered/grown across the desktop UI redesign's milestones.
+_WORKSPACE_STACK_INDEX = 1
 
 
 class MainWindow(QMainWindow):
@@ -74,6 +109,7 @@ class MainWindow(QMainWindow):
         self._settings = settings or QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         self._translator = Translator(self._settings)
         self._translator.language_changed.connect(self._on_language_changed)
+        self._theme_controller = ThemeController(self._settings)
 
         self._stack = QStackedWidget()
         self._header_bar: HeaderBar | None = None
@@ -84,15 +120,20 @@ class MainWindow(QMainWindow):
         self._pdf_matches: PdfMatchCandidateRepository | None = None
         self._pdf_fallback_book_id: int | None = None
         self._pdf_fallback_path: Path | None = None
+        self._search_screen: SearchScreen | None = None
         self._viewer_screen: ViewerScreen | None = None
         self._pdf_viewer_screen: PdfViewerScreen | None = None
+        self._viewer_stack: QStackedWidget | None = None
+        self._import_screen: ImportScreen | None = None
+        self._workspace_screen: WorkspaceScreen | None = None
+        self._home_screen: HomeScreen | None = None
         if database_path.is_file():
             self._browser = BookBrowserRepository(database_path)
             self._bookmarks = BookmarkRepository(database_path)
             self._recent_books = RecentBookRepository(database_path)
             self._pdf_matches = PdfMatchCandidateRepository(database_path)
             self._header_bar = HeaderBar(database_path, self._translator)
-            search_screen = SearchScreen(
+            self._search_screen = SearchScreen(
                 database_path,
                 maknoon_pdf_folder,
                 recent_books=self._recent_books,
@@ -123,13 +164,30 @@ class MainWindow(QMainWindow):
             self._viewer_stack = QStackedWidget()
             self._viewer_stack.addWidget(self._viewer_screen)
             self._viewer_stack.addWidget(self._pdf_viewer_screen)
+            ai_panel = AiAssistantPanel(self._settings)
+            self._workspace_screen = WorkspaceScreen(
+                self._search_screen, self._viewer_stack, ai_panel
+            )
 
-            search_screen.open_in_viewer_requested.connect(self._open_in_viewer)
-            import_screen = ImportScreen(database_path)
-            import_screen.library_imported.connect(self._on_library_imported)
-            self._stack.addWidget(search_screen)
-            self._stack.addWidget(self._viewer_stack)
-            self._stack.addWidget(import_screen)
+            self._search_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            self._import_screen = ImportScreen(database_path)
+            self._import_screen.library_imported.connect(self._on_library_imported)
+            duplicate_manager_screen = DuplicateManagerScreen(database_path)
+            duplicate_manager_screen.duplicates_resolved.connect(self._on_duplicates_resolved)
+            taxonomy_browser_screen = TaxonomyBrowserScreen(database_path, browser=self._browser)
+            taxonomy_browser_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            self._home_screen = HomeScreen(
+                database_path,
+                browser=self._browser,
+                recent_books=self._recent_books,
+                bookmarks=self._bookmarks,
+            )
+            self._home_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            self._stack.addWidget(self._home_screen)
+            self._stack.addWidget(self._workspace_screen)
+            self._stack.addWidget(self._import_screen)
+            self._stack.addWidget(duplicate_manager_screen)
+            self._stack.addWidget(taxonomy_browser_screen)
             self._stack.addWidget(LogsScreen(log_directory))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
@@ -161,10 +219,29 @@ class MainWindow(QMainWindow):
         central_layout.addWidget(body, stretch=1)
         self.setCentralWidget(central)
 
-    def _on_library_imported(self) -> None:
-        """Refresh the header's live stats after a new library is imported."""
+        self._shortcuts = install_shortcuts(self)
+        if self._header_bar is not None and self._rail_buttons:
+            self._header_bar.set_current_location(self._rail_buttons[0].text())
+
+    def _on_library_imported(self, library_name: str) -> None:
+        """Refresh corpus-wide stats and note the import on Home, after a new library import."""
+        self._refresh_corpus_dependent_ui()
+        if self._home_screen is not None:
+            self._home_screen.note_library_imported(library_name)
+
+    def _on_duplicates_resolved(self) -> None:
+        """Refresh library counts and corpus-wide stats after a duplicate
+        cleanup actually removes book(s) - the same downstream data an
+        import changes, just via a removal instead."""
+        if self._import_screen is not None:
+            self._import_screen.refresh()
+        self._refresh_corpus_dependent_ui()
+
+    def _refresh_corpus_dependent_ui(self) -> None:
         if self._header_bar is not None:
             self._header_bar.refresh_stats()
+        if self._home_screen is not None:
+            self._home_screen.refresh()
 
     def _build_rail(self) -> QWidget:
         rail = QWidget()
@@ -189,10 +266,23 @@ class MainWindow(QMainWindow):
         rail_layout.addStretch(1)
         return rail
 
+    def open_quick_open(self) -> None:
+        """Show the Quick Open dialog (also reachable via Ctrl+P) - a
+        filterable jump to any rail screen or recent book."""
+        if self._recent_books is None:
+            return
+        rail_labels = tuple(button.text() for button in self._rail_buttons)
+        dialog = QuickOpenDialog(rail_labels, self._recent_books, parent=self)
+        dialog.screen_requested.connect(self._show_screen)
+        dialog.book_requested.connect(self._open_in_viewer)
+        dialog.exec()
+
     def _show_screen(self, index: int) -> None:
         self._stack.setCurrentIndex(index)
         for button_index, button in enumerate(self._rail_buttons):
             button.setChecked(button_index == index)
+        if self._header_bar is not None and 0 <= index < len(self._rail_buttons):
+            self._header_bar.set_current_location(self._rail_buttons[index].text())
 
     def _open_in_viewer(self, book_id: int, page_number: int) -> None:
         """Load a book into the Viewer and switch to it.
@@ -209,13 +299,14 @@ class MainWindow(QMainWindow):
 
         if (
             self._viewer_screen is not None
+            and self._workspace_screen is not None
             and self._viewer_screen.load_book(book_id, bookmarked_pages=bookmarked_pages)
             and self._viewer_screen.has_content()
         ):
             self._viewer_screen.jump_to_page_number(page_number)
-            self._viewer_stack.setCurrentWidget(self._viewer_screen)
             self._recent_books.record_open(book_id, page_number)
-            self._show_screen(1)
+            self._workspace_screen.show_reader(self._viewer_screen)
+            self._show_screen(_WORKSPACE_STACK_INDEX)
             self._offer_pdf_fallback(book_id)
             return
 
@@ -278,7 +369,7 @@ class MainWindow(QMainWindow):
         """Load a real PDF into `PdfViewerScreen` and switch to it."""
         if self._pdf_viewer_screen is None or self._bookmarks is None or self._recent_books is None:
             return
-        if self._browser is None:
+        if self._browser is None or self._workspace_screen is None:
             return
         bookmarked_pages = self._bookmarks.list_bookmarked_pages(book_id)
         metadata = self._browser.get_book_metadata(book_id)
@@ -291,9 +382,9 @@ class MainWindow(QMainWindow):
         )
         if loaded:
             self._pdf_viewer_screen.jump_to_page_number(page_number)
-            self._viewer_stack.setCurrentWidget(self._pdf_viewer_screen)
             self._recent_books.record_open(book_id, page_number)
-            self._show_screen(1)
+            self._workspace_screen.show_reader(self._pdf_viewer_screen)
+            self._show_screen(_WORKSPACE_STACK_INDEX)
 
     def _on_bookmark_toggled(self, book_id: int, page_number: int, is_bookmarked: bool) -> None:
         if self._bookmarks is not None:

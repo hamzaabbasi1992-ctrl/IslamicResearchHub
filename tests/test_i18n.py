@@ -9,7 +9,9 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QSettings, Qt  # noqa: E402
 
 from islamic_research_hub.interfaces.desktop_app.i18n import (  # noqa: E402
+    _TRANSLATIONS,
     DEFAULT_LANGUAGE,
+    LANGUAGES,
     Translator,
 )
 
@@ -92,3 +94,16 @@ def test_language_choice_persists_across_translator_instances(tmp_path: Path) ->
     second_translator = Translator(settings)
 
     assert second_translator.language == "ar"
+
+
+def test_every_language_defines_exactly_the_same_translation_keys() -> None:
+    """A key present in one language but missing in another silently falls
+    back to English (`tr()`'s own documented behavior) instead of failing
+    loudly - this test is the loud failure, so a new key added for one
+    language isn't forgotten for the other two."""
+    key_sets = {language: frozenset(keys) for language, keys in _TRANSLATIONS.items()}
+
+    assert set(key_sets) == set(LANGUAGES)
+    english_keys = key_sets[DEFAULT_LANGUAGE]
+    for language, keys in key_sets.items():
+        assert keys == english_keys, f"{language} translation keys differ from English"

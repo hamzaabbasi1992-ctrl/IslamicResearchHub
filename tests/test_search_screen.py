@@ -8,7 +8,7 @@ import pytest
 pytest.importorskip("PySide6")
 
 from PySide6.QtCore import Qt  # noqa: E402
-from PySide6.QtWidgets import QPushButton  # noqa: E402
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Category, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
@@ -80,6 +80,131 @@ def test_search_screen_shows_ranked_results(qtbot, tmp_path: Path) -> None:
 
     assert "1 content result" in screen._status_label.text()
     assert screen._results_layout.count() == 2  # one card + the trailing stretch
+
+
+def _seed_two_matching_books(database_path: Path) -> None:
+    """Two real books that both match the same query, for keyboard-nav tests."""
+    book_one = Book(
+        information={"Name": "Book One", "ANAME": "Author One"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence, part one", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_one,), (database_path.parent / "one.mjbz",)
+    )
+    book_two = Book(
+        information={"Name": "Book Two", "ANAME": "Author Two"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "The rules of jurisprudence, part two", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book_two,), (database_path.parent / "two.mjbz",)
+    )
+
+
+def test_arrow_keys_move_selection_through_result_cards(qtbot, tmp_path: Path) -> None:
+    """Search UX: Down/Up arrows move a real, visible selection through
+    results without needing to click - keyboard-only navigation."""
+    database_path = tmp_path / "books.db"
+    _seed_two_matching_books(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Down)
+    assert screen._selected_card_index == 0
+
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Down)
+    assert screen._selected_card_index == 1
+
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Up)
+    assert screen._selected_card_index == 0
+
+
+def test_enter_opens_the_selected_result(qtbot, tmp_path: Path) -> None:
+    """Pressing Enter with a card selected opens it, instead of re-searching."""
+    database_path = tmp_path / "books.db"
+    _seed_two_matching_books(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Down)
+
+    with qtbot.waitSignal(screen.open_in_viewer_requested, timeout=1000) as blocker:
+        qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    assert blocker.args[1] == 1  # target page
+
+
+def test_copy_citation_button_on_a_result_card_copies_a_real_citation(
+    qtbot, tmp_path: Path
+) -> None:
+    """Search UX: Copy Citation is available directly on result cards, not
+    just in the reader - reuses the existing format_citation(), no new backend."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+
+    card = screen._results_layout.itemAt(0).widget()
+    citation_button = next(b for b in card.findChildren(QPushButton) if b.text() == "Copy citation")
+    citation_button.click()
+
+    from PySide6.QtGui import QGuiApplication
+
+    assert "Book of Fiqh" in QGuiApplication.clipboard().text()
+
+
+def test_result_card_excerpt_is_capped_to_a_dense_desktop_height(
+    qtbot, tmp_path: Path
+) -> None:
+    """Layout Audit fix: excerpts no longer grow unbounded (the 'mobile
+    card' complaint) - a real, enforced max height caps them to ~2 lines."""
+    from islamic_research_hub.interfaces.desktop_app.search_screen import (
+        _EXCERPT_MAX_HEIGHT_PX,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+
+    card = screen._results_layout.itemAt(0).widget()
+    assert isinstance(card, QFrame)
+    excerpt_labels = [
+        label
+        for label in card.findChildren(QLabel)
+        if label.maximumHeight() == _EXCERPT_MAX_HEIGHT_PX
+    ]
+    assert len(excerpt_labels) == 1
+
+
+def test_results_and_detail_panes_have_no_redundant_native_frame(
+    qtbot, tmp_path: Path
+) -> None:
+    """Layout Audit fix: both scroll areas previously rendered a native Qt
+    frame stacked on top of their own #resultCard QSS border - a real,
+    doubled-border artifact found during the audit."""
+    from PySide6.QtWidgets import QScrollArea
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    detail_pane = next(
+        area for area in screen.findChildren(QScrollArea) if area.widget() is screen._detail_content
+    )
+    assert screen._results_area.frameShape() == QFrame.Shape.NoFrame
+    assert detail_pane.frameShape() == QFrame.Shape.NoFrame
 
 
 def test_search_screen_shows_no_results_message(qtbot, tmp_path: Path) -> None:
@@ -698,3 +823,50 @@ def test_browse_filter_narrows_the_real_author_list(qtbot, tmp_path: Path) -> No
     buttons_by_name = dict(screen._author_row_buttons)
     assert buttons_by_name["Someone Else"].isHidden() is True
     assert buttons_by_name["Author One"].isHidden() is False
+
+
+def test_running_a_search_records_it_in_recent_searches(qtbot, tmp_path: Path) -> None:
+    """Running a real search adds the query to the recent-searches store."""
+    from PySide6.QtCore import QSettings
+
+    from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    store = RecentSearchStore(settings)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", recent_search_store=store)
+    qtbot.addWidget(screen)
+
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+
+    assert store.list_recent() == ["jurisprudence"]
+
+
+def test_search_box_has_a_completer_seeded_from_authors_and_recent_searches(
+    qtbot, tmp_path: Path
+) -> None:
+    """The search box offers real author/category/recent-search suggestions."""
+    from PySide6.QtCore import QSettings
+
+    from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    RecentSearchStore(settings).record("a prior search")
+    screen = SearchScreen(
+        database_path,
+        tmp_path / "maknoon_pdfs",
+        recent_search_store=RecentSearchStore(settings),
+    )
+    qtbot.addWidget(screen)
+
+    completer = screen._query_edit.completer()
+
+    assert completer is not None
+    model = completer.model()
+    suggestions = {model.index(row, 0).data() for row in range(model.rowCount())}
+    assert "Author One" in suggestions
+    assert "a prior search" in suggestions

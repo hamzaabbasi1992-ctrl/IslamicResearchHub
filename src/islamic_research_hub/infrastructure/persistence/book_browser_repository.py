@@ -4,7 +4,7 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from islamic_research_hub.domain.models.book import Page
+from islamic_research_hub.domain.models.book import Chapter, Page
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
 from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
@@ -102,22 +102,86 @@ class BookBrowserRepository:
         category: str | None = None,
         exact: bool = False,
     ) -> tuple[BookSummary, ...]:
-        """Return real books whose title contains this query, script/diacritic-tolerant.
+        """Return real books matching this query by title/author, ranked by
+        real full-text relevance (bm25) via `BooksFTS`/`BooksFTSNormalized`
+        (migration 15) - previously a plain `LIKE` scan in fixed
+        alphabetical order, the weakest of this project's independent
+        search indexes.
 
         Uses the same diacritic/letter-form/cross-keyboard normalization
-        search already applies to page content (e.g. Arabic yeh "ي" vs
-        Urdu yeh "ی", Arabic kaf "ك" vs Urdu keheh "ک") so a title search
-        is just as tolerant of real spelling variation - typed in whichever
-        script the book's own title is actually in. This does not
-        translate/transliterate between scripts (typing "Bukhari" won't
-        find "صحيح البخاري") - only real spelling-variant tolerance within
-        the same script, same as content search. `library`/`author`/
-        `category` are the same exact-match filters content search uses.
-        `exact=True` requires literal spelling (no normalization at all).
+        page-content search already applies (e.g. Arabic yeh "ي" vs Urdu
+        yeh "ی", Arabic kaf "ك" vs Urdu keheh "ک") so a title search is
+        just as tolerant of real spelling variation, typed in whichever
+        script the book's own title is actually in. `exact=True` requires
+        literal spelling and always uses the plain `BooksFTS` index.
+        `library`/`author`/`category` are the same exact-match filters
+        content search uses.
+
+        Real, honest behavior change from the old substring scan: matching
+        is now whole-word/phrase (the same FTS5 tokenizer content search
+        already uses), not an arbitrary substring - "Bar" no longer
+        matches "Bari" the way `LIKE '%...%'` did, but ranking is now real
+        relevance instead of a fixed alphabetical order, and a query like
+        a quoted "exact phrase" or `AND`/`OR`/`NOT` now works here too,
+        consistent with content search. Falls back to the old `LIKE` scan
+        on a database that's been imported but not yet migrated.
         """
         query = query.strip()
         if not query:
             return ()
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            if not self._table_exists(connection, "BooksFTS"):
+                return self._search_by_title_like(
+                    connection, query, limit, library, author, category, exact
+                )
+
+            use_normalized_index = not exact and self._table_exists(
+                connection, "BooksFTSNormalized"
+            )
+            fts_table = "BooksFTSNormalized" if use_normalized_index else "BooksFTS"
+            match_query = normalize_search_text(query) if use_normalized_index else query
+
+            conditions = [f"{fts_table} MATCH ?"]
+            parameters: list[object] = [match_query]
+            if library is not None:
+                conditions.append("l.Name = ?")
+                parameters.append(library)
+            if author is not None:
+                conditions.append("b.Author = ?")
+                parameters.append(author)
+            if category is not None:
+                conditions.append(
+                    "EXISTS (SELECT 1 FROM Categories c WHERE c.BookID = b.BookID AND c.Name = ?)"
+                )
+                parameters.append(category)
+            parameters.append(limit)
+
+            rows = connection.execute(
+                f"""
+                SELECT b.BookID, b.Title, b.Author, l.Name
+                FROM {fts_table}
+                JOIN Books b ON b.BookID = {fts_table}.rowid
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE {" AND ".join(conditions)}
+                ORDER BY rank
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    @staticmethod
+    def _search_by_title_like(
+        connection: sqlite3.Connection,
+        query: str,
+        limit: int,
+        library: str | None,
+        author: str | None,
+        category: str | None,
+        exact: bool,
+    ) -> tuple[BookSummary, ...]:
+        """Substring fallback for a database that hasn't run migration 15 yet."""
         if exact:
             title_match_expression = "b.Title"
             match_value = query
@@ -140,19 +204,78 @@ class BookBrowserRepository:
             parameters.append(category)
         parameters.append(limit)
 
+        rows = connection.execute(
+            f"""
+            SELECT b.BookID, b.Title, b.Author, l.Name
+            FROM Books b
+            LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+            WHERE {" AND ".join(conditions)}
+            ORDER BY b.Title
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    def get_volume_siblings(self, book_id: int) -> tuple[BookSummary, ...]:
+        """Return every other real book that's a volume of the same work as
+        `book_id`, ordered by volume number.
+
+        Uses `Series`/`Books.VolumeNumber` (migration 4) - a `Books` row
+        already *is* one physical volume, so this reads that existing
+        relationship rather than adding a second `Volumes` table (which
+        would just create two sources of truth for the same fact). Only
+        2,501 of 15,162 titles carry a parseable volume suffix
+        (`_parse_volume_title`'s own docstring), so a book with no
+        detected series membership honestly returns an empty tuple, not
+        an error.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            if not self._table_exists(connection, "Series"):
+                return ()
+            row = connection.execute(
+                "SELECT SeriesID FROM Books WHERE BookID = ?", (book_id,)
+            ).fetchone()
+            if row is None or row[0] is None:
+                return ()
+            series_id = row[0]
+            rows = connection.execute(
+                """
+                SELECT b.BookID, b.Title, b.Author, l.Name
+                FROM Books b
+                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                WHERE b.SeriesID = ? AND b.BookID != ?
+                ORDER BY b.VolumeNumber
+                """,
+                (series_id, book_id),
+            ).fetchall()
+        return tuple(BookSummary(*row) for row in rows)
+
+    def list_books_by_ids(self, book_ids: tuple[int, ...]) -> dict[int, BookSummary]:
+        """Return real book summaries (title/author/library) for a batch of
+        book IDs, keyed by BookID, in a single query.
+
+        The efficient alternative to calling `get_book_source()`/
+        `get_book_detail()` once per book in a loop - `get_book_detail()`
+        in particular fetches a book's *entire* page content, which is
+        wasteful when only the title is needed (confirmed as a real
+        25-second startup cost in `DuplicateManagerScreen`, which was
+        doing exactly that for every duplicate-candidate pair).
+        """
+        if not book_ids:
+            return {}
+        placeholders = ", ".join("?" for _ in book_ids)
         with closing(sqlite3.connect(self._database_path)) as connection:
             rows = connection.execute(
                 f"""
                 SELECT b.BookID, b.Title, b.Author, l.Name
                 FROM Books b
                 LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
-                WHERE {" AND ".join(conditions)}
-                ORDER BY b.Title
-                LIMIT ?
+                WHERE b.BookID IN ({placeholders})
                 """,
-                parameters,
+                book_ids,
             ).fetchall()
-        return tuple(BookSummary(*row) for row in rows)
+        return {row[0]: BookSummary(*row) for row in rows}
 
     def list_books_by_filters(
         self,
@@ -234,6 +357,32 @@ class BookBrowserRepository:
             for index, row in enumerate(page_rows, start=1)
         )
         return (book_row["Title"], book_row["Author"], pages)
+
+    def list_chapters(self, book_id: int) -> tuple[Chapter, ...]:
+        """Return one book's real table-of-contents, as a parent/child tree.
+
+        Reads the existing `Chapters` table (populated by every importer
+        already, never queried by any UI before now) - real data, no new
+        persistence, the same "expose already-imported data" shape as
+        this repository's other read methods.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            rows = connection.execute(
+                "SELECT ChapterID, ParentChapterID, Title, PageNo, SortKey "
+                "FROM Chapters WHERE BookID = ? ORDER BY SortKey, ChapterID",
+                (book_id,),
+            ).fetchall()
+        flat = tuple(
+            Chapter(
+                title_id=chapter_id,
+                title=title,
+                page_number=page_no,
+                parent_id=parent_chapter_id,
+                sort_key=sort_key,
+            )
+            for chapter_id, parent_chapter_id, title, page_no, sort_key in rows
+        )
+        return _build_chapter_tree(flat)
 
     def get_book_metadata(self, book_id: int) -> BookMetadata | None:
         """Return one book's full catalog metadata, or None if it doesn't exist.
@@ -432,6 +581,31 @@ def _build_category_tree(
                 children=build(mjcn),
             )
             for mjcn, name, count in children_by_parent.get(parent_mjcn, ())
+        )
+
+    return build(None)
+
+
+def _build_chapter_tree(flat: tuple[Chapter, ...]) -> tuple[Chapter, ...]:
+    """Assemble flat, already-ordered `Chapter` rows (with `parent_id`) into
+    a real tree - same shape as `_build_category_tree` above."""
+    by_id = {chapter.title_id: chapter for chapter in flat}
+    children_by_parent: dict[int | None, list[Chapter]] = {}
+    for chapter in flat:
+        parent_id = chapter.parent_id if chapter.parent_id in by_id else None
+        children_by_parent.setdefault(parent_id, []).append(chapter)
+
+    def build(parent_id: int | None) -> tuple[Chapter, ...]:
+        return tuple(
+            Chapter(
+                title_id=chapter.title_id,
+                title=chapter.title,
+                page_number=chapter.page_number,
+                parent_id=chapter.parent_id,
+                sort_key=chapter.sort_key,
+                children=build(chapter.title_id),
+            )
+            for chapter in children_by_parent.get(parent_id, ())
         )
 
     return build(None)

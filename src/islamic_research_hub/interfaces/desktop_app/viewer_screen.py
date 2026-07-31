@@ -3,32 +3,52 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QScrollArea,
+    QSplitter,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from islamic_research_hub.domain.models.book import Chapter
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
+from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
     DEFAULT_FONT_CHOICE,
     FONT_CHOICES,
     resolve_installed_font_family,
 )
-from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
+from islamic_research_hub.interfaces.desktop_app.theme import (
+    MUTED_LABEL_STYLE,
+    RTL_TEXT_STYLE,
+    Spacing,
+    Type,
+)
+from islamic_research_hub.shared.citation_formatting import format_citation
 
 MIN_FONT_PX = 13
 MAX_FONT_PX = 30
 DEFAULT_FONT_PX = 19
 FONT_STEP_PX = 1.5
+MAX_READING_COLUMN_WIDTH = 820
+"""Caps reading-content width to a real typeset column (Acrobat/Zotero
+convention) instead of text filling the whole width of a wide monitor."""
+NAV_PANEL_WIDTH = 240
 
 
 class ViewerScreen(QWidget):
@@ -52,15 +72,18 @@ class ViewerScreen(QWidget):
         self._font_px = initial_font_px or DEFAULT_FONT_PX
         self._font_family = initial_font_family or DEFAULT_FONT_CHOICE
         self._current_book_id: int | None = None
+        self._current_title: str | None = None
+        self._current_volume_number: int | None = None
         self._bookmarked_pages: set[int] = set()
+        self._nav_panel_animation = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._empty_label = QLabel("Open a book from Search to read it here.")
-        self._empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty_label.setStyleSheet(f"{MUTED_LABEL_STYLE} padding: 2rem;")
+        self._empty_label = EmptyStateLabel(
+            "Open a book from Search to read it here.", centered=True
+        )
         layout.addWidget(self._empty_label)
 
         self._reader = QWidget()
@@ -75,7 +98,7 @@ class ViewerScreen(QWidget):
         self._title_label.setStyleSheet(f"font-size: 16px; font-weight: 700; {RTL_TEXT_STYLE}")
         self._title_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._author_label = QLabel()
-        self._author_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        self._author_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         self._author_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         header.addWidget(self._title_label)
         header.addWidget(self._author_label)
@@ -100,6 +123,13 @@ class ViewerScreen(QWidget):
 
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(16, 4, 16, 8)
+        self._contents_button = QPushButton("Contents")
+        self._contents_button.setCheckable(True)
+        self._contents_button.setChecked(True)
+        self._contents_button.setToolTip("Show/hide this book's table of contents and bookmarks.")
+        self._contents_button.toggled.connect(self._on_contents_toggled)
+        toolbar.addWidget(self._contents_button)
+
         self._prev_button = QPushButton("Prev")
         self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
@@ -126,8 +156,15 @@ class ViewerScreen(QWidget):
         self._bookmark_button = QPushButton("Bookmark this page")
         self._bookmark_button.setIcon(button_icon("bookmark"))
         self._bookmark_button.setIconSize(button_icon_size())
-        self._bookmark_button.clicked.connect(self._toggle_bookmark)
+        self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
+
+        self._copy_citation_button = QPushButton("Copy citation")
+        self._copy_citation_button.setToolTip(
+            "Copy a citation for the current page to the clipboard."
+        )
+        self._copy_citation_button.clicked.connect(self.copy_citation)
+        toolbar.addWidget(self._copy_citation_button)
 
         self._font_family_combo = QComboBox()
         for display_name, _font_stack in FONT_CHOICES:
@@ -149,19 +186,107 @@ class ViewerScreen(QWidget):
 
         reader_layout.addLayout(toolbar)
 
+        self._body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._body_splitter.addWidget(self._build_nav_panel())
+
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self._content_label = QLabel()
         self._content_label.setWordWrap(True)
         self._content_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._content_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._content_label.setMaximumWidth(MAX_READING_COLUMN_WIDTH)
         self._content_label.setStyleSheet(f"padding: 16px 24px; {RTL_TEXT_STYLE}")
         scroll_area.setWidget(self._content_label)
-        reader_layout.addWidget(scroll_area, stretch=1)
+        self._body_splitter.addWidget(scroll_area)
+        self._body_splitter.setStretchFactor(0, 0)
+        self._body_splitter.setStretchFactor(1, 1)
+        self._body_splitter.setCollapsible(1, False)
+        self._body_splitter.setSizes([NAV_PANEL_WIDTH, 1])
+        reader_layout.addWidget(self._body_splitter, stretch=1)
 
         layout.addWidget(self._reader, stretch=1)
         self._apply_font_size()
+
+    def _build_nav_panel(self) -> QWidget:
+        panel = QWidget()
+        panel.setObjectName("searchLeftPane")
+        panel.setMinimumWidth(180)
+        panel.setMaximumWidth(360)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        layout.setSpacing(Spacing.XS)
+
+        contents_label = QLabel("Contents")
+        contents_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(contents_label)
+        self._toc_tree = QTreeWidget()
+        self._toc_tree.setHeaderHidden(True)
+        # Typography fix: real Arabic/Urdu chapter titles need RTL layout
+        # direction, matching search_screen.py's category tree.
+        self._toc_tree.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self._toc_tree.itemClicked.connect(self._on_toc_item_clicked)
+        layout.addWidget(self._toc_tree, stretch=2)
+
+        bookmarks_label = QLabel("Bookmarks")
+        bookmarks_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(bookmarks_label)
+        self._bookmarks_list = QListWidget()
+        self._bookmarks_list.itemClicked.connect(self._on_bookmark_item_clicked)
+        layout.addWidget(self._bookmarks_list, stretch=1)
+
+        return panel
+
+    def _on_contents_toggled(self, checked: bool) -> None:
+        target = NAV_PANEL_WIDTH if checked else 0
+        self._nav_panel_animation = animate_splitter_size(self._body_splitter, index=0, end=target)
+
+    def _on_toc_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
+        page_number = item.data(0, Qt.ItemDataRole.UserRole)
+        if page_number is not None:
+            self.jump_to_page_number(page_number)
+
+    def _on_bookmark_item_clicked(self, item: QListWidgetItem) -> None:
+        page_number = item.data(Qt.ItemDataRole.UserRole)
+        if page_number is not None:
+            self.jump_to_page_number(page_number)
+
+    def _reload_toc(self, book_id: int) -> None:
+        self._toc_tree.clear()
+        for chapter in self._browser.list_chapters(book_id):
+            self._toc_tree.addTopLevelItem(_chapter_tree_item(chapter))
+
+    def _reload_bookmarks_list(self) -> None:
+        self._bookmarks_list.clear()
+        for page_number in sorted(self._bookmarked_pages):
+            item = QListWidgetItem(f"Page {page_number}")
+            item.setData(Qt.ItemDataRole.UserRole, page_number)
+            self._bookmarks_list.addItem(item)
+
+    def copy_citation(self) -> None:
+        """Copy a real citation for the current page to the clipboard.
+
+        Uses `format_citation()` (already built, unrelated feature) with
+        whatever's already loaded - title, volume number, and the real
+        current page. Paragraph index defaults to 1 (true for the
+        overwhelming majority of pages - most pages have exactly one
+        real paragraph, per the Paragraphs backfill's own data), since
+        the reader has no paragraph-level cursor to know a more precise
+        one.
+        """
+        page_number = self.current_page_number()
+        if self._current_title is None or page_number is None:
+            return
+        citation = format_citation(
+            self._current_title,
+            page_number,
+            paragraph_index=1,
+            volume_number=self._current_volume_number,
+        )
+        QGuiApplication.clipboard().setText(citation)
 
     def load_book(self, book_id: int, bookmarked_pages: set[int] | None = None) -> bool:
         """Load one book's pages into the viewer. Returns False if not found."""
@@ -169,15 +294,20 @@ class ViewerScreen(QWidget):
         if detail is None:
             return False
         title, author, pages = detail
+        metadata = self._browser.get_book_metadata(book_id)
         self._pages = pages
         self._current_index = 0
         self._current_book_id = book_id
+        self._current_title = title
+        self._current_volume_number = metadata.volume_number if metadata else None
         self._bookmarked_pages = set(bookmarked_pages or ())
         self._title_label.setText(title or "(untitled)")
         self._author_label.setText(author or "Unknown author")
         self._empty_label.setVisible(False)
         self._reader.setVisible(True)
         self._pdf_fallback_banner.setVisible(False)
+        self._reload_toc(book_id)
+        self._reload_bookmarks_list()
         self._render_current_page()
         return True
 
@@ -251,7 +381,8 @@ class ViewerScreen(QWidget):
         """Return the book id of the currently loaded book, if any."""
         return self._current_book_id
 
-    def _toggle_bookmark(self) -> None:
+    def toggle_bookmark(self) -> None:
+        """Toggle the bookmark on the current page (also reachable via Ctrl+B)."""
         page_number = self.current_page_number()
         if self._current_book_id is None or page_number is None:
             return
@@ -261,6 +392,7 @@ class ViewerScreen(QWidget):
         else:
             self._bookmarked_pages.discard(page_number)
         self._update_bookmark_button()
+        self._reload_bookmarks_list()
         self.bookmark_toggled.emit(self._current_book_id, page_number, now_bookmarked)
 
     def _update_bookmark_button(self) -> None:
@@ -288,3 +420,11 @@ def _font_stack_for(display_name: str) -> str:
         if name == display_name:
             return font_stack
     return FONT_CHOICES[0][1]
+
+
+def _chapter_tree_item(chapter: Chapter) -> QTreeWidgetItem:
+    item = QTreeWidgetItem([chapter.title or "(untitled)"])
+    item.setData(0, Qt.ItemDataRole.UserRole, chapter.page_number)
+    for child in chapter.children:
+        item.addChild(_chapter_tree_item(child))
+    return item

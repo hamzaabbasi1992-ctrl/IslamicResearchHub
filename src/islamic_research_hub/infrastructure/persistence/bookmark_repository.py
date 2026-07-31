@@ -4,6 +4,8 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
+from islamic_research_hub.domain.models.recent_bookmark import RecentBookmark
+
 
 class BookmarkRepository:
     """Create/remove/list real bookmarks against the `BookBookmarks` table."""
@@ -57,6 +59,28 @@ class BookmarkRepository:
                 "SELECT PageNo FROM BookBookmarks WHERE BookID = ?", (book_id,)
             ).fetchall()
         return {row[0] for row in rows}
+
+    def list_recent_bookmarks(self, limit: int = 5) -> tuple[RecentBookmark, ...]:
+        """Return the most recently created real bookmarks, across every
+        book, most recent first - reads the existing `BookBookmarks`/
+        `Books` tables (`CreatedAt` already tracked at creation), no new
+        persistence. Real Home-dashboard consumer, first one this table
+        has had beyond the per-book `list_bookmarked_pages()` lookup.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            if not self._table_exists(connection):
+                return ()
+            rows = connection.execute(
+                """
+                SELECT bm.BookID, bm.PageNo, b.Title
+                FROM BookBookmarks bm
+                JOIN Books b ON b.BookID = bm.BookID
+                ORDER BY bm.CreatedAt DESC, bm.rowid DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return tuple(RecentBookmark(*row) for row in rows)
 
     @staticmethod
     def _table_exists(connection: sqlite3.Connection) -> bool:

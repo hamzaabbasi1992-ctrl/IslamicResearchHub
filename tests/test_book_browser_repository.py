@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-from islamic_research_hub.domain.models.book import Book, Category, Page
+from islamic_research_hub.domain.models.book import Book, Category, Chapter, Page
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
@@ -111,6 +111,39 @@ def test_get_book_detail_returns_none_for_unknown_book(tmp_path: Path) -> None:
     _seed_database(database_path)
 
     assert BookBrowserRepository(database_path).get_book_detail(9999) is None
+
+
+def test_list_chapters_returns_a_real_parent_child_tree(tmp_path: Path) -> None:
+    """A book's real Chapters rows come back as a proper hierarchy, not a flat list."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book With Chapters"},
+        categories=(),
+        table_of_contents=(
+            Chapter(title_id=1, title="Book One", page_number=1, parent_id=None, sort_key=0),
+            Chapter(title_id=2, title="Chapter One", page_number=1, parent_id=1, sort_key=1),
+            Chapter(title_id=3, title="Chapter Two", page_number=5, parent_id=1, sort_key=2),
+        ),
+        pages=(Page(1, 1, "Content", "Plain"), Page(2, 5, "More content", "Plain")),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+
+    tree = BookBrowserRepository(database_path).list_chapters(1)
+
+    assert len(tree) == 1
+    assert tree[0].title == "Book One"
+    assert [child.title for child in tree[0].children] == ["Chapter One", "Chapter Two"]
+    assert tree[0].children[1].page_number == 5
+
+
+def test_list_chapters_returns_empty_for_a_book_with_no_toc(tmp_path: Path) -> None:
+    """A book with no real table-of-contents returns an empty tree, not an error."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    assert BookBrowserRepository(database_path).list_chapters(1) == ()
 
 
 def test_get_book_metadata_returns_full_real_details(tmp_path: Path) -> None:
@@ -430,3 +463,168 @@ def test_search_by_title_returns_nothing_for_an_empty_query(tmp_path: Path) -> N
     _seed_database(database_path)
 
     assert BookBrowserRepository(database_path).search_by_title("   ") == ()
+
+
+def test_search_by_title_uses_the_real_fts5_index_when_migrated(tmp_path: Path) -> None:
+    """Once migration 15 has run, title search is ranked by bm25, not alphabetical."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    summaries = BookBrowserRepository(database_path).search_by_title("Hadith")
+
+    assert len(summaries) == 1
+    assert summaries[0].title == "Book of Hadith"
+
+
+def test_search_by_title_ranks_a_stronger_title_match_first(tmp_path: Path) -> None:
+    """A book whose title matches the query in more places ranks ahead via bm25."""
+    database_path = tmp_path / "books.db"
+    strong_match = Book(
+        information={"Name": "Fiqh of Fiqh: A Study of Fiqh"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    weak_match = Book(
+        information={"Name": "A General Islamic Studies Fiqh Primer"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (weak_match, strong_match),
+        (database_path.parent / "weak.mjbz", database_path.parent / "strong.mjbz"),
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    summaries = BookBrowserRepository(database_path).search_by_title("Fiqh")
+
+    assert len(summaries) == 2
+    assert summaries[0].title == "Fiqh of Fiqh: A Study of Fiqh"
+
+
+def test_search_by_title_normalized_index_tolerates_cross_keyboard_variants(
+    tmp_path: Path,
+) -> None:
+    """After migration, the normalized index still tolerates real spelling
+    variants (e.g. Arabic ك vs Urdu ک), same as the pre-migration LIKE scan."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "کتاب علی الفقه"},
+        categories=(), table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    tolerant = BookBrowserRepository(database_path).search_by_title("علي")
+    exact = BookBrowserRepository(database_path).search_by_title("علي", exact=True)
+
+    assert len(tolerant) == 1
+    assert exact == ()
+
+
+def test_search_by_title_respects_filters_on_the_fts5_path(tmp_path: Path) -> None:
+    """library/author/category filters still apply once BooksFTS is in use."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    in_library_a = BookBrowserRepository(database_path).search_by_title(
+        "Hadith", library="Library A"
+    )
+    in_library_b = BookBrowserRepository(database_path).search_by_title(
+        "Hadith", library="Library B"
+    )
+
+    assert in_library_a == ()
+    assert len(in_library_b) == 1
+
+
+def _seed_volume_series(database_path: Path, base_title: str, volumes: int) -> None:
+    """Import real books whose titles form a detected multi-volume series."""
+    for volume in range(1, volumes + 1):
+        book = Book(
+            information={"Name": f"{base_title} جلد {volume}"},
+            categories=(),
+            table_of_contents=(),
+            pages=(Page(1, 1, "Content", "Plain"),),
+        )
+        MasterBookRepository().import_books(
+            database_path, (book,), (database_path.parent / f"vol{volume}.mjbz",)
+        )
+
+
+def test_get_volume_siblings_returns_the_other_real_volumes_in_order(tmp_path: Path) -> None:
+    """Every other volume of the same detected series comes back, in volume order."""
+    database_path = tmp_path / "books.db"
+    _seed_volume_series(database_path, "کفایت المفتی", volumes=3)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+        volume_two_id = connection.execute(
+            "SELECT BookID FROM Books WHERE VolumeNumber = 2"
+        ).fetchone()[0]
+
+    siblings = BookBrowserRepository(database_path).get_volume_siblings(volume_two_id)
+
+    assert [s.title for s in siblings] == ["کفایت المفتی جلد 1", "کفایت المفتی جلد 3"]
+
+
+def test_get_volume_siblings_is_honestly_empty_for_a_standalone_book(tmp_path: Path) -> None:
+    """A book with no detected series membership returns nothing, not an error."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+        book_id = connection.execute(
+            "SELECT BookID FROM Books WHERE Title = 'Book of Fiqh'"
+        ).fetchone()[0]
+
+    siblings = BookBrowserRepository(database_path).get_volume_siblings(book_id)
+
+    assert siblings == ()
+
+
+def test_get_volume_siblings_is_safe_on_an_unmigrated_database(tmp_path: Path) -> None:
+    """No Series table yet degrades gracefully instead of raising."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    assert BookBrowserRepository(database_path).get_volume_siblings(1) == ()
+
+
+def test_list_books_by_ids_returns_a_real_summary_per_id_in_one_query(tmp_path: Path) -> None:
+    """A batch lookup returns every requested book's real title/author/library,
+    keyed by BookID - the efficient alternative to one query per book."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_by_ids((1, 2))
+
+    assert summaries[1].title == "Book of Fiqh"
+    assert summaries[1].library == "Library A"
+    assert summaries[2].title == "Book of Hadith"
+    assert summaries[2].library == "Library B"
+
+
+def test_list_books_by_ids_omits_ids_that_do_not_exist(tmp_path: Path) -> None:
+    """A requested ID with no matching book is simply absent, not an error."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    summaries = BookBrowserRepository(database_path).list_books_by_ids((1, 999))
+
+    assert set(summaries.keys()) == {1}
+
+
+def test_list_books_by_ids_returns_empty_for_an_empty_request(tmp_path: Path) -> None:
+    """An empty id tuple returns an empty dict without querying."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    assert BookBrowserRepository(database_path).list_books_by_ids(()) == {}

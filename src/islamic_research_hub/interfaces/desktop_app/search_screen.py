@@ -4,11 +4,12 @@ import logging
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QEvent, QObject, QSettings, QUrl, Qt, Signal
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeyEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QCompleter,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSplitter,
     QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -45,7 +47,13 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import (
+    SETTINGS_APPLICATION,
+    SETTINGS_ORGANIZATION,
+)
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
+from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
 from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
 )
@@ -53,8 +61,11 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
     MUTED_LABEL_STYLE,
     RTL_TEXT_STYLE,
     SURFACE_RAISED,
+    Spacing,
+    Type,
 )
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
+from islamic_research_hub.shared.citation_formatting import format_citation
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
 
 LOGGER = logging.getLogger(__name__)
@@ -63,6 +74,9 @@ DEFAULT_LIMIT = 30
 ALL_LIBRARIES_LABEL = "All libraries"
 LEFT_PANE_WIDTH = 230
 RIGHT_PANE_WIDTH = 260
+_EXCERPT_MAX_HEIGHT_PX = 40
+"""Caps a result card's excerpt to ~2 lines (Type.BODY=13px x 150% line-height
+x 2) - dense desktop result rows instead of unbounded, mobile-card-style growth."""
 
 
 class SearchScreen(QWidget):
@@ -80,6 +94,7 @@ class SearchScreen(QWidget):
         ratings: BookRatingRepository | None = None,
         semantic_search_service: SemanticBookSearchService | None = None,
         enable_lazy_semantic_search: bool = False,
+        recent_search_store: RecentSearchStore | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -100,13 +115,29 @@ class SearchScreen(QWidget):
         self._semantic_search_service = semantic_search_service
         self._recent_books = recent_books or RecentBookRepository(database_path)
         self._ratings = ratings or BookRatingRepository(database_path)
+        self._recent_searches = recent_search_store or RecentSearchStore(
+            QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
+        )
+        self._selected_card_index = -1
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._build_left_pane())
-        layout.addWidget(self._build_middle_pane(), stretch=1)
-        layout.addWidget(self._build_right_pane())
+        # A QSplitter, not a plain QHBoxLayout, so the browse/detail panes are
+        # user-resizable (and collapsible) instead of permanently fixed-width -
+        # each pane's own internal content/scrolling is unchanged either way.
+        self._splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._splitter.setChildrenCollapsible(False)
+        self._splitter.addWidget(self._build_left_pane())
+        self._splitter.addWidget(self._build_middle_pane())
+        self._splitter.addWidget(self._build_right_pane())
+        self._splitter.setStretchFactor(0, 0)
+        self._splitter.setStretchFactor(1, 1)
+        self._splitter.setStretchFactor(2, 0)
+        self._splitter.setSizes([LEFT_PANE_WIDTH, 640, RIGHT_PANE_WIDTH])
+        layout.addWidget(self._splitter)
+        self._install_search_completer()
+        self._query_edit.installEventFilter(self)
 
     # ---------------------------------------------------------------- left
 
@@ -119,10 +150,15 @@ class SearchScreen(QWidget):
         # wants, and a QTreeWidget's sizeHint wants to show every row at once.
         pane = QWidget()
         pane.setObjectName("searchLeftPane")
-        pane.setFixedWidth(LEFT_PANE_WIDTH)
+        pane.setMinimumWidth(180)
+        # Responsive Desktop fix: no maximum was set, so a manually-dragged
+        # splitter handle could let this nav pane crowd out the results
+        # pane (the primary content) on a wide monitor - it holds a tree/
+        # list, not primary content, so it's capped.
+        pane.setMaximumWidth(420)
         layout = QVBoxLayout(pane)
-        layout.setContentsMargins(12, 14, 12, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.SM)
+        layout.setSpacing(Spacing.XS)
 
         tab_row = QHBoxLayout()
         self._categories_tab_button = QPushButton("Categories")
@@ -227,9 +263,7 @@ class SearchScreen(QWidget):
 
         recent = self._recent_books.list_recent()
         if not recent:
-            empty_label = QLabel("No recently opened books yet.")
-            empty_label.setStyleSheet(MUTED_LABEL_STYLE)
-            empty_label.setWordWrap(True)
+            empty_label = EmptyStateLabel("No recently opened books yet - search for one below.")
             self._recent_list_layout.addWidget(empty_label)
         else:
             for summary in recent:
@@ -352,8 +386,8 @@ class SearchScreen(QWidget):
     def _build_middle_pane(self) -> QWidget:
         pane = QWidget()
         layout = QVBoxLayout(pane)
-        layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(10)
+        layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
+        layout.setSpacing(Spacing.SM)
 
         # The query box is the primary action on this screen, so it gets its
         # own full-width row with a visibly larger height/font, instead of
@@ -431,13 +465,36 @@ class SearchScreen(QWidget):
 
         self._results_area = QScrollArea()
         self._results_area.setWidgetResizable(True)
+        self._results_area.setFrameShape(QFrame.Shape.NoFrame)
         self._results_container = QWidget()
         self._results_layout = QVBoxLayout(self._results_container)
-        self._results_layout.setSpacing(8)
+        self._results_layout.setContentsMargins(0, 0, Spacing.XS, 0)
+        self._results_layout.setSpacing(Spacing.XS)
         self._results_layout.addStretch(1)
         self._results_area.setWidget(self._results_container)
         layout.addWidget(self._results_area, stretch=1)
         return pane
+
+    def focus_search_box(self) -> None:
+        """Move keyboard focus to the search box (also reachable via Ctrl+F/Ctrl+K)."""
+        self._query_edit.setFocus()
+
+    def _install_search_completer(self) -> None:
+        """Attach a QCompleter to the search box from data already loaded for
+        the Categories/Authors tabs, plus recent searches - no new query."""
+        category_names = [
+            node.name for node in _flatten_categories(self._browser.get_category_tree())
+        ]
+        author_names = [name for name, _button in self._author_row_buttons]
+        suggestions = list(
+            dict.fromkeys(  # de-duplicated, order-preserving
+                self._recent_searches.list_recent() + author_names + category_names
+            )
+        )
+        completer = QCompleter(suggestions, self)
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self._query_edit.setCompleter(completer)
 
     def _on_exact_match_toggled(self, _checked: bool) -> None:
         if self._query_edit.text().strip():
@@ -473,6 +530,8 @@ class SearchScreen(QWidget):
             else:
                 self._status_label.setText("")
             return
+
+        self._recent_searches.record(query)
 
         # Book-name search and content search each run only when the real
         # "Search in" choice includes them - "Name + content" (the default)
@@ -663,15 +722,93 @@ class SearchScreen(QWidget):
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+        self._selected_card_index = -1
+
+    # ----------------------------------------------------- keyboard nav
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Arrow keys move a real selection through the result cards; Enter
+        opens the selected one - keyboard-only result navigation, the
+        query box stays focused throughout (no click needed)."""
+        if watched is self._query_edit and event.type() == QEvent.Type.KeyPress:
+            key_event = event
+            if isinstance(key_event, QKeyEvent):
+                if key_event.key() == Qt.Key.Key_Down:
+                    self._move_selection(1)
+                    return True
+                if key_event.key() == Qt.Key.Key_Up:
+                    self._move_selection(-1)
+                    return True
+                if key_event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    if self._selected_card_index >= 0:
+                        self._open_selected_result()
+                        return True
+        return super().eventFilter(watched, event)
+
+    def _result_cards(self) -> list[QFrame]:
+        """Every real result/summary card currently shown, in display order
+        (the results layout's last item is always the trailing stretch)."""
+        return [
+            self._results_layout.itemAt(index).widget()
+            for index in range(self._results_layout.count() - 1)
+        ]
+
+    def _move_selection(self, delta: int) -> None:
+        cards = self._result_cards()
+        if not cards:
+            return
+        if self._selected_card_index == -1:
+            new_index = 0 if delta > 0 else len(cards) - 1
+        else:
+            new_index = max(0, min(len(cards) - 1, self._selected_card_index + delta))
+        self._set_selected_card_index(new_index)
+        self._results_area.ensureWidgetVisible(cards[new_index])
+
+    def _set_selected_card_index(self, index: int) -> None:
+        cards = self._result_cards()
+        for card_index, card in enumerate(cards):
+            card.setProperty("selected", card_index == index)
+            card.style().unpolish(card)
+            card.style().polish(card)
+        self._selected_card_index = index
+
+    def _open_selected_result(self) -> None:
+        cards = self._result_cards()
+        if not (0 <= self._selected_card_index < len(cards)):
+            return
+        card = cards[self._selected_card_index]
+        book_id = card.property("book_id")
+        page_number = card.property("page_number")
+        if book_id is not None:
+            self.open_in_viewer_requested.emit(book_id, page_number or 1)
+
+    def _copy_card_citation(self, book_id: int, page_number: int | None) -> None:
+        """Copy a real citation for a result card's book/page to the
+        clipboard - same `format_citation()` mechanism as the Viewer's
+        Copy Citation button, reused rather than duplicated."""
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None or metadata.title is None:
+            return
+        citation = format_citation(
+            metadata.title,
+            page_number or 1,
+            paragraph_index=1,
+            volume_number=metadata.volume_number,
+        )
+        QGuiApplication.clipboard().setText(citation)
 
     def _build_result_card(self, result: SearchResult) -> QFrame:
         card = QFrame()
         card.setObjectName("resultCard")
         card.setFrameShape(QFrame.Shape.StyledPanel)
+        card.setProperty("book_id", result.book_id)
+        card.setProperty("page_number", result.page_number)
         card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(result.title or "(untitled)")
-        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
+        title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
@@ -682,14 +819,15 @@ class SearchScreen(QWidget):
         if result.source == "footnote":
             meta_bits.append("footnote match")
         meta = QLabel(" · ".join(meta_bits))
-        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
 
         excerpt = QLabel(highlight_excerpt_html(result.excerpt))
         excerpt.setTextFormat(Qt.TextFormat.RichText)
         excerpt.setWordWrap(True)
+        excerpt.setMaximumHeight(_EXCERPT_MAX_HEIGHT_PX)
         excerpt.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        excerpt.setStyleSheet(f"font-size: 13px; line-height: 150%; {RTL_TEXT_STYLE}")
+        excerpt.setStyleSheet(f"font-size: {Type.BODY}px; line-height: 150%; {RTL_TEXT_STYLE}")
         _enable_height_for_width(excerpt)
         card_layout.addWidget(excerpt)
 
@@ -710,10 +848,14 @@ class SearchScreen(QWidget):
         card = QFrame()
         card.setObjectName("resultCard")
         card.setFrameShape(QFrame.Shape.StyledPanel)
+        card.setProperty("book_id", result.book_id)
+        card.setProperty("page_number", result.page_number)
         card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(result.title or "(untitled)")
-        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
+        title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
@@ -722,13 +864,14 @@ class SearchScreen(QWidget):
         if result.page_number is not None:
             meta_bits.append(f"page {result.page_number}")
         meta = QLabel(" · ".join(meta_bits))
-        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
 
         excerpt = QLabel(result.excerpt)
         excerpt.setWordWrap(True)
+        excerpt.setMaximumHeight(_EXCERPT_MAX_HEIGHT_PX)
         excerpt.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        excerpt.setStyleSheet(f"font-size: 13px; line-height: 150%; {RTL_TEXT_STYLE}")
+        excerpt.setStyleSheet(f"font-size: {Type.BODY}px; line-height: 150%; {RTL_TEXT_STYLE}")
         _enable_height_for_width(excerpt)
         card_layout.addWidget(excerpt)
 
@@ -745,17 +888,21 @@ class SearchScreen(QWidget):
         card = QFrame()
         card.setObjectName("resultCard")
         card.setFrameShape(QFrame.Shape.StyledPanel)
+        card.setProperty("book_id", summary.book_id)
+        card.setProperty("page_number", None)
         card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(summary.title or "(untitled)")
-        title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
+        title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
 
         meta_bits = [summary.author or "Unknown author", summary.library or "Unknown library"]
         meta = QLabel(" · ".join(meta_bits))
-        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px;")
+        meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
 
         card.mousePressEvent = lambda _event, s=summary: self._show_details(s.book_id)
@@ -795,6 +942,13 @@ class SearchScreen(QWidget):
         details_button.clicked.connect(lambda: self._show_details(book_id, page_number))
         row_layout.addWidget(details_button)
 
+        citation_button = QPushButton("Copy citation")
+        citation_button.setToolTip("Copy a citation for this page to the clipboard.")
+        citation_button.clicked.connect(
+            lambda: self._copy_card_citation(book_id, page_number)
+        )
+        row_layout.addWidget(citation_button)
+
         row_layout.addStretch(1)
         return row
 
@@ -803,13 +957,17 @@ class SearchScreen(QWidget):
     def _build_right_pane(self) -> QWidget:
         pane = QScrollArea()
         pane.setObjectName("resultCard")
-        pane.setFixedWidth(RIGHT_PANE_WIDTH)
+        pane.setFrameShape(QFrame.Shape.NoFrame)
+        pane.setMinimumWidth(220)
+        # Responsive Desktop fix: same reasoning as the left pane - a detail
+        # panel shouldn't be able to crowd out the results pane either.
+        pane.setMaximumWidth(480)
         pane.setWidgetResizable(True)
 
         self._detail_content = QWidget()
         self._detail_layout = QVBoxLayout(self._detail_content)
-        self._detail_layout.setContentsMargins(14, 14, 14, 14)
-        self._detail_layout.setSpacing(6)
+        self._detail_layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
+        self._detail_layout.setSpacing(Spacing.XS)
         self._detail_layout.addStretch(1)
         pane.setWidget(self._detail_content)
         return pane
@@ -899,7 +1057,9 @@ class SearchScreen(QWidget):
 
 def _pane_title(text: str) -> QLabel:
     label = QLabel(text)
-    label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 11px; font-weight: 600; margin-top: 6px;")
+    label.setStyleSheet(
+        f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px; font-weight: 600; margin-top: 6px;"
+    )
     return label
 
 
@@ -909,7 +1069,7 @@ def _detail_row(label_text: str, value: str | None) -> QWidget:
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
     caption = QLabel(label_text)
-    caption.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 10px;")
+    caption.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
     layout.addWidget(caption)
     value_label = QLabel(value or "Unknown")
     value_label.setWordWrap(True)
@@ -924,6 +1084,15 @@ def _category_tree_item(node: CategoryNode) -> QTreeWidgetItem:
     for child in node.children:
         item.addChild(_category_tree_item(child))
     return item
+
+
+def _flatten_categories(nodes: tuple[CategoryNode, ...]) -> list[CategoryNode]:
+    """Flatten a category tree into a single list, for completer suggestions."""
+    flat: list[CategoryNode] = []
+    for node in nodes:
+        flat.append(node)
+        flat.extend(_flatten_categories(node.children))
+    return flat
 
 
 def _file_url(path: Path) -> QUrl:
