@@ -1,5 +1,43 @@
 # Changelog
 
+## Duplicate review: persistent Dismiss, real 52-pair cleanup applied
+
+Closes out one of the Phase 8.5 punch-list items ("dismiss the 52
+confirmed-different candidates") - non-destructive, per the item's own
+scoping: this only changes review status, never deletes a book.
+
+`DuplicateCandidates` gains a `Status` column (`'pending'`/`'dismissed'`,
+added defensively via `ALTER TABLE` in `_create_schema()` since this table
+isn't part of the versioned `MigrationRunner` system - it's created ad hoc
+by the repository itself). `detect_and_store()` used to `DELETE`+fully
+re-`INSERT` this table on every scan, which would have silently
+un-dismissed anything a human had already reviewed on the very next
+rescan - it now looks up each pair's existing `Status` before the
+delete/reinsert and carries it forward. New `DuplicateCandidateRepository.
+dismiss(book_id, duplicate_of_book_id)`; `list_candidates()` hides
+dismissed pairs by default (`include_dismissed=True` to see them).
+`resolve_empty_stub_duplicates()` now also skips dismissed pairs - a real
+correctness fix found while touching this code: a pair a human confirmed
+are different books shouldn't have its empty side auto-deleted as a
+"stub duplicate," since dismissal means that empty side is a real,
+separate book with no content yet, not a duplicate of its sibling.
+
+`DuplicateManagerScreen`'s "Skip" button (previously a client-side,
+per-session-only set - Milestone 8, explicitly scoped that way at the
+time since no persistence-layer change was in scope for that UI-only
+refactor) is now "Dismiss", backed by the repository method above - a
+dismissed pair stays hidden across restarts and rescans, not just the
+current session. 5 new/updated tests
+(`tests/test_duplicate_candidate_repository.py`,
+`tests/test_duplicate_manager_screen.py`).
+
+Applied to production: the 52 `LIKELY_DIFFERENT_BOOK` pairs from
+`docs/duplicate_analysis/duplicate_candidates_scored.csv` (real content
+compared via `BookComparisonRepository`, confirmed dissimilar) are now
+dismissed - 2,080 of the original 2,132 candidates remain pending review
+(the 73 high-confidence identical pairs are untouched, still awaiting
+the separate, explicit-approval deletion decision).
+
 ## Desktop app: real-data responsive-layout bug fixes
 
 Found investigating a real user-visible bug: with real (not fixture-scale)

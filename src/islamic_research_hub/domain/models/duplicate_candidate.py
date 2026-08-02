@@ -10,3 +10,6 @@ class DuplicateCandidate:
     book_id: int
     duplicate_of_book_id: int
     match_type: str
+    status: str = "pending"
+    """"pending" (awaiting review) or "dismissed" (a human already confirmed
+    these are different books - stays dismissed across future re-scans)."""

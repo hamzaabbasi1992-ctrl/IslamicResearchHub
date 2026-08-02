@@ -43,6 +43,16 @@ class DuplicateCandidateRepository:
         with closing(sqlite3.connect(self._database_path)) as connection:
             self._create_schema(connection)
             connection.row_factory = sqlite3.Row
+            # Preserved across the DELETE/re-INSERT below so a pair a human
+            # already reviewed and dismiss()'d stays dismissed on rescan -
+            # detect_and_store() only recomputes *which pairs* match, not
+            # their review status.
+            existing_status = {
+                (row["BookID"], row["DuplicateOfBookID"]): row["Status"]
+                for row in connection.execute(
+                    "SELECT BookID, DuplicateOfBookID, Status FROM DuplicateCandidates"
+                ).fetchall()
+            }
             rows = connection.execute(
                 "SELECT BookID, Title, Author, SourceBookID, LibraryID FROM Books "
                 "WHERE Title IS NOT NULL"
@@ -78,9 +88,14 @@ class DuplicateCandidateRepository:
 
             connection.execute("DELETE FROM DuplicateCandidates")
             connection.executemany(
-                "INSERT INTO DuplicateCandidates (BookID, DuplicateOfBookID, MatchType) "
-                "VALUES (?, ?, ?)",
-                candidates,
+                "INSERT INTO DuplicateCandidates (BookID, DuplicateOfBookID, MatchType, Status) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    (book_id, duplicate_of_book_id, match_type, existing_status.get(
+                        (book_id, duplicate_of_book_id), "pending"
+                    ))
+                    for book_id, duplicate_of_book_id, match_type in candidates
+                ),
             )
             connection.commit()
 
@@ -112,17 +127,37 @@ class DuplicateCandidateRepository:
             )
         return pairs
 
-    def list_candidates(self) -> tuple[DuplicateCandidate, ...]:
-        """Return every stored duplicate candidate."""
+    def list_candidates(self, *, include_dismissed: bool = False) -> tuple[DuplicateCandidate, ...]:
+        """Return stored duplicate candidates, excluding dismissed ones by default."""
         with closing(sqlite3.connect(self._database_path)) as connection:
             self._create_schema(connection)
-            rows = connection.execute(
-                "SELECT BookID, DuplicateOfBookID, MatchType FROM DuplicateCandidates"
-            ).fetchall()
+            query = "SELECT BookID, DuplicateOfBookID, MatchType, Status FROM DuplicateCandidates"
+            if not include_dismissed:
+                query += " WHERE Status != 'dismissed'"
+            rows = connection.execute(query).fetchall()
         return tuple(
-            DuplicateCandidate(book_id=row[0], duplicate_of_book_id=row[1], match_type=row[2])
+            DuplicateCandidate(
+                book_id=row[0], duplicate_of_book_id=row[1], match_type=row[2], status=row[3]
+            )
             for row in rows
         )
+
+    def dismiss(self, book_id: int, duplicate_of_book_id: int) -> None:
+        """Mark a candidate pair as reviewed and confirmed not a duplicate.
+
+        Persists (unlike the Duplicate Manager screen's old session-only
+        Skip): stays dismissed across future detect_and_store() re-scans,
+        since re-flagging a pair a human already reviewed is just noise.
+        Purely a status change - no row is deleted, no book content touched.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            self._create_schema(connection)
+            connection.execute(
+                "UPDATE DuplicateCandidates SET Status = 'dismissed' "
+                "WHERE BookID = ? AND DuplicateOfBookID = ?",
+                (book_id, duplicate_of_book_id),
+            )
+            connection.commit()
 
     def resolve_empty_stub_duplicates(self) -> int:
         """Remove metadata-only (zero-page) sides of a candidate pair, returning the count removed.
@@ -131,7 +166,10 @@ class DuplicateCandidateRepository:
         other has real content: the empty side adds no search value and its
         removal cannot lose any content. Pairs where both sides have real
         content are left untouched, since a title match alone is not a
-        reliable enough signal to delete real content on.
+        reliable enough signal to delete real content on. Dismissed pairs
+        (a human already confirmed these are different books) are excluded
+        too - dismissal means the empty side is a real, separate book with
+        no content yet, not a stub duplicate of its sibling.
         """
         with closing(sqlite3.connect(self._database_path)) as connection:
             self._create_schema(connection)
@@ -142,6 +180,7 @@ class DuplicateCandidateRepository:
                 FROM DuplicateCandidates dc
                 JOIN Books b1 ON b1.BookID = dc.BookID
                 JOIN Books b2 ON b2.BookID = dc.DuplicateOfBookID
+                WHERE dc.Status != 'dismissed'
                 """
             ).fetchall()
 
@@ -170,7 +209,16 @@ class DuplicateCandidateRepository:
 
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:
-        """Create the duplicate candidates table when it does not yet exist."""
+        """Create the duplicate candidates table when it does not yet exist.
+
+        `Status` is added defensively (`ALTER TABLE`) rather than in the
+        `CREATE TABLE IF NOT EXISTS` above, since this table isn't part of
+        the versioned `MigrationRunner` system - it's created ad hoc, right
+        here, the first time this repository runs against a database. A
+        production database from before `Status` existed already has this
+        table without the column, so `IF NOT EXISTS` alone would silently
+        skip adding it.
+        """
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS DuplicateCandidates (
@@ -181,4 +229,11 @@ class DuplicateCandidateRepository:
             );
             """
         )
+        existing_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(DuplicateCandidates)").fetchall()
+        }
+        if "Status" not in existing_columns:
+            connection.execute(
+                "ALTER TABLE DuplicateCandidates ADD COLUMN Status TEXT NOT NULL DEFAULT 'pending'"
+            )
         connection.commit()

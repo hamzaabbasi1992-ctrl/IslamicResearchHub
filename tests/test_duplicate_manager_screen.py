@@ -240,8 +240,8 @@ def test_merge_button_is_present_but_disabled(qtbot, tmp_path: Path) -> None:
     assert not merge_button.isEnabled()
 
 
-def test_skip_hides_a_candidate_for_the_rest_of_the_session(qtbot, tmp_path: Path) -> None:
-    """Clicking Skip removes the pair from the table without deleting any data."""
+def test_dismiss_hides_a_candidate_without_deleting_any_data(qtbot, tmp_path: Path) -> None:
+    """Clicking Dismiss removes the pair from the table without deleting any data."""
     database_path = tmp_path / "books.db"
     duplicate_book = Book(
         information={"Name": "Book of Fiqh"},
@@ -257,16 +257,19 @@ def test_skip_hides_a_candidate_for_the_rest_of_the_session(qtbot, tmp_path: Pat
     screen = DuplicateManagerScreen(database_path)
     qtbot.addWidget(screen)
     screen._run_scan()
-    skip_button = _action_button(screen._duplicate_table.cellWidget(0, 4), "Skip")
+    dismiss_button = _action_button(screen._duplicate_table.cellWidget(0, 4), "Dismiss")
 
-    skip_button.click()
+    dismiss_button.click()
 
     assert screen._duplicate_table.rowCount() == 0
-    assert DuplicateCandidateRepository(database_path).list_candidates() != ()
+    assert DuplicateCandidateRepository(database_path).list_candidates() == ()
+    assert DuplicateCandidateRepository(database_path).list_candidates(include_dismissed=True) != ()
 
 
-def test_skip_stays_hidden_across_a_rescan_in_the_same_session(qtbot, tmp_path: Path) -> None:
-    """Skipping is a review decision - re-scanning shouldn't bring it back."""
+def test_dismiss_persists_across_a_rescan_and_a_fresh_screen(qtbot, tmp_path: Path) -> None:
+    """Dismissing is a real review decision, backed by the database - unlike
+    the old session-only Skip, it survives a rescan and even a brand new
+    screen instance (simulating an app restart)."""
     database_path = tmp_path / "books.db"
     duplicate_book = Book(
         information={"Name": "Book of Fiqh"},
@@ -282,12 +285,15 @@ def test_skip_stays_hidden_across_a_rescan_in_the_same_session(qtbot, tmp_path: 
     screen = DuplicateManagerScreen(database_path)
     qtbot.addWidget(screen)
     screen._run_scan()
-    _action_button(screen._duplicate_table.cellWidget(0, 4), "Skip").click()
+    _action_button(screen._duplicate_table.cellWidget(0, 4), "Dismiss").click()
 
     screen._run_scan()
 
     assert screen._duplicate_table.rowCount() == 0
-    assert "1 hidden this session" in screen._duplicate_status_label.text()
+
+    fresh_screen = DuplicateManagerScreen(database_path)
+    qtbot.addWidget(fresh_screen)
+    assert fresh_screen._duplicate_table.rowCount() == 0
 
 
 def test_comparison_dialog_shows_identical_pages_summary() -> None:

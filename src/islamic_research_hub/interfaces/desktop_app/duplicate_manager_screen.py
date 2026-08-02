@@ -3,14 +3,14 @@
 Split out of `import_screen.py` (desktop UI redesign, Milestone 4). Compare
 and the bulk empty-stub cleanup are real, backed by
 `DuplicateCandidateRepository`/`BookComparisonRepository` exactly as before.
-Skip is a client-side, per-session dismissed-ID set (Milestone 8) - no
-persistence-layer change, so it resets on restart, but a skipped pair
-stays hidden even across a fresh "Scan for duplicates" within the same
-session (skipping is a review decision, not a scan-run artifact). Merge
-is a disabled, honestly-labeled button: no merge operation
-exists anywhere in the persistence layer, and inventing one client-side
-would mean real data-mutation logic living in a UI screen instead of a
-repository - out of scope for a UI-only refactor.
+Dismiss persists to `DuplicateCandidates.Status` (originally a client-side,
+per-session-only set - Milestone 8 - upgraded once the repository grew a
+real `Status` column): a dismissed pair stays hidden across restarts and
+future "Scan for duplicates" re-runs, since it's a real review decision,
+not a scan-run artifact. Merge is a disabled, honestly-labeled button: no
+merge operation exists anywhere in the persistence layer, and inventing
+one client-side would mean real data-mutation logic living in a UI screen
+instead of a repository - out of scope for a UI-only refactor.
 """
 
 from pathlib import Path
@@ -64,7 +64,6 @@ class DuplicateManagerScreen(QWidget):
         self._browser = browser or BookBrowserRepository(database_path)
         self._duplicates = duplicates or DuplicateCandidateRepository(database_path)
         self._comparisons = comparisons or BookComparisonRepository(database_path)
-        self._dismissed_this_session: set[tuple[int, int]] = set()
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -114,18 +113,8 @@ class DuplicateManagerScreen(QWidget):
         self._reload_duplicates()
 
     def _reload_duplicates(self) -> None:
-        all_candidates = self._duplicates.list_candidates()
-        candidates = [
-            candidate
-            for candidate in all_candidates
-            if (candidate.book_id, candidate.duplicate_of_book_id)
-            not in self._dismissed_this_session
-        ]
-        hidden_count = len(all_candidates) - len(candidates)
-        status = f"{len(candidates)} candidate(s) awaiting review"
-        if hidden_count:
-            status += f" ({hidden_count} hidden this session)"
-        self._duplicate_status_label.setText(status)
+        candidates = list(self._duplicates.list_candidates())
+        self._duplicate_status_label.setText(f"{len(candidates)} candidate(s) awaiting review")
         self._duplicate_table.setRowCount(len(candidates))
 
         # One bulk lookup for every book involved, instead of calling
@@ -170,12 +159,14 @@ class DuplicateManagerScreen(QWidget):
         )
         layout.addWidget(compare_button)
 
-        skip_button = QPushButton("Skip")
-        skip_button.setToolTip("Hide this pair for the rest of this session.")
-        skip_button.clicked.connect(
+        dismiss_button = QPushButton("Dismiss")
+        dismiss_button.setToolTip(
+            "Confirm these are different books - stop flagging this pair (permanent)."
+        )
+        dismiss_button.clicked.connect(
             lambda _checked, a=book_id, b=duplicate_of_book_id: self._dismiss_candidate(a, b)
         )
-        layout.addWidget(skip_button)
+        layout.addWidget(dismiss_button)
 
         merge_button = QPushButton("Merge")
         merge_button.setEnabled(False)
@@ -185,8 +176,8 @@ class DuplicateManagerScreen(QWidget):
         return actions
 
     def _dismiss_candidate(self, book_id: int, duplicate_of_book_id: int) -> None:
-        """Hide a candidate pair for the rest of this session (no persistence)."""
-        self._dismissed_this_session.add((book_id, duplicate_of_book_id))
+        """Persist a candidate pair as reviewed-and-not-a-duplicate."""
+        self._duplicates.dismiss(book_id, duplicate_of_book_id)
         self._reload_duplicates()
 
     def _run_scan(self) -> None:

@@ -1,6 +1,6 @@
 # Islamic Research Hub AI — Project Plan
 
-Last updated: 2026-08-01 (kept in sync with `CHANGELOG.md`, which is the
+Last updated: 2026-08-02 (kept in sync with `CHANGELOG.md`, which is the
 authoritative detailed history — this file is the current-status summary).
 
 ## Goal
@@ -553,9 +553,13 @@ explicit go/no-go, not a bulk pass:
   pairs** found via `BookComparisonRepository`-based batch scoring -
   needs explicit approval before removing anything (real, permanent data
   loss on the non-canonical side). Not started.
-- **Dismiss the 52 confirmed-different candidates** from the
-  `DuplicateCandidates` queue (metadata matched, real content doesn't -
-  non-destructive, just stops re-flagging them). Not started.
+- **Dismiss the 52 confirmed-different candidates**: **done.**
+  `DuplicateCandidates` gained a real `Status` column
+  (`pending`/`dismissed`), preserved across `detect_and_store()` re-scans;
+  the Duplicate Manager screen's session-only "Skip" is now a persistent
+  "Dismiss". Applied to production: the 52 real `LIKELY_DIFFERENT_BOOK`
+  pairs are dismissed, 2,080 of 2,132 candidates remain pending. See
+  CHANGELOG.
 - **Stale backup decision**: `data/backups/` has one ~24GB backup from
   before the Shamela import completed - keep, replace with a fresh one,
   or delete. Not started.
