@@ -398,6 +398,158 @@ def test_model_volumes_is_safe_to_call_again_as_a_post_import_backfill(
         ]
 
 
+def test_model_volumes_keeps_a_genuine_single_shamela_file_multi_part_split_together(
+    tmp_path: Path,
+) -> None:
+    """Every part of one real .mdb file (same shamelaID before '.mdb') still
+    groups into one Series with its plain, unsuffixed title - the normal,
+    non-colliding case is unaffected by the collision fix."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work - part 1", None, "37024.mdb#part1")
+    _seed_book(database_path, "Some Work - part 2", None, "37024.mdb#part2")
+    _seed_book(database_path, "Some Work - part 3", None, "37024.mdb#part3")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
+        assert series_rows == [(1, "Some Work")]
+        rows = connection.execute(
+            "SELECT SeriesID, VolumeNumber FROM Books ORDER BY VolumeNumber"
+        ).fetchall()
+        assert rows == [(1, 1), (1, 2), (1, 3)]
+
+
+def test_model_volumes_does_not_merge_two_different_shamela_files_with_a_colliding_title(
+    tmp_path: Path,
+) -> None:
+    """Real bug fixed: two unrelated .mdb files whose titles regex-parse to
+    the same base title used to be merged into one bogus interleaved
+    Series. Each file's own parts now get their own, separately-numbered
+    Series instead."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work - part 1", None, "14324.mdb#part1")
+    _seed_book(database_path, "Some Work - part 2", None, "14324.mdb#part2")
+    _seed_book(database_path, "Some Work - part 114", None, "35881.mdb#part114")
+    _seed_book(database_path, "Some Work - part 115", None, "35881.mdb#part115")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        series_rows = dict(connection.execute("SELECT Title, SeriesID FROM Series").fetchall())
+        assert set(series_rows) == {"Some Work (14324)", "Some Work (35881)"}
+
+        rows = connection.execute(
+            "SELECT VolumeNumber, SeriesID FROM Books ORDER BY VolumeNumber"
+        ).fetchall()
+        assert rows[0][0] == 1 and rows[1][0] == 2
+        assert rows[0][1] == rows[1][1] == series_rows["Some Work (14324)"]
+        assert rows[2][0] == 114 and rows[3][0] == 115
+        assert rows[2][1] == rows[3][1] == series_rows["Some Work (35881)"]
+        assert series_rows["Some Work (14324)"] != series_rows["Some Work (35881)"]
+
+
+def test_model_volumes_leaves_a_lone_colliding_fragment_ungrouped(tmp_path: Path) -> None:
+    """If one of the two colliding files only contributes a single part, that
+    lone fragment still doesn't form a Series (no demonstrated sibling),
+    while the other file's real multi-part group still does."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work - part 1", None, "14324.mdb#part1")
+    _seed_book(database_path, "Some Work - part 2", None, "35881.mdb#part2")
+    _seed_book(database_path, "Some Work - part 3", None, "35881.mdb#part3")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+
+        series_rows = connection.execute("SELECT Title FROM Series").fetchall()
+        assert series_rows == [("Some Work (35881)",)]
+
+        lone_row = connection.execute(
+            "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'Some Work - part 1'"
+        ).fetchone()
+        assert lone_row == (None, None)
+
+
+def test_model_volumes_removes_the_orphaned_bogus_series_after_a_split(
+    tmp_path: Path,
+) -> None:
+    """A Series created when only one real source file was known about
+    (so it got the plain, unsuffixed title) shouldn't linger with zero
+    real books pointing at it once a second file's later-imported,
+    same-title volumes force a real split on the next backfill run."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work - part 1", None, "14324.mdb#part1")
+    _seed_book(database_path, "Some Work - part 2", None, "14324.mdb#part2")
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+        assert connection.execute(
+            "SELECT Title FROM Series"
+        ).fetchall() == [("Some Work",)]
+
+    # A second, different real .mdb file's volumes for the same
+    # regex-parsed title show up later (e.g. a second Shamela import
+    # batch) - re-running model_volumes() should now detect the real
+    # collision, split both apart, and clean up the now-orphaned plain
+    # "Some Work" row.
+    _seed_book(database_path, "Some Work - part 114", None, "35881.mdb#part114")
+    _seed_book(database_path, "Some Work - part 115", None, "35881.mdb#part115")
+    with sqlite3.connect(database_path) as connection:
+        model_volumes(connection)
+        connection.commit()
+
+        series_titles = {
+            row[0] for row in connection.execute("SELECT Title FROM Series").fetchall()
+        }
+        assert "Some Work" not in series_titles
+        assert series_titles == {"Some Work (14324)", "Some Work (35881)"}
+
+
+def test_model_volumes_clears_a_series_left_with_only_one_member(tmp_path: Path) -> None:
+    """Real gap found applying this fix to production: if a sibling volume
+    is later deleted elsewhere (e.g. real duplicate-removal), nothing else
+    reconciles Series membership - a re-run of model_volumes() should
+    self-heal a Series left with fewer than 2 real members, the same
+    ">=2 members" rule applied when a Series is first created."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work جلد 1", None, "one.mjbz")
+    _seed_book(database_path, "Some Work جلد 2", None, "two.mjbz")
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+        assert connection.execute("SELECT Title FROM Series").fetchall() == [("Some Work",)]
+
+        # Simulate a sibling volume being deleted elsewhere (e.g. as a
+        # duplicate) without going through model_volumes() at all.
+        connection.execute("DELETE FROM Books WHERE Title = 'Some Work جلد 2'")
+        connection.commit()
+
+        model_volumes(connection)
+        connection.commit()
+
+        assert connection.execute("SELECT Title FROM Series").fetchall() == []
+        row = connection.execute(
+            "SELECT SeriesID, VolumeNumber FROM Books WHERE Title = 'Some Work جلد 1'"
+        ).fetchone()
+        assert row == (None, None)
+
+
+def test_model_volumes_collision_fix_is_idempotent_on_rerun(tmp_path: Path) -> None:
+    """Re-running produces the exact same disambiguated Series, not new
+    suffixes or duplicate rows each time."""
+    database_path = tmp_path / "books.db"
+    _seed_book(database_path, "Some Work - part 1", None, "14324.mdb#part1")
+    _seed_book(database_path, "Some Work - part 2", None, "14324.mdb#part2")
+    _seed_book(database_path, "Some Work - part 114", None, "35881.mdb#part114")
+    _seed_book(database_path, "Some Work - part 115", None, "35881.mdb#part115")
+
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner(MIGRATIONS).migrate(connection)
+        model_volumes(connection)
+        connection.commit()
+
+        series_rows = connection.execute("SELECT Title FROM Series ORDER BY Title").fetchall()
+        assert series_rows == [("Some Work (14324)",), ("Some Work (35881)",)]
+
+
 def _seed_book_with_page_content(database_path: Path, title: str, content: str, source: str) -> None:
     """Import one minimal real book carrying the given raw page content."""
     book = Book(

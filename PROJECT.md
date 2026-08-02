@@ -619,11 +619,31 @@ explicit go/no-go, not a bulk pass:
     `missing_volumes_availability.csv` stays on hold until the
     title-mismatch bug is understood well enough to know which of the 88
     series are safe to research as-labeled.
-- **Series false-merge regex fix**: `model_volumes()`'s title-only
-  grouping doesn't account for which physical source file a volume came
-  from (see Phase 8 note above) - a real fix belongs in its own
-  migration with a considered answer for cross-file title collisions,
-  not bolted on as a quick patch. Not started.
+- **Series false-merge regex fix**: **done.** `model_volumes()` now
+  groups by `(base_title, shamela_source_key)` instead of `base_title`
+  alone - every non-Shamela book keeps exactly its prior behavior
+  (`shamela_source_key` is always `None`), while two different Shamela
+  `.mdb` files whose titles happen to regex-collide get their own,
+  deterministically-named `Series` instead of being silently merged.
+  Turned out much bigger in real scope than the original ~36-series
+  estimate: dry-run verified against production first (rolled back, not
+  guessed) - **5,889 -> 6,594 series**, 68,159 books' `SeriesID` count
+  unchanged (pure re-grouping, zero books lost or gained). Confirmed
+  correct, not over-aggressive, by checking real cases: "المحلى" splits
+  into a genuine 16-volume and a genuine 10-volume edition (each
+  independently numbered 1..N, not one garbled series with duplicate
+  volume numbers) - same pattern for *Sahih Muslim*, *Sunan Abi Dawud*,
+  *al-Mabsut*. The bug hit the corpus's most-referenced classical texts
+  hardest, since those are exactly the ones re-uploaded as multiple real
+  editions in a crowd-sourced library. Also found and fixed a related
+  gap while applying this: a Series left with only 1 real member (a
+  sibling volume deleted elsewhere, e.g. by real duplicate-removal, with
+  nothing reconciling Series membership) is now self-healed on any
+  `model_volumes()` re-run, not just at first-creation time - closed one
+  real pre-existing case this surfaced (1 stray book, `معرفة الصحابة
+  لأبي نعيم` part 3). Applied to production, verified: 0 orphaned
+  `Books.SeriesID` references, 0 under-populated Series rows. 3 new
+  tests. See CHANGELOG.
 - **Push to GitHub**: `origin` is configured
   (`github.com/hamzaabbasi1992-ctrl/IslamicResearchHub`) but the local
   branch is well ahead, unpushed - relevant for the new-machine migration

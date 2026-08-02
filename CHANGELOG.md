@@ -1,5 +1,72 @@
 # Changelog
 
+## Series false-merge fix: real scope much bigger than estimated, applied to production
+
+Closes the Phase 8.5 "series false-merge regex fix" item.
+`model_volumes()` (`migration_runner.py`) grouped candidate volumes by
+regex-parsed base title alone, with no notion of which physical source
+file a volume came from - two *different* Shamela `.mdb` files whose
+titles happened to collide got silently merged into one bogus series
+with duplicate/overlapping volume numbers.
+
+Fix: the grouping key is now `(base_title, shamela_source_key)`.
+`_shamela_source_key()` extracts the shamelaID from `Books.Source`
+(`{id}.mdb` or `{id}.mdb#part{N}`) and is `None` for every non-Shamela
+book, so every other library's grouping is byte-for-byte unchanged -
+this is scoped to the one library where the bug was confirmed, not a
+rewrite of cross-file grouping in general (which Jibreel and others
+legitimately rely on). When a real collision is detected, each file's
+group gets a deterministic, disambiguated title
+(`f"{base_title} ({shamela_key})"`) instead of being merged - real bug in an early
+version of this fix also found and fixed before it reached production:
+`INSERT OR IGNORE INTO Series (Title) VALUES (?)` + a title-keyed lookup
+would have silently reused the SAME Series row across two colliding
+groups if their disambiguated titles hadn't been distinct, defeating the
+whole fix - caught by reasoning through the exact SQL, not by a test
+failure.
+
+**Real scope, verified before touching production, not guessed**: a
+dry-run (rolled back, not applied) against the real 104,797-book
+database found **5,889 -> 6,594 series** - far more than the original
+~36-series estimate from the earlier investigation. Checked *why*
+directly against real content before trusting the number: "المحلى"
+(Ibn Hazm) splits into a genuine 16-volume edition and a genuine
+10-volume edition (each independently numbered 1..N); same pattern for
+*Sahih Muslim* (8-volume vs. 4-volume editions), *Sunan Abi Dawud* (four
+real editions), *al-Mabsut* (30-volume vs. 31-volume editions). The bug
+specifically hit the corpus's most important, most-referenced classical
+texts hardest - exactly the ones that get uploaded as multiple real
+editions in a crowd-sourced library like Shamela - which is why the
+real number is so much larger than originally estimated, not a sign of
+over-aggressive splitting.
+
+Two more real gaps found and fixed while building/applying this, both
+additive to `model_volumes()`'s existing cleanup step:
+- The old, pre-collision-detection Series row (created before a second
+  file's same-title volumes showed up) doesn't get deleted automatically
+  by SQLite - would have lingered forever as an orphaned, zero-member
+  row every time this repair scenario recurs. Now cleaned up on every
+  `model_volumes()` call.
+- Applying this to production surfaced a real, separate pre-existing
+  issue: a Series left with only 1 real member, because a sibling volume
+  was deleted elsewhere (today's earlier duplicate-removal work) with
+  nothing reconciling `Series` membership afterward. `model_volumes()`
+  now re-applies its own ">=2 members" rule on every call, not just at
+  first creation, so this kind of drift self-heals on the next backfill
+  run instead of needing a one-off patch. Closed the one real case this
+  surfaced (`معرفة الصحابة لأبي نعيم` part 3).
+
+Applied to production in two passes (the second re-run picked up the
+self-healing fix): final state verified directly, not assumed - 0
+`Books.SeriesID` values pointing at a nonexistent `Series`, 0 `Series`
+rows with fewer than 2 members, 68,158 books retain a real `SeriesID`
+(down from 68,159 - only the one self-healed stray book lost its lone,
+undemonstrated "series" membership). 4 new tests (`tests/test_migration_runner.py`): a genuine single-file
+split staying together, two colliding files correctly kept apart (plus
+one where the smaller of the two files only contributes a lone,
+undemonstrated fragment), the orphaned-old-title cleanup, and the
+under-populated-Series self-heal. 641/641 tests pass.
+
 ## Investigation: real Shamela title-mismatch bug found, root cause blocked on missing source data
 
 Started as the Phase 8.5 "missing_volumes_availability.csv web research"

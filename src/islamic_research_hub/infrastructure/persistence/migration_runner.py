@@ -128,6 +128,35 @@ def _parse_volume_title(title: str) -> tuple[str, int] | None:
     return base_title, int(match.group("volume"))
 
 
+_SHAMELA_SOURCE_KEY_PATTERN = re.compile(r"[/\\](\d+)\.mdb(?:#part\d+)?$", re.IGNORECASE)
+
+
+def _shamela_source_key(source: str | None) -> str | None:
+    """Return the Shamela shamelaID a `Books.Source` path traces back to, or
+    `None` for every non-Shamela source (every other library's grouping is
+    completely unaffected by the collision fix below).
+
+    Real bug this exists to fix, found investigating the corpus at the
+    104,865-book scale: `model_volumes()` grouped purely by regex-parsed
+    title text, with no notion of which physical `.mdb` file a volume came
+    from. Shamela's own upload metadata is crowd-sourced, not curated, so
+    two *unrelated* files can regex-parse to the same base title - one
+    real case confirmed directly against the raw `.mdb`s: a title-parsed
+    range "1-115" with only 4 volumes present turned out to be two
+    distinct files (`14324.mdb` parts 1-2 and `35881.mdb` parts 114-115),
+    not a 115-volume work missing 111 volumes. Every part of one real
+    `.mdb` file shares the same shamelaID (`shamela_import_cli.py`'s
+    `_source_for_volume` produces `{id}.mdb` for a single-volume file,
+    `{id}.mdb#part{N}` for each volume of a multi-volume one) - grouping
+    additionally by this key keeps a genuine single-file multi-part split
+    together while keeping two unrelated files' title collision apart.
+    """
+    if not source:
+        return None
+    match = _SHAMELA_SOURCE_KEY_PATTERN.search(source)
+    return match.group(1) if match else None
+
+
 def model_volumes(connection: sqlite3.Connection) -> None:
     """Add a Series entity grouping books that are volumes of the same work.
 
@@ -137,6 +166,19 @@ def model_volumes(connection: sqlite3.Connection) -> None:
     at least two books share it - a single 'volume 1' with no siblings in
     this database is not a demonstrated series. `Books.Title` is left
     untouched; `SeriesID`/`VolumeNumber` are additive.
+
+    Grouping key is `(base_title, shamela_source_key)`, not `base_title`
+    alone - see `_shamela_source_key`. For every non-Shamela book the key's
+    second element is always `None`, so books sharing a title group exactly
+    as before (unchanged behavior - this fix is scoped to the one library
+    where the bug was confirmed, not a rewrite of cross-file grouping in
+    general, which every other library's real multi-volume works still
+    rely on). When Shamela's own crowd-sourced titles collide across two
+    *different* files, each file's group gets its own, deterministically
+    named `Series` (`f"{base_title} ({shamela_key})"`) instead of being
+    silently merged - deterministic so re-running stays idempotent, and
+    only applied when a real collision is detected (a title with only one
+    real source file behind it keeps its plain, unsuffixed title).
 
     Public (not migration-only): safe to call again after new books are
     imported (idempotent - `CREATE TABLE IF NOT EXISTS`/`INSERT OR IGNORE`,
@@ -156,27 +198,62 @@ def model_volumes(connection: sqlite3.Connection) -> None:
     _ensure_series_columns(connection)
     connection.execute("CREATE INDEX IF NOT EXISTS idx_books_series_id ON Books(SeriesID)")
 
-    book_ids_by_base_title: dict[str, list[tuple[int, int]]] = defaultdict(list)
-    for book_id, title in connection.execute(
-        "SELECT BookID, Title FROM Books WHERE Title IS NOT NULL"
+    book_ids_by_group: dict[tuple[str, str | None], list[tuple[int, int]]] = defaultdict(list)
+    for book_id, title, source in connection.execute(
+        "SELECT BookID, Title, Source FROM Books WHERE Title IS NOT NULL"
     ):
         parsed = _parse_volume_title(title)
         if parsed is not None:
             base_title, volume_number = parsed
-            book_ids_by_base_title[base_title].append((book_id, volume_number))
+            group_key = (base_title, _shamela_source_key(source))
+            book_ids_by_group[group_key].append((book_id, volume_number))
 
-    for base_title in sorted(book_ids_by_base_title):
-        members = book_ids_by_base_title[base_title]
+    source_keys_by_base_title: dict[str, set[str | None]] = defaultdict(set)
+    for base_title, shamela_key in book_ids_by_group:
+        source_keys_by_base_title[base_title].add(shamela_key)
+
+    for base_title, shamela_key in sorted(book_ids_by_group, key=lambda k: (k[0], k[1] or "")):
+        members = book_ids_by_group[(base_title, shamela_key)]
         if len(members) < 2:
             continue
-        connection.execute("INSERT OR IGNORE INTO Series (Title) VALUES (?)", (base_title,))
+        is_real_collision = shamela_key is not None and len(source_keys_by_base_title[base_title]) > 1
+        series_title = f"{base_title} ({shamela_key})" if is_real_collision else base_title
+        connection.execute("INSERT OR IGNORE INTO Series (Title) VALUES (?)", (series_title,))
         series_id = connection.execute(
-            "SELECT SeriesID FROM Series WHERE Title = ?", (base_title,)
+            "SELECT SeriesID FROM Series WHERE Title = ?", (series_title,)
         ).fetchone()[0]
         connection.executemany(
             "UPDATE Books SET SeriesID = ?, VolumeNumber = ? WHERE BookID = ?",
             ((series_id, volume_number, book_id) for book_id, volume_number in members),
         )
+
+    # Any Series left with fewer than 2 real members - either a title that
+    # used to hold one bogus merged Series before a real collision was
+    # split apart above (0 members left), or one whose sibling volume(s)
+    # were later removed elsewhere (e.g. real duplicate-removal deleting a
+    # sibling volume - nothing else reconciles Series membership when a
+    # Book is deleted) - no longer represents a demonstrated series either,
+    # the same ">=2 members" rule this function already applies when first
+    # creating a Series. Re-applying it here on every call means a later
+    # backfill re-run self-heals this drift instead of leaving a stale
+    # single-book "series" wrapper (or fully orphaned row) behind. Only
+    # ever clears Books.SeriesID/VolumeNumber and removes a Series row -
+    # never touches a book's real content.
+    under_populated_series_ids = [
+        row[0]
+        for row in connection.execute(
+            "SELECT SeriesID FROM Series WHERE "
+            "(SELECT COUNT(*) FROM Books WHERE Books.SeriesID = Series.SeriesID) < 2"
+        ).fetchall()
+    ]
+    for series_id in under_populated_series_ids:
+        connection.execute(
+            "UPDATE Books SET SeriesID = NULL, VolumeNumber = NULL WHERE SeriesID = ?",
+            (series_id,),
+        )
+    connection.execute(
+        "DELETE FROM Series WHERE SeriesID NOT IN (SELECT SeriesID FROM Books WHERE SeriesID IS NOT NULL)"
+    )
 
 
 def _ensure_series_columns(connection: sqlite3.Connection) -> None:
