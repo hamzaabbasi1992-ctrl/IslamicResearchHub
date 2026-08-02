@@ -35,9 +35,11 @@ _ORPHAN_CHECKS = (
 _FTS_SYNC_CHECKS = (
     ("Pages", "PagesFTS"),
     ("Footnotes", "FootnotesFTS"),
-    ("Paragraphs", "ParagraphsFTS"),
     ("Books", "BooksFTS"),
 )
+# Paragraphs/ParagraphsFTS deliberately excluded - migration 16 drops
+# ParagraphsFTS/ParagraphsFTSNormalized (confirmed unused by any real
+# search path). Paragraphs itself (citation IDs) is untouched.
 
 
 class DatabaseVerifier:
@@ -147,9 +149,9 @@ class DatabaseVerifier:
     def _check_fts_sync(connection: sqlite3.Connection) -> list[VerificationIssue]:
         """Use FTS5's own integrity-check command on every real FTS index.
 
-        Checks `PagesFTS`, `FootnotesFTS`, `ParagraphsFTS`, and `BooksFTS`
-        (skipping any that don't exist yet, e.g. a database that hasn't run
-        every migration) - an external-content FTS5 index that's fallen out
+        Checks `PagesFTS`, `FootnotesFTS`, and `BooksFTS` (skipping any that
+        don't exist yet, e.g. a database that hasn't run every migration) -
+        an external-content FTS5 index that's fallen out
         of sync with its content table means search silently returns
         stale/missing results, not something SQLite itself would ever flag
         on its own.

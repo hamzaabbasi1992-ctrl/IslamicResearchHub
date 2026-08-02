@@ -123,27 +123,6 @@ def test_backfill_is_resume_safe_via_insert_or_replace(tmp_path: Path) -> None:
     assert _paragraph_rows(database_path, 1) == [(1, 1, 0, "Some real page content")]
 
 
-def test_paragraphs_fts_stays_in_sync(tmp_path: Path) -> None:
-    """A backfilled paragraph is genuinely findable via ParagraphsFTS."""
-    database_path = tmp_path / "books.db"
-    book = Book(
-        information={"Name": "Book One"},
-        categories=(),
-        table_of_contents=(),
-        pages=(Page(1, 1, "A distinctive searchable phrase", "Plain"),),
-    )
-    MasterBookRepository().import_books(database_path, (book,), (tmp_path / "one.mjbz",))
-    _migrate(database_path)
-
-    run(_build_args(database_path))
-
-    with sqlite3.connect(database_path) as connection:
-        hit = connection.execute(
-            "SELECT rowid FROM ParagraphsFTS WHERE ParagraphsFTS MATCH 'distinctive'"
-        ).fetchall()
-    assert len(hit) == 1
-
-
 def test_library_filter_limits_which_books_are_processed(tmp_path: Path, capsys) -> None:
     """--library restricts the backfill to one library's books."""
     database_path = tmp_path / "books.db"

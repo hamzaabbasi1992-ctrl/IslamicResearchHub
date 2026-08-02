@@ -235,8 +235,14 @@ def test_root_categories_are_not_flagged_as_orphaned(tmp_path: Path) -> None:
     assert report.is_healthy
 
 
-def test_fts_sync_check_covers_paragraphs_and_books_indexes_too(tmp_path: Path) -> None:
-    """The generalized FTS sync check runs against ParagraphsFTS/BooksFTS, not just PagesFTS."""
+def test_fts_sync_check_covers_books_index_too(tmp_path: Path) -> None:
+    """The generalized FTS sync check runs against BooksFTS too, not just PagesFTS.
+
+    ParagraphsFTS is deliberately absent from this check (and from the
+    schema at all, as of migration 16) - confirmed unused by any real
+    search path and dropped as dead storage; see migration_runner.py's
+    _drop_unused_paragraphs_search_index.
+    """
     database_path = tmp_path / "books.db"
     _seed_valid_migrated_database(database_path)
     with sqlite3.connect(database_path) as connection:
@@ -246,7 +252,7 @@ def test_fts_sync_check_covers_paragraphs_and_books_indexes_too(tmp_path: Path) 
                 "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
         }
-    assert "ParagraphsFTS" in tables
+    assert "ParagraphsFTS" not in tables
     assert "BooksFTS" in tables
 
     report = DatabaseVerifier(database_path).verify()

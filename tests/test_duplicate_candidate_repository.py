@@ -12,11 +12,15 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 )
 
 
-def _book(name: str, mjbn: str | None = None, with_content: bool = False) -> Book:
-    """Build a minimal book with the given title, optional source id and content."""
+def _book(
+    name: str, mjbn: str | None = None, with_content: bool = False, author: str | None = None
+) -> Book:
+    """Build a minimal book with the given title, optional source id/author/content."""
     information = {"Name": name}
     if mjbn is not None:
         information["MJBN"] = mjbn
+    if author is not None:
+        information["ANAME"] = author
     pages = (Page(1, 1, "Some real page content", None),) if with_content else ()
     return Book(information=information, categories=(), table_of_contents=(), pages=pages)
 
@@ -70,8 +74,11 @@ def test_detects_same_title_with_different_source_id(tmp_path: Path) -> None:
     assert candidates[0].match_type == "exact_title"
 
 
-def test_does_not_flag_same_title_within_one_library(tmp_path: Path) -> None:
-    """A repeated title within the same library is not a cross-library candidate."""
+def test_does_not_flag_same_title_within_one_library_with_no_author(tmp_path: Path) -> None:
+    """A repeated title within one library, with no author recorded on either
+    side, isn't flagged - title alone is too weak a signal within a single
+    library (real Shamela data has many distinct books sharing a generic
+    title with no author set)."""
     database_path = tmp_path / "books.db"
     repository = MasterBookRepository()
     repository.import_books(
@@ -83,6 +90,57 @@ def test_does_not_flag_same_title_within_one_library(tmp_path: Path) -> None:
     repository.import_books(
         database_path,
         (_book("Same Title"),),
+        (tmp_path / "b.mjbz",),
+        library_name="Library A",
+    )
+
+    count = DuplicateCandidateRepository(database_path).detect_and_store()
+
+    assert count == 0
+
+
+def test_flags_same_title_and_author_within_one_library(tmp_path: Path) -> None:
+    """Real gap found investigating the full Shamela import: within-library
+    duplicates (same title AND author) were entirely invisible to the old
+    cross-library-only scan. Now detected, with a distinct match_type."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_book("Same Title", author="Author One"),),
+        (tmp_path / "a.mjbz",),
+        library_name="Library A",
+    )
+    repository.import_books(
+        database_path,
+        (_book("Same Title", author="Author One"),),
+        (tmp_path / "b.mjbz",),
+        library_name="Library A",
+    )
+
+    count = DuplicateCandidateRepository(database_path).detect_and_store()
+
+    assert count == 1
+    candidates = DuplicateCandidateRepository(database_path).list_candidates()
+    assert candidates[0].match_type == "exact_title_and_author_same_library"
+
+
+def test_does_not_flag_same_title_within_one_library_with_different_authors(
+    tmp_path: Path,
+) -> None:
+    """A shared title within one library, but a different real author on
+    each side, is not flagged - they're evidently different books."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_book("Same Title", author="Author One"),),
+        (tmp_path / "a.mjbz",),
+        library_name="Library A",
+    )
+    repository.import_books(
+        database_path,
+        (_book("Same Title", author="Author Two"),),
         (tmp_path / "b.mjbz",),
         library_name="Library A",
     )

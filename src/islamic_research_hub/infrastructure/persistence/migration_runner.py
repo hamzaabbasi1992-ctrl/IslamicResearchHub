@@ -677,6 +677,36 @@ def _switch_to_wal_journal_mode(connection: sqlite3.Connection) -> None:
         )
 
 
+def _drop_unused_paragraphs_search_index(connection: sqlite3.Connection) -> None:
+    """Drop ParagraphsFTS/ParagraphsFTSNormalized and their sync triggers.
+
+    Real dead weight found investigating storage overhead at the
+    104,865-book scale: confirmed via a project-wide search that neither
+    table is referenced by any real search path
+    (`SqliteBookSearchRepository` only ever queries
+    `Pages`/`Footnotes`/`Books` FTS variants) - only by migration/backfill/
+    verification code, which this migration also updates. `Paragraphs`
+    itself (the real per-paragraph citation-ID table) is completely
+    untouched - only its unused search index is removed. `DROP TABLE IF
+    EXISTS`/`DROP TRIGGER IF EXISTS` throughout, so this is safe to run
+    again on a database that already lacks these (e.g. one created after
+    this migration was added, which never creates them in the first
+    place - see `_add_paragraphs`, deliberately NOT changed here per
+    "never rewrite working code": a future fresh-database migration run
+    still creates then immediately drops them, which is correct-but-
+    wasteful rather than incorrect, and safer than editing a migration
+    that's already been applied to production).
+    """
+    connection.executescript(
+        """
+        DROP TRIGGER IF EXISTS paragraphs_after_insert;
+        DROP TRIGGER IF EXISTS paragraphs_after_insert_normalized;
+        DROP TABLE IF EXISTS ParagraphsFTS;
+        DROP TABLE IF EXISTS ParagraphsFTSNormalized;
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -692,6 +722,7 @@ BOOK_RATINGS_VERSION = 12
 PARAGRAPHS_VERSION = 13
 HADEES_AND_AYAH_NUMBERS_VERSION = 14
 BOOKS_SEARCH_INDEX_VERSION = 15
+DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION = 16
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -786,6 +817,13 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add BooksFTS/BooksFTSNormalized, bm25-ranked title/author search, "
         "backfilled inline.",
         _add_books_search_index,
+    ),
+    Migration(
+        DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
+        "Drop ParagraphsFTS/ParagraphsFTSNormalized (confirmed unused by "
+        "any real search path) - real dead storage found at the "
+        "104,865-book scale. Paragraphs itself is untouched.",
+        _drop_unused_paragraphs_search_index,
     ),
 )
 

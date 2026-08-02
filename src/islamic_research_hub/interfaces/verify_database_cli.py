@@ -30,10 +30,13 @@ _STATS_QUERIES: tuple[tuple[str, str], ...] = (
     ("Categories (taxonomy)", "SELECT COUNT(*) FROM CategoryTaxonomy"),
     ("Libraries", "SELECT COUNT(*) FROM Libraries"),
     ("PagesFTS rows", "SELECT COUNT(*) FROM PagesFTS"),
-    ("ParagraphsFTS rows", "SELECT COUNT(*) FROM ParagraphsFTS"),
     ("BooksFTS rows", "SELECT COUNT(*) FROM BooksFTS"),
     ("FootnotesFTS rows", "SELECT COUNT(*) FROM FootnotesFTS"),
 )
+# ParagraphsFTS/ParagraphsFTSNormalized deliberately removed from this
+# list (migration 16 drops both) - confirmed unused by any real search
+# path, dropped as dead storage. Paragraphs itself (citation IDs) is
+# untouched.
 
 
 def build_parser() -> argparse.ArgumentParser:

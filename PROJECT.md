@@ -1,6 +1,6 @@
 # Islamic Research Hub AI — Project Plan
 
-Last updated: 2026-07-29 (kept in sync with `CHANGELOG.md`, which is the
+Last updated: 2026-08-01 (kept in sync with `CHANGELOG.md`, which is the
 authoritative detailed history — this file is the current-status summary).
 
 ## Goal
@@ -495,10 +495,84 @@ both items below are real and scoped:
   hasn't run migration 6 yet. Verified against the real production
   database (smoke-tested end to end) and with 8 new pytest-qt tests.
 
-**Phase 8 status: all three priorities complete** (Shamela importer
-built and pilot-verified, taxonomy validated/fixed, Taxonomy Browser GUI
-shipped). Full ~30,662-book Shamela corpus import remains a deliberately
-separate, later step, not part of this phase's scope.
+**Phase 8 status: complete, including the full corpus import.** The full
+Shamela import ran to completion: 30,662 real files processed, 119
+failed to read (malformed source files, ~0.4%), **90,076 books
+imported**, 5,889 Series correctly grouped. `data/books.db` grew from a
+14,901-book baseline to **104,865 books** (post a safe 112-row
+empty-content-stub cleanup) across all 10 libraries. Two real, distinct
+data-quality issues were found and fixed while verifying the result at
+this new scale (not part of the import itself, both real, both
+documented in CHANGELOG):
+- `model_volumes()`'s title-regex grouping can merge two *unrelated*
+  source files that happen to share a title into one bogus "series"
+  (confirmed directly against a raw `.mdb`) - `multi_volume_series.csv`
+  now flags this via `SourceFileCount`/`Confidence` rather than trusting
+  every apparent gap.
+- `DuplicateCandidateRepository.detect_and_store()` was cross-library
+  only, missing within-library duplicates entirely - extended to also
+  detect same-library Title+Author matches, then batch-scored all 2,132
+  resulting candidates against real page content
+  (`BookComparisonRepository.compare()`): 73 are ~100% identical
+  (near-certain true duplicates, action pending explicit approval - this
+  is a real-data-deletion decision), 52 are confirmed different books
+  despite matching metadata (safe to dismiss), 2,004 have no
+  page-number overlap to compare (inconclusive by this method, not
+  necessarily non-duplicates).
+
+### Phase 8.5 — Post-import data quality: duplicates, series accuracy, storage: **in progress**
+
+Inserted out of the main 1-20 sequence (no renumbering, to avoid the real
+risk of breaking the many existing cross-references to Phase 9-20 above)
+- runs alongside/interleaved with Phase 9 rather than blocking it, since
+it's maintenance on the Phase 8 corpus, not a feature phase. Real items
+found investigating the corpus at its new 104,865-book scale, each
+tracked individually since most touch real production data and need an
+explicit go/no-go, not a bulk pass:
+
+- **FTS index storage overhead**: **partially done.** `data/books.db`
+  was ~110GB; real page/paragraph/footnote/book text only accounts for
+  ~25GB of that. `PagesFTS`/`FootnotesFTS`/`BooksFTS` already use FTS5
+  external-content mode correctly (no duplication) - not the problem.
+  Migration 16 (`_drop_unused_paragraphs_search_index`) dropped
+  `ParagraphsFTS`/`ParagraphsFTSNormalized`, confirmed unused by any real
+  search path - applied to production, **5.96GB reclaimed** (pending a
+  `VACUUM` to shrink the file itself, deferred until there's enough free
+  disk space to safely run it - a 168GB database needs roughly double
+  that in free space during `VACUUM`). The bigger remaining piece - the
+  `PagesFTS`/`FootnotesFTS`/`BooksFTS` *Normalized* variants (the default
+  tolerant-search path) genuinely storing their own text copy because
+  `SqliteBookSearchRepository` calls `snippet()` directly against them -
+  is scoped but **not started**: needs a real code change (contentless
+  FTS5 + computing snippets from the original table instead, with a
+  length-preserving normalization pass so match positions still map
+  correctly onto the original text). Real, buildable, but touches the
+  single most-used code path in the app - planned as its own careful
+  milestone, not rushed in.
+- **Act on the 73 high-confidence (~100% content-identical) duplicate
+  pairs** found via `BookComparisonRepository`-based batch scoring -
+  needs explicit approval before removing anything (real, permanent data
+  loss on the non-canonical side). Not started.
+- **Dismiss the 52 confirmed-different candidates** from the
+  `DuplicateCandidates` queue (metadata matched, real content doesn't -
+  non-destructive, just stops re-flagging them). Not started.
+- **Stale backup decision**: `data/backups/` has one ~24GB backup from
+  before the Shamela import completed - keep, replace with a fresh one,
+  or delete. Not started.
+- **`missing_volumes_availability.csv` web research**: 88 trustworthy
+  series, 1,358 individual missing volumes, availability not yet
+  researched (the original 24-volume version was real manual web
+  research; this scale needs a bounded batch, not all 1,358 at once).
+  Not started.
+- **Series false-merge regex fix**: `model_volumes()`'s title-only
+  grouping doesn't account for which physical source file a volume came
+  from (see Phase 8 note above) - a real fix belongs in its own
+  migration with a considered answer for cross-file title collisions,
+  not bolted on as a quick patch. Not started.
+- **Push to GitHub**: `origin` is configured
+  (`github.com/hamzaabbasi1992-ctrl/IslamicResearchHub`) but the local
+  branch is well ahead, unpushed - relevant for the new-machine migration
+  the user is planning. Not started.
 
 ### Phase 9 — Accessibility, engagement, and AI research tools: **in progress**
 

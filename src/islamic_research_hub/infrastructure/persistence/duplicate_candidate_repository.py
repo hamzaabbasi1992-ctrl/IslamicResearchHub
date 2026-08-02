@@ -25,12 +25,26 @@ class DuplicateCandidateRepository:
         self._database_path = database_path
 
     def detect_and_store(self) -> int:
-        """Find cross-library title matches and store them, returning the count stored."""
+        """Find title matches (cross-library and within the same library) and
+        store them, returning the count stored.
+
+        Originally cross-library only. Real gap found investigating this
+        corpus at scale: within-library exact Title+Author duplicates
+        (5,396 groups in the current Shamela import alone) were entirely
+        invisible to this scan, since the cross-library-only rule skipped
+        any title whose matches all shared one `LibraryID`. Same detection
+        logic now runs for both cases, distinguished by `match_type` so
+        the two are still tellable apart later - same-library matches
+        additionally require the same `Author` (title alone is too weak a
+        signal within one library, where many entries share no author at
+        all), while the cross-library case is unchanged (title alone,
+        matching the original behavior).
+        """
         with closing(sqlite3.connect(self._database_path)) as connection:
             self._create_schema(connection)
             connection.row_factory = sqlite3.Row
             rows = connection.execute(
-                "SELECT BookID, Title, SourceBookID, LibraryID FROM Books "
+                "SELECT BookID, Title, Author, SourceBookID, LibraryID FROM Books "
                 "WHERE Title IS NOT NULL"
             ).fetchall()
 
@@ -43,20 +57,24 @@ class DuplicateCandidateRepository:
             candidates: list[tuple[int, int, str]] = []
             for entries in by_title.values():
                 libraries = {entry["LibraryID"] for entry in entries}
-                if len(libraries) < 2:
+                if len(libraries) >= 2:
+                    candidates.extend(self._pair_up(entries, "exact_title", "exact_title_and_source_id"))
                     continue
-                canonical = min(entries, key=lambda entry: entry["BookID"])
+                by_author: dict[str, list[sqlite3.Row]] = defaultdict(list)
                 for entry in entries:
-                    if entry["BookID"] == canonical["BookID"]:
+                    author_key = (entry["Author"] or "").strip().casefold()
+                    if author_key:
+                        by_author[author_key].append(entry)
+                for author_entries in by_author.values():
+                    if len(author_entries) < 2:
                         continue
-                    same_source_id = (
-                        entry["SourceBookID"] is not None
-                        and entry["SourceBookID"] == canonical["SourceBookID"]
+                    candidates.extend(
+                        self._pair_up(
+                            author_entries,
+                            "exact_title_and_author_same_library",
+                            "exact_title_and_author_and_source_id_same_library",
+                        )
                     )
-                    match_type = (
-                        "exact_title_and_source_id" if same_source_id else "exact_title"
-                    )
-                    candidates.append((entry["BookID"], canonical["BookID"], match_type))
 
             connection.execute("DELETE FROM DuplicateCandidates")
             connection.executemany(
@@ -70,6 +88,29 @@ class DuplicateCandidateRepository:
             "Duplicate candidate detection complete: %d pair(s) found.", len(candidates)
         )
         return len(candidates)
+
+    @staticmethod
+    def _pair_up(
+        entries: list[sqlite3.Row], match_type: str, same_source_match_type: str
+    ) -> list[tuple[int, int, str]]:
+        """Pair every non-canonical entry with the lowest-BookID entry in the group."""
+        canonical = min(entries, key=lambda entry: entry["BookID"])
+        pairs: list[tuple[int, int, str]] = []
+        for entry in entries:
+            if entry["BookID"] == canonical["BookID"]:
+                continue
+            same_source_id = (
+                entry["SourceBookID"] is not None
+                and entry["SourceBookID"] == canonical["SourceBookID"]
+            )
+            pairs.append(
+                (
+                    entry["BookID"],
+                    canonical["BookID"],
+                    same_source_match_type if same_source_id else match_type,
+                )
+            )
+        return pairs
 
     def list_candidates(self) -> tuple[DuplicateCandidate, ...]:
         """Return every stored duplicate candidate."""

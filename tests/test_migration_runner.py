@@ -27,6 +27,7 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (
     PARAGRAPHS_VERSION,
     HADEES_AND_AYAH_NUMBERS_VERSION,
     BOOKS_SEARCH_INDEX_VERSION,
+    DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
     WAL_JOURNAL_MODE_VERSION,
     MigrationRunner,
     model_volumes,
@@ -145,8 +146,9 @@ def test_real_migrations_registry_adopts_a_freshly_imported_database(
             PARAGRAPHS_VERSION,
             HADEES_AND_AYAH_NUMBERS_VERSION,
             BOOKS_SEARCH_INDEX_VERSION,
+            DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
         ]
-        assert runner.current_version(connection) == BOOKS_SEARCH_INDEX_VERSION
+        assert runner.current_version(connection) == DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION
 
 
 def _seed_book(database_path: Path, title: str, author: str | None, source: str) -> None:
@@ -192,6 +194,7 @@ def test_authors_migration_creates_and_backfills_a_normalized_authors_table(
             PARAGRAPHS_VERSION,
             HADEES_AND_AYAH_NUMBERS_VERSION,
             BOOKS_SEARCH_INDEX_VERSION,
+            DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
         ]
 
         authors = dict(connection.execute("SELECT Name, AuthorID FROM Authors").fetchall())
@@ -250,6 +253,7 @@ def test_categories_migration_deduplicates_by_mjcn_across_books(tmp_path: Path) 
             PARAGRAPHS_VERSION,
             HADEES_AND_AYAH_NUMBERS_VERSION,
             BOOKS_SEARCH_INDEX_VERSION,
+            DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
         ]
 
         rows = connection.execute(
@@ -320,6 +324,7 @@ def test_volumes_migration_groups_books_sharing_a_base_title(tmp_path: Path) -> 
             PARAGRAPHS_VERSION,
             HADEES_AND_AYAH_NUMBERS_VERSION,
             BOOKS_SEARCH_INDEX_VERSION,
+            DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION,
         ]
 
         series_rows = connection.execute("SELECT SeriesID, Title FROM Series").fetchall()
