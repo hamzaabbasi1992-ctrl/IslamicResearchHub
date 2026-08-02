@@ -573,11 +573,52 @@ explicit go/no-go, not a bulk pass:
   current, post-dedup database was created via `database_backup_cli.py`
   (`data/backups/books_backup_20260802_074832.db`, ~156GB, SQLite's
   online backup API - safe to take against a live database).
-- **`missing_volumes_availability.csv` web research**: 88 trustworthy
-  series, 1,358 individual missing volumes, availability not yet
-  researched (the original 24-volume version was real manual web
-  research; this scale needs a bounded batch, not all 1,358 at once).
-  Not started.
+- **`missing_volumes_availability.csv` web research**: **blocked - a
+  real, bigger data-quality bug found first, not yet started.**
+  Investigating which of the 88 "trustworthy" series were actually worth
+  researching found a real title-mismatch bug: for some multi-part
+  Shamela series, every part shares one title that doesn't match the
+  real page content underneath - e.g. SeriesID 2216 is labeled "العدسات
+  اللاصقه بين الضروره والخطوره" ("Contact lenses...") but its 236 real
+  parts are actually distinct sessions of "لقاء الباب المفتوح" (a real,
+  well-known Q&A lecture series); SeriesID 2054 is labeled "السيخية"
+  ("Sikhism") but is really the 45-volume *Kuwaiti Fiqh Encyclopedia*;
+  SeriesID 781 is labeled about "the effects of sin" but is really a
+  31-volume Qur'an grammar commentary. The per-part *content* splitting
+  itself is fine (each part is real, distinct, substantial content) -
+  only the shared title is wrong, traced to `ShamelaCatalogEntry.book_name`
+  (via `shamela_id = int(raw.path.stem)` -> `book_index.db` lookup in
+  `shamela_book_reader.py`/`shamela_import_cli.py`).
+  - **Scope, corrected after checking, not assumed**: this is a minority
+    issue, not corpus-wide - a random sample of 12 large series (>20
+    parts) found only 2 affected; the other 10 are genuine, correctly-
+    titled real large works (Al-Sarakhsi's 30-volume *al-Mabsut*,
+    Al-Razi's 32-volume *Tafsir al-Kabir*, Al-Dhahabi's 52-volume
+    history, etc. - this corpus legitimately contains real works that
+    large). The original "39,452 books belong to a series with >20
+    members" figure is not itself a defect count.
+  - **One hypothesis directly ruled out, not just suspected**: duplicate
+    `.mdb` filenames colliding across different Shamela subfolders (e.g.
+    the same numeric stem appearing under both `Books\0\` and
+    `Books\Archive\`) - checked all 30,532 imported Shamela `Source`
+    paths for stem collisions across subfolders: zero found.
+  - **Real limit hit, not a dead end**: the likely remaining explanation
+    is bad source data in Shamela's own `book_index.db` (a wrong
+    `bookName` recorded against that `shamelaID`) rather than a bug in
+    this project's matching code, but this can't be confirmed because
+    the raw Shamela source library (`F:\المكتبة الشاملة`, 113GB) isn't
+    present on this machine - a new-machine gap, not lost data (the
+    already-imported `data/books.db` is unaffected and complete).
+    Revisit once that source folder (or at least `book_index.db`) is
+    reachable again.
+  - **Direct consequence for the original research task**: the "88
+    trustworthy series" list itself can't be trusted at face value for
+    web research until this is sorted - a "missing volume" claim under a
+    wrong title is meaningless (there's no real "volume 195 of a
+    contact-lens pamphlet" to search for). Web research on
+    `missing_volumes_availability.csv` stays on hold until the
+    title-mismatch bug is understood well enough to know which of the 88
+    series are safe to research as-labeled.
 - **Series false-merge regex fix**: `model_volumes()`'s title-only
   grouping doesn't account for which physical source file a volume came
   from (see Phase 8 note above) - a real fix belongs in its own

@@ -1,5 +1,42 @@
 # Changelog
 
+## Investigation: real Shamela title-mismatch bug found, root cause blocked on missing source data
+
+Started as the Phase 8.5 "missing_volumes_availability.csv web research"
+item; stopped short of any actual web research after finding a bigger,
+real problem worth fixing first - see PROJECT.md's Phase 8.5 entry for
+the full writeup. Summary:
+
+- Checking `docs/book_inventory/multi_volume_series.csv`'s 88
+  "HIGH confidence, single source file" series against the real database
+  (not just the CSV) found several where every part of a multi-part
+  Shamela work shares one title that doesn't match its real page content
+  - e.g. SeriesID 2216 ("Contact lenses...") is really 236 sessions of a
+  well-known Q&A lecture series; SeriesID 2054 ("Sikhism") is really the
+  45-volume Kuwaiti Fiqh Encyclopedia. Per-part content splitting itself
+  is correct - only the shared title is wrong.
+- A random sample of 12 large series (>20 parts) found this affects a
+  minority (2/12) - the rest are genuine, correctly-titled large real
+  works (Al-Sarakhsi's 30-volume *al-Mabsut*, Al-Razi's 32-volume *Tafsir
+  al-Kabir*, etc.), so this is not a corpus-wide defect, and the earlier
+  "39,452 books in a series with >20 members" figure was not itself a
+  defect count.
+- Traced the title to `ShamelaCatalogEntry.book_name`, looked up via
+  `shamela_id = int(raw.path.stem)` against `book_index.db`. Directly
+  ruled out one hypothesis (duplicate `.mdb` filenames colliding across
+  different Shamela subfolders, e.g. `Books\0\` vs `Books\Archive\`) by
+  checking all 30,532 imported Shamela `Source` paths for stem collisions
+  - zero found. Most likely remaining explanation: bad source data in
+  Shamela's own `book_index.db` catalog, not this project's code - but
+  unconfirmed, because the raw Shamela source library
+  (`F:\المكتبة الشاملة`, 113GB) isn't present on this machine to check
+  directly. `data/books.db` itself is unaffected/complete - this is a
+  new-machine access gap, not lost data.
+- The original web-research task is blocked as a direct consequence: a
+  "missing volume" claim under a wrong title isn't researchable. Held for
+  when the source library (or at least `book_index.db`) is reachable
+  again.
+
 ## Desktop shortcut (runs from source) + a real build_installer.ps1 bug fix
 
 New `run_desktop_app.bat` (project root) + a Windows desktop shortcut
