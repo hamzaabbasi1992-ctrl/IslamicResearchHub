@@ -17,6 +17,33 @@ from islamic_research_hub.domain.models.duplicate_candidate import DuplicateCand
 
 LOGGER = logging.getLogger(__name__)
 
+_BOOK_REFERENCING_TABLES: tuple[str, ...] = (
+    "Categories",
+    "Chapters",
+    "Pages",
+    "Footnotes",
+    "Paragraphs",
+    "BookTaxonomyTerms",
+    "PageEmbeddings",
+    "PdfMatchCandidates",
+    "BookPublicationDetails",
+    "BookBookmarks",
+    "RecentBooks",
+    "BookRatings",
+)
+"""Every real table (besides `Books` and `DuplicateCandidates`, handled
+separately) with a `BookID` column, found by inspecting the live schema.
+Kept explicit rather than introspected at call time, so a future new table
+is a deliberate, reviewable addition here - not a silent gap in book
+deletion. `resolve_empty_stub_duplicates()`'s original delete list
+(Categories/Chapters/Pages only) predates several of these tables
+(Footnotes, Paragraphs, BookTaxonomyTerms, PageEmbeddings,
+PdfMatchCandidates, ...) - harmless for that method in practice (a
+zero-page stub book was never going to have footnotes or paragraphs
+either), but a real gap for deleting a book with actual content, which is
+exactly what `remove_book()` below needs to do correctly.
+"""
+
 
 class DuplicateCandidateRepository:
     """Detect and store possible cross-library duplicate book pairings."""
@@ -194,18 +221,77 @@ class DuplicateCandidateRepository:
                     empty_side_book_ids.add(row["DuplicateOfBookID"])
 
             for book_id in empty_side_book_ids:
-                connection.execute("DELETE FROM DuplicateCandidates WHERE BookID = ?", (book_id,))
-                connection.execute(
-                    "DELETE FROM DuplicateCandidates WHERE DuplicateOfBookID = ?", (book_id,)
-                )
-                connection.execute("DELETE FROM Categories WHERE BookID = ?", (book_id,))
-                connection.execute("DELETE FROM Chapters WHERE BookID = ?", (book_id,))
-                connection.execute("DELETE FROM Pages WHERE BookID = ?", (book_id,))
-                connection.execute("DELETE FROM Books WHERE BookID = ?", (book_id,))
+                self._delete_book(connection, book_id)
             connection.commit()
 
         LOGGER.info("Removed %d empty-stub duplicate(s).", len(empty_side_book_ids))
         return len(empty_side_book_ids)
+
+    def export_book(self, book_id: int) -> dict[str, list[dict[str, object]]]:
+        """Dump every real row for one book (Books + every referencing table),
+        as plain JSON-serializable dicts, for a human-reviewable backup
+        before `remove_book()` deletes it. Excludes `PageEmbeddings` (a
+        derived BLOB index, regenerable by re-running `semantic_index_cli.py`
+        - not original corpus content worth backing up).
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            connection.row_factory = sqlite3.Row
+            existing_tables = self._existing_tables(connection)
+            export: dict[str, list[dict[str, object]]] = {}
+            export["Books"] = [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT * FROM Books WHERE BookID = ?", (book_id,)
+                ).fetchall()
+            ]
+            for table in _BOOK_REFERENCING_TABLES:
+                if table == "PageEmbeddings" or table not in existing_tables:
+                    continue
+                export[table] = [
+                    dict(row)
+                    for row in connection.execute(
+                        f"SELECT * FROM {table} WHERE BookID = ?", (book_id,)
+                    ).fetchall()
+                ]
+        return export
+
+    def remove_book(self, book_id: int) -> None:
+        """Permanently delete one book and every row across the schema that
+        references it. Real, irreversible data deletion - callers must have
+        already decided (and ideally backed up via `export_book()`) before
+        calling this; nothing here asks for confirmation.
+        """
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            self._create_schema(connection)
+            self._delete_book(connection, book_id)
+            connection.commit()
+
+    @classmethod
+    def _delete_book(cls, connection: sqlite3.Connection, book_id: int) -> None:
+        """Delete a book and every row across the schema that references it.
+        Shared by `resolve_empty_stub_duplicates()` and `remove_book()` -
+        does not commit (callers control the transaction). Skips any table
+        in `_BOOK_REFERENCING_TABLES` that doesn't exist yet on this
+        database (e.g. a test fixture built directly via
+        `MasterBookRepository`, without running `MigrationRunner`, or a
+        production database from before a given migration ran).
+        """
+        connection.execute("DELETE FROM DuplicateCandidates WHERE BookID = ?", (book_id,))
+        connection.execute("DELETE FROM DuplicateCandidates WHERE DuplicateOfBookID = ?", (book_id,))
+        existing_tables = cls._existing_tables(connection)
+        for table in _BOOK_REFERENCING_TABLES:
+            if table in existing_tables:
+                connection.execute(f"DELETE FROM {table} WHERE BookID = ?", (book_id,))
+        connection.execute("DELETE FROM Books WHERE BookID = ?", (book_id,))
+
+    @staticmethod
+    def _existing_tables(connection: sqlite3.Connection) -> set[str]:
+        return {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
 
     @staticmethod
     def _create_schema(connection: sqlite3.Connection) -> None:

@@ -265,6 +265,75 @@ def test_resolve_empty_stub_duplicates_ignores_dismissed_pairs(tmp_path: Path) -
     assert book_count == 2
 
 
+def test_export_book_returns_the_real_row_content(tmp_path: Path) -> None:
+    """export_book() dumps the Books row plus every referencing table's
+    rows, as plain dicts - the backup step before remove_book() deletes."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_book("Shared Title", with_content=True),),
+        (tmp_path / "a.mjbz",),
+        library_name="Library A",
+    )
+    book_id = 1
+
+    export = DuplicateCandidateRepository(database_path).export_book(book_id)
+
+    assert len(export["Books"]) == 1
+    assert export["Books"][0]["Title"] == "Shared Title"
+    assert len(export["Pages"]) == 1
+    assert export["Pages"][0]["Content"] == "Some real page content"
+    assert "PageEmbeddings" not in export
+
+
+def test_remove_book_deletes_the_book_and_its_pages(tmp_path: Path) -> None:
+    """remove_book() permanently deletes a real book, not just a stub."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_book("Shared Title", with_content=True),),
+        (tmp_path / "a.mjbz",),
+        library_name="Library A",
+    )
+    book_id = 1
+
+    DuplicateCandidateRepository(database_path).remove_book(book_id)
+
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM Books").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM Pages").fetchone()[0] == 0
+
+
+def test_remove_book_also_clears_any_duplicate_candidate_rows_referencing_it(
+    tmp_path: Path,
+) -> None:
+    """A removed book shouldn't leave a dangling DuplicateCandidates row on
+    either side of the pair."""
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path,
+        (_book("Shared Title"),),
+        (tmp_path / "a.mjbz",),
+        library_name="Library A",
+    )
+    repository.import_books(
+        database_path,
+        (_book("Shared Title"),),
+        (tmp_path / "b.mjbz",),
+        library_name="Library B",
+    )
+    duplicate_repository = DuplicateCandidateRepository(database_path)
+    duplicate_repository.detect_and_store()
+    candidate = duplicate_repository.list_candidates()[0]
+
+    duplicate_repository.remove_book(candidate.book_id)
+
+    assert duplicate_repository.list_candidates(include_dismissed=True) == ()
+
+
 def test_resolve_empty_stub_duplicates_removes_the_contentless_side(tmp_path: Path) -> None:
     """When one side has no content, only the empty side is removed."""
     database_path = tmp_path / "books.db"

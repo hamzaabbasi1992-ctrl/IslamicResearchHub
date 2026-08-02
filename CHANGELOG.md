@@ -1,5 +1,71 @@
 # Changelog
 
+## Real content-duplicate removal: 68 of 73 high-confidence identical pairs
+
+Closes the Phase 8.5 punch-list item "act on the 73 high-confidence
+duplicate pairs" - real, permanent data deletion, done only after explicit
+approval of the exact policy (see below), a pre-deletion backup, and a
+post-deletion integrity check.
+
+**Real complication found before touching anything**: the 73 pairs aren't
+simple mirror duplicates. For every one, `CommonPages == min(PageCountA,
+PageCountB)` and similarity on that common range is 1.0 - i.e. the
+smaller-page-count side is a complete, byte-identical subset of the
+larger side, which has extra pages the smaller one lacks. In 9 of the 73
+pairs, the book the original detector flagged as "the duplicate" is
+actually the *larger*, more complete copy - a naive "always delete the
+flagged side" rule would have deleted the better copy. **Policy applied
+instead: keep whichever side has more pages** (verified safe - the
+smaller side's content is always a full subset), tie-break to the
+canonical (lower) `BookID` when page counts match.
+
+**Second complication, found while computing the keep/remove decision
+for every pair**: 5 of the 73 rows form two transitive chains (e.g. book
+A ≡ book B by one pair, book B ⊂ book C by another pair) where a book is
+"keep" in one row and "remove" in another - resolving those correctly
+would require a direct A-vs-C comparison this project never actually ran
+(only A-vs-B and B-vs-C were scored). Rather than assume transitivity
+holds, those 5 rows are left as-is, still pending review -
+`docs/duplicate_analysis/removed_high_confidence_duplicates.txt` marks
+them `FLAGGED - not removed, needs manual review` alongside the 68 real
+removals, so nothing here was silently dropped.
+
+**Real gap found and fixed in the deletion code itself**: the existing
+`resolve_empty_stub_duplicates()` only ever deleted from
+`Categories`/`Chapters`/`Pages`/`Books` - harmless for a zero-page stub
+(nothing else could reference it), but a real correctness gap for
+deleting a book with actual content, which is exactly what this item
+needs to do. `DuplicateCandidateRepository` gained a shared `_delete_book()`
+helper covering every real table with a `BookID` column
+(`Footnotes`, `Paragraphs`, `BookTaxonomyTerms`, `PageEmbeddings`,
+`PdfMatchCandidates`, `BookPublicationDetails`, `BookBookmarks`,
+`RecentBooks`, `BookRatings`, plus `DuplicateCandidates` itself on both
+sides) - found by inspecting the live schema, not guessed. Table
+existence is checked defensively (several of these tables don't exist in
+a database built directly via `MasterBookRepository` without running
+`MigrationRunner`, e.g. every existing test fixture). `resolve_empty_stub_
+duplicates()` now uses this same helper (strictly more thorough, zero
+behavior change for its own tests). New `export_book()`/`remove_book()`
+public methods (the backup-then-delete pair the one-off resolution script
+uses) - `remove_book()` doesn't ask for confirmation itself, by design;
+callers decide.
+
+Applied to production: 68 books removed (verified zero orphaned rows
+afterward across every referencing table - `Categories`/`Chapters`/
+`Pages`/`Footnotes`/`Paragraphs`/`BookTaxonomyTerms`/`PageEmbeddings`/
+`PdfMatchCandidates`/`BookPublicationDetails`/`BookBookmarks`/
+`RecentBooks`/`BookRatings`/`DuplicateCandidates`), `data/books.db` went
+from 104,865 to 104,797 books. Full row content of every removed book
+(everything except the regenerable `PageEmbeddings` BLOBs) backed up to
+`docs/duplicate_analysis/removed_high_confidence_duplicates_backup.json`
+before deletion; the human-readable list of all 73 original pairs
+(kept/removed/flagged, titles, authors, page counts) is
+`docs/duplicate_analysis/removed_high_confidence_duplicates.txt`. 4 new
+tests (`test_export_book_returns_the_real_row_content`,
+`test_remove_book_deletes_the_book_and_its_pages`,
+`test_remove_book_also_clears_any_duplicate_candidate_rows_referencing_it`,
+plus the existing empty-stub tests re-verified against the refactor).
+
 ## Duplicate review: persistent Dismiss, real 52-pair cleanup applied
 
 Closes out one of the Phase 8.5 punch-list items ("dismiss the 52

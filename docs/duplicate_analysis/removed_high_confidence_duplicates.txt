@@ -1,0 +1,370 @@
+High-confidence duplicate resolution - 73 pairs reviewed
+
+68 removed automatically (keep-more-complete-side policy), 5 flagged for manual review (transitive chain, unverified).
+
+====================================================================================================
+
+[REMOVED] kept BookID=375  removed BookID=15804
+    Title: شرح ثمیری شرح اردو قدوری جلد 2 - یونیکوڈ
+    Author: حضرت مولانا ثمیر الدین قاسمی صاحب
+    Pages: BookID 15804=457  DuplicateOfBookID 375=457  MatchType=exact_title_and_source_id
+
+[REMOVED] kept BookID=2345  removed BookID=4746
+    Title: بہشتی گوہر
+    Author: حکیم الامت حضرت مولانا اشرف علی تھانوی صاحب
+    Pages: BookID 4746=241  DuplicateOfBookID 2345=241  MatchType=exact_title_and_author_same_library
+
+[FLAGGED - not removed, needs manual review] kept BookID=2347  removed BookID=4747
+    Title: بہشتی زیور مکمل
+    Author: حکیم الامت حضرت مولانا اشرف علی تھانوی صاحب
+    Pages: BookID 4747=639  DuplicateOfBookID 2347=639  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=3772  removed BookID=3727
+    Title: درسی تقریر جلد 1
+    Author: حضرت مولانا محمد امین صاحب
+    Pages: BookID 3772=569  DuplicateOfBookID 3727=336  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=3793  removed BookID=3791
+    Title: تکمیل الامانی جلد 1
+    Author: حضرت مولانا جمیل احمد سکروڈھوی صاحب
+    Pages: BookID 3793=381  DuplicateOfBookID 3791=273  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=3794  removed BookID=3792
+    Title: تکمیل الامانی جلد 2
+    Author: حضرت مولانا جمیل احمد سکروڈھوی صاحب
+    Pages: BookID 3794=389  DuplicateOfBookID 3792=270  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4188  removed BookID=15792
+    Title: کریما سعدے  طبع مکتبۃ البشری
+    Author: درس نظامی
+    Pages: BookID 15792=25  DuplicateOfBookID 4188=25  MatchType=exact_title_and_source_id
+
+[REMOVED] kept BookID=4191  removed BookID=4198
+    Title: اقناع الضمیر ترجمہ نحو میر طبع قدیمی کتب خانہ
+    Author: درس نظامی
+    Pages: BookID 4198=49  DuplicateOfBookID 4191=49  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4220  removed BookID=4231
+    Title: کنز الدقائق جلد نمبر 3
+    Author: درس نظامی
+    Pages: BookID 4231=565  DuplicateOfBookID 4220=565  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4226  removed BookID=4227
+    Title: کنز الدقائق جلد نمبر 1
+    Author: درس نظامی
+    Pages: BookID 4227=541  DuplicateOfBookID 4226=541  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4228  removed BookID=4230
+    Title: کنز الدقائق جلد نمبر 2
+    Author: درس نظامی
+    Pages: BookID 4230=519  DuplicateOfBookID 4228=519  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4333  removed BookID=4380
+    Title: مختصر المعانی مع الحاشیۃ لشیخ الھند محمود حسن رحمہ اللہ جلد نمبر 2
+    Author: درس نظامی
+    Pages: BookID 4380=353  DuplicateOfBookID 4333=353  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4349  removed BookID=4348
+    Title: الھدایۃ شرح بدایۃ المبتدی جلد نمبر 1
+    Author: درس نظامی
+    Pages: BookID 4349=373  DuplicateOfBookID 4348=303  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4350  removed BookID=4352
+    Title: الھدایۃ شرح بدایۃ المبتدی جلد نمبر 2
+    Author: درس نظامی
+    Pages: BookID 4352=343  DuplicateOfBookID 4350=419  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4377  removed BookID=4379
+    Title: مختصر المعانی مع الحاشیۃ لشیخ الھند محمود حسن رحمہ اللہ جلد نمبر 1
+    Author: درس نظامی
+    Pages: BookID 4379=563  DuplicateOfBookID 4377=563  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4431  removed BookID=4432
+    Title: تفسیر جلالین جلد 1
+    Author: درس نظامی
+    Pages: BookID 4432=681  DuplicateOfBookID 4431=681  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4433  removed BookID=4434
+    Title: تفسیر جلالین جلد 2
+    Author: درس نظامی
+    Pages: BookID 4434=681  DuplicateOfBookID 4433=681  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4435  removed BookID=4436
+    Title: تفسیر جلالین جلد 3
+    Author: درس نظامی
+    Pages: BookID 4436=741  DuplicateOfBookID 4435=741  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4441  removed BookID=4442
+    Title: الہدایہ جلد 3
+    Author: درس نظامی
+    Pages: BookID 4442=297  DuplicateOfBookID 4441=419  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4443  removed BookID=4444
+    Title: الہدایہ جلد 4
+    Author: درس نظامی
+    Pages: BookID 4444=539  DuplicateOfBookID 4443=547  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4446  removed BookID=4445
+    Title: الہدایہ جلد 5
+    Author: درس نظامی
+    Pages: BookID 4446=539  DuplicateOfBookID 4445=449  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4448  removed BookID=4447
+    Title: الہدایہ جلد 6
+    Author: درس نظامی
+    Pages: BookID 4448=449  DuplicateOfBookID 4447=399  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4450  removed BookID=4449
+    Title: الہدایہ جلد 7
+    Author: درس نظامی
+    Pages: BookID 4450=401  DuplicateOfBookID 4449=297  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4452  removed BookID=4453
+    Title: الہدایہ جلد 8
+    Author: درس نظامی
+    Pages: BookID 4453=401  DuplicateOfBookID 4452=401  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4487  removed BookID=4488
+    Title: الموطا للامام المالک جلد 1
+    Author: درس نظامی
+    Pages: BookID 4488=609  DuplicateOfBookID 4487=609  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4489  removed BookID=4490
+    Title: الموطا للامام المالک جلد 2
+    Author: درس نظامی
+    Pages: BookID 4490=673  DuplicateOfBookID 4489=673  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4491  removed BookID=4492
+    Title: الموطا للامام المالک جلد 3
+    Author: درس نظامی
+    Pages: BookID 4492=643  DuplicateOfBookID 4491=643  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4494  removed BookID=4495
+    Title: الموطا للامام محمد جلد 1
+    Author: درس نظامی
+    Pages: BookID 4495=541  DuplicateOfBookID 4494=541  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4497  removed BookID=4498
+    Title: الموطا للامام محمد جلد 2
+    Author: درس نظامی
+    Pages: BookID 4498=429  DuplicateOfBookID 4497=429  MatchType=exact_title_and_author_same_library
+
+[FLAGGED - not removed, needs manual review] kept BookID=4499  removed BookID=4500
+    Title: الصحیح لمسلم جلد 1
+    Author: درس نظامی
+    Pages: BookID 4500=537  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+
+[FLAGGED - not removed, needs manual review] kept BookID=4499  removed BookID=4501
+    Title: الصحیح لمسلم جلد 1
+    Author: درس نظامی
+    Pages: BookID 4501=516  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+
+[FLAGGED - not removed, needs manual review] kept BookID=4502  removed BookID=4499
+    Title: الصحیح لمسلم جلد 1
+    Author: درس نظامی
+    Pages: BookID 4502=571  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4503  removed BookID=4504
+    Title: الصحیح لمسلم جلد 2
+    Author: درس نظامی
+    Pages: BookID 4504=571  DuplicateOfBookID 4503=571  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4503  removed BookID=4505
+    Title: الصحیح لمسلم جلد 2
+    Author: درس نظامی
+    Pages: BookID 4505=443  DuplicateOfBookID 4503=571  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4503  removed BookID=4506
+    Title: الصحیح لمسلم جلد 2
+    Author: درس نظامی
+    Pages: BookID 4506=430  DuplicateOfBookID 4503=571  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4510  removed BookID=4511
+    Title: الصحیح لمسلم جلد 4
+    Author: درس نظامی
+    Pages: BookID 4511=579  DuplicateOfBookID 4510=579  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4512  removed BookID=4513
+    Title: الصحیح لمسلم جلد 5
+    Author: درس نظامی
+    Pages: BookID 4513=673  DuplicateOfBookID 4512=673  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4514  removed BookID=4515
+    Title: الصحیح لمسلم جلد 6
+    Author: درس نظامی
+    Pages: BookID 4515=545  DuplicateOfBookID 4514=545  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4516  removed BookID=4517
+    Title: الصحیح لمسلم جلد 7
+    Author: درس نظامی
+    Pages: BookID 4517=701  DuplicateOfBookID 4516=701  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4519  removed BookID=4520
+    Title: جامع الترمذی جلد 1
+    Author: درس نظامی
+    Pages: BookID 4520=377  DuplicateOfBookID 4519=867  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4519  removed BookID=4521
+    Title: جامع الترمذی جلد 1
+    Author: درس نظامی
+    Pages: BookID 4521=442  DuplicateOfBookID 4519=867  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4522  removed BookID=4523
+    Title: جامع الترمذی جلد 2
+    Author: درس نظامی
+    Pages: BookID 4523=269  DuplicateOfBookID 4522=787  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4522  removed BookID=4524
+    Title: جامع الترمذی جلد 2
+    Author: درس نظامی
+    Pages: BookID 4524=316  DuplicateOfBookID 4522=787  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4526  removed BookID=4527
+    Title: صحیح البخاری جلد 1
+    Author: درس نظامی
+    Pages: BookID 4527=611  DuplicateOfBookID 4526=1166  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4526  removed BookID=4528
+    Title: صحیح البخاری جلد 1
+    Author: درس نظامی
+    Pages: BookID 4528=699  DuplicateOfBookID 4526=1166  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4530  removed BookID=4531
+    Title: صحیح البخاری جلد 2
+    Author: درس نظامی
+    Pages: BookID 4531=597  DuplicateOfBookID 4530=1198  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4577  removed BookID=15793
+    Title: توضیح  المیبذی طبع امدادیہ
+    Author: درس نظامی
+    Pages: BookID 15793=253  DuplicateOfBookID 4577=253  MatchType=exact_title_and_source_id
+
+[REMOVED] kept BookID=4632  removed BookID=4636
+    Title: عربی کا معلم جلد نمبر 1
+    Author: درس نظامی
+    Pages: BookID 4636=129  DuplicateOfBookID 4632=129  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4633  removed BookID=4637
+    Title: عربی کا معلم جلد نمبر 2
+    Author: درس نظامی
+    Pages: BookID 4637=121  DuplicateOfBookID 4633=121  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4634  removed BookID=4638
+    Title: عربی کا معلم جلد نمبر 3
+    Author: درس نظامی
+    Pages: BookID 4638=201  DuplicateOfBookID 4634=201  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4635  removed BookID=4639
+    Title: عربی کا معلم جلد نمبر 4
+    Author: درس نظامی
+    Pages: BookID 4639=291  DuplicateOfBookID 4635=291  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4672  removed BookID=4676
+    Title: الکلام الحاوی فی تحقیق عبارۃ الطحاوی
+    Author: حضرت مولانا سرفراز خان صفدر صاحب
+    Pages: BookID 4676=167  DuplicateOfBookID 4672=167  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=4679  removed BookID=15800
+    Title: اصلاح الییوت
+    Author: حضرت مولانا شفیق احمد خان القاسمی البستوی صاحب
+    Pages: BookID 15800=505  DuplicateOfBookID 4679=505  MatchType=exact_title_and_source_id
+
+[REMOVED] kept BookID=16076  removed BookID=16443
+    Title: اسماء اللہ الحسنٰی قواعد معارف اور ایمانی ثمرات
+    Author: پیرزادہ شفیق الرحمن شاہ الدراوی
+    Pages: BookID 16443=146  DuplicateOfBookID 16076=146  MatchType=exact_title_and_author_same_library
+
+[FLAGGED - not removed, needs manual review] kept BookID=4752  removed BookID=2347
+    Title: بہشتی زیور مکمل
+    Author: حکیم الامت حضرت مولانا اشرف علی تھانوی صاحب
+    Pages: BookID 4752=769  DuplicateOfBookID 2347=639  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=1249  removed BookID=25024
+    Title: الدر المختار شرح تنوير الأبصار وجامع البحار
+    Author: علاء الدين الحصكفي
+    Pages: BookID 25024=766  DuplicateOfBookID 1249=782  MatchType=exact_title
+
+[REMOVED] kept BookID=1186  removed BookID=24992
+    Title: الغرة المنيفة في تحقيق بعض مسائل الإمام أبي حنيفة
+    Author: الغَزْنَوي، سراج الدين
+    Pages: BookID 24992=181  DuplicateOfBookID 1186=194  MatchType=exact_title
+
+[REMOVED] kept BookID=16478  removed BookID=16479
+    Title: فتنۂ غامدیت، ایک تحقیقی وتنقیدی جائزہ
+    Author: حافظ صلاح الدین یوسف حفظہ اللہ
+    Pages: BookID 16479=358  DuplicateOfBookID 16478=358  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=16085  removed BookID=16086
+    Title: صحیح دعائیں اور اذکار
+    Author: علامہ ناصر الدین البانی
+    Pages: BookID 16086=280  DuplicateOfBookID 16085=280  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=1248  removed BookID=77221
+    Title: منحة السلوك في شرح تحفة الملوك
+    Author: بدر الدين العيني
+    Pages: BookID 77221=463  DuplicateOfBookID 1248=550  MatchType=exact_title
+
+[REMOVED] kept BookID=1302  removed BookID=77187
+    Title: السير الصغير ت خدوري
+    Author: محمد بن الحسن الشيباني
+    Pages: BookID 77187=156  DuplicateOfBookID 1302=283  MatchType=exact_title
+
+[REMOVED] kept BookID=1373  removed BookID=44823
+    Title: الآثار لأبي يوسف
+    Author: أبو يوسف القاضي
+    Pages: BookID 44823=241  DuplicateOfBookID 1373=267  MatchType=exact_title
+
+[REMOVED] kept BookID=1441  removed BookID=24366
+    Title: الطهور للقاسم بن سلام
+    Author: أبو عُبيد القاسم بن سلاّم
+    Pages: BookID 24366=227  DuplicateOfBookID 1441=453  MatchType=exact_title
+
+[REMOVED] kept BookID=45913  removed BookID=101865
+    Title: معرفة الصحابة لأبي نعيم - part 4
+    Author: أبو نعيم الأصبهاني
+    Pages: BookID 101865=605  DuplicateOfBookID 45913=605  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=45910  removed BookID=101862
+    Title: معرفة الصحابة لأبي نعيم - part 1
+    Author: أبو نعيم الأصبهاني
+    Pages: BookID 101862=491  DuplicateOfBookID 45910=491  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=45914  removed BookID=101866
+    Title: معرفة الصحابة لأبي نعيم - part 5
+    Author: أبو نعيم الأصبهاني
+    Pages: BookID 101866=590  DuplicateOfBookID 45914=590  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=1383  removed BookID=24376
+    Title: مسند الشافعي
+    Author: الشافعي
+    Pages: BookID 24376=384  DuplicateOfBookID 1383=391  MatchType=exact_title
+
+[REMOVED] kept BookID=1250  removed BookID=45564
+    Title: كنز الدقائق
+    Author: النسفي، أبو البركات
+    Pages: BookID 45564=573  DuplicateOfBookID 1250=728  MatchType=exact_title
+
+[REMOVED] kept BookID=45915  removed BookID=101867
+    Title: معرفة الصحابة لأبي نعيم - part 6
+    Author: أبو نعيم الأصبهاني
+    Pages: BookID 101867=588  DuplicateOfBookID 45915=588  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=45911  removed BookID=101863
+    Title: معرفة الصحابة لأبي نعيم - part 2
+    Author: أبو نعيم الأصبهاني
+    Pages: BookID 101863=583  DuplicateOfBookID 45911=583  MatchType=exact_title_and_author_same_library
+
+[REMOVED] kept BookID=1243  removed BookID=23778
+    Title: مجلة الأحكام العدلية
+    Author: (none)
+    Pages: BookID 23778=362  DuplicateOfBookID 1243=376  MatchType=exact_title
+
+[REMOVED] kept BookID=1152  removed BookID=44579
+    Title: النكت للسرخسي وشرح النكت للعتابي
+    Author: (none)
+    Pages: BookID 44579=162  DuplicateOfBookID 1152=202  MatchType=exact_title
+
+[REMOVED] kept BookID=1152  removed BookID=45535
+    Title: النكت للسرخسي وشرح النكت للعتابي
+    Author: أبو نصر العَتَّابي
+    Pages: BookID 45535=162  DuplicateOfBookID 1152=202  MatchType=exact_title

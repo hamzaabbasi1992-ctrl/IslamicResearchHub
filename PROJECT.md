@@ -550,9 +550,16 @@ explicit go/no-go, not a bulk pass:
   single most-used code path in the app - planned as its own careful
   milestone, not rushed in.
 - **Act on the 73 high-confidence (~100% content-identical) duplicate
-  pairs** found via `BookComparisonRepository`-based batch scoring -
-  needs explicit approval before removing anything (real, permanent data
-  loss on the non-canonical side). Not started.
+  pairs**: **68 of 73 done**, with explicit approval of the exact policy
+  first. Real complication found: the smaller side of each pair is a
+  complete subset of the larger, so the policy is "keep whichever side
+  has more pages" (not "always delete the flagged side" - that would have
+  deleted the better copy in 9 of the 73 cases). 5 rows form two
+  transitive chains that would need an unverified inference to resolve
+  safely - left pending rather than guessed at. `data/books.db`:
+  104,865 -> 104,797 books; zero orphaned rows verified across every
+  referencing table afterward; full backup + human-readable list in
+  `docs/duplicate_analysis/`. See CHANGELOG.
 - **Dismiss the 52 confirmed-different candidates**: **done.**
   `DuplicateCandidates` gained a real `Status` column
   (`pending`/`dismissed`), preserved across `detect_and_store()` re-scans;
