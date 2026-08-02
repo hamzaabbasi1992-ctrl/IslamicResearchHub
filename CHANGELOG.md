@@ -1,5 +1,62 @@
 # Changelog
 
+## Desktop app: real-data responsive-layout bug fixes
+
+Found investigating a real user-visible bug: with real (not fixture-scale)
+library/author names and log paths, the desktop window's minimum size was
+forced past every tested screen resolution - Qt never lets a window shrink
+below its layout's true minimum size, and several unwrapped rows of
+real-length content (a single library name like "Maktaba Al-Maknoon (PDF
+Archive)  (3128)", five header stat labels side by side, a six-control
+Search filter row, an unwrapped log-path label) were each individually
+measured contributing hundreds to over a thousand pixels to that floor -
+`library_combo` and the `libraryChip`/`authorRow` button lists in
+`search_screen.py` alone were responsible for a measured ~2056px window
+minimum width against a real production database.
+
+- New shared `list_row_button()` helper
+  (`interfaces/desktop_app/list_row_button.py`): a real, dynamic-length list
+  row (book title, author name, library name) that always shows its full
+  text (with a matching tooltip) but never lets its natural width dictate
+  its container's minimum size (`QSizePolicy.Ignored`). Adopted by
+  `search_screen.py` (author rows, recent-book rows, library chips) and
+  `home_screen.py` (recent-book rows).
+- `search_screen.py`'s filter bar split into two rows, and every
+  `QComboBox`/wide control given the same `Ignored` size policy - a closed
+  `QComboBox` was sizing itself to its *widest* item by default (one real
+  library name alone measured 414px).
+- `header_bar.py`'s five stat labels given the same `Ignored` policy (~1250px
+  combined minimum on their own).
+- `viewer_screen.py`'s toolbar: icon-bearing buttons (Prev/Next/Bookmark)
+  dropped their text label in favor of icon + tooltip, the standard
+  reader-toolbar pattern (Acrobat/Zotero); remaining wide controls given the
+  `Ignored` policy (toolbar alone measured ~1024px, 3x the reader segment's
+  real 320px floor).
+- `logs_screen.py`'s status label (shows a real, possibly-long absolute log
+  path) given `setWordWrap(True)` - measured forcing the window ~890px wider
+  than needed on this machine's real log path.
+- `workspace_screen.py`/`ai_panel_screen.py`: the AI panel had no minimum
+  width at all, so `QSplitter` would silently squeeze it toward 0px under
+  space pressure even while `is_collapsed` still reported `False` - no
+  visible way to bring it back. A *permanent* minimum would break the
+  panel's own legitimate collapse-to-0, since `QSplitter.setSizes()` cannot
+  shrink a widget below its `minimumWidth()` even when marked collapsible
+  (confirmed directly) - so the new `MIN_AI_PANEL_WIDTH` (220px) is toggled
+  with the collapse state instead: applied whenever expanded, relaxed to 0
+  only while collapsed.
+- `search_screen.py`'s detail pane: real bug found alongside the above - it
+  started as a totally blank rectangle (just a layout stretch, no widget)
+  before any result was selected. Now shows a real
+  `EmptyStateLabel("Select a result to see its details here.")`.
+- New regression test
+  (`test_window_minimum_size_stays_reasonable_with_a_real_long_library_name`,
+  `tests/test_responsive_layout.py`): builds a real book under a
+  real-length library/author name and asserts the window's
+  `minimumSizeHint()` stays under the smallest tested resolution - the
+  existing 1-book fixture other tests use never had a long enough name to
+  reproduce the bug. Plus a detail-pane empty-state test in
+  `tests/test_search_screen.py`.
+
 ## Migration 16: drop unused ParagraphsFTS/ParagraphsFTSNormalized (real storage win)
 
 Real, safe fix for part of the FTS storage-overhead investigation below.

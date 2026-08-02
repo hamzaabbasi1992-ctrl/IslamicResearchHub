@@ -45,6 +45,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_APPLICATION,
     SETTINGS_ORGANIZATION,
 )
+from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
 from islamic_research_hub.interfaces.desktop_app.theme import (
     INK,
@@ -273,8 +274,7 @@ class HomeScreen(QWidget):
             body_layout.addWidget(EmptyStateLabel(empty_text))
             return
         for text, book_id, page_number in rows:
-            button = QPushButton(text)
-            button.setObjectName("authorRow")
+            button = list_row_button(text, object_name="authorRow")
             # Typography fix: real Arabic/Urdu book titles need RTL layout
             # direction, matching every other book-title row in the app
             # (search_screen.py's authorRow buttons already do this).

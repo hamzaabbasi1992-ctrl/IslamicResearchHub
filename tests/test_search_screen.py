@@ -273,6 +273,24 @@ def test_search_screen_clears_previous_results_on_new_search(qtbot, tmp_path: Pa
     assert screen._results_layout.count() == 1
 
 
+def test_detail_panel_shows_a_real_empty_state_before_any_selection(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real bug: the right-hand detail pane used to start as a totally
+    blank rectangle (just a layout stretch, no widget) before any result
+    was clicked - a real, visible "big empty box". It now shows a real
+    guidance message instead."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    assert screen._detail_layout.count() >= 1
+    first_item = screen._detail_layout.itemAt(0).widget()
+    assert first_item is not None
+    assert "select a result" in first_item.text().lower()
+
+
 def test_details_button_populates_the_inline_detail_panel(qtbot, tmp_path: Path) -> None:
     """Clicking Details on a result fills the right-hand panel with real catalog data."""
     database_path = tmp_path / "books.db"

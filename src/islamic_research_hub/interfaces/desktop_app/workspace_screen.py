@@ -15,7 +15,10 @@ from __future__ import annotations
 from PySide6.QtCore import QVariantAnimation, Qt
 from PySide6.QtWidgets import QSplitter, QStackedWidget, QVBoxLayout, QWidget
 
-from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel
+from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import (
+    MIN_AI_PANEL_WIDTH,
+    AiAssistantPanel,
+)
 from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 
@@ -109,3 +112,17 @@ class WorkspaceScreen(QWidget):
         else:
             sizes[2] = target
             self._splitter.setSizes(sizes)
+        # Real fix: unlike the reader segment (protected by a permanent
+        # `setMinimumWidth`), the AI panel had none - under real space
+        # pressure (a window too narrow for every segment's natural size)
+        # Qt's splitter would silently squeeze it toward 0px even while
+        # `is_collapsed` still reported False, making it disappear with no
+        # visible way to bring it back. A PERMANENT minimum would be the
+        # obvious fix, but `QSplitter.setSizes()` cannot shrink a widget
+        # below its own `minimumWidth()` even when marked collapsible
+        # (confirmed directly), which would break the panel's own,
+        # legitimate collapse-to-0 - so the floor is toggled with the
+        # collapse state instead: a real, Qt-native minimum (which also
+        # correctly grows the whole window's minimum size to guarantee
+        # room) whenever expanded, relaxed to 0 only while collapsed.
+        self._ai_panel.setMinimumWidth(0 if collapsed else MIN_AI_PANEL_WIDTH)

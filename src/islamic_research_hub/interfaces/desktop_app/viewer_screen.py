@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QTreeWidget,
     QTreeWidgetItem,
@@ -121,18 +122,28 @@ class ViewerScreen(QWidget):
         banner_layout.addWidget(pdf_fallback_button)
         reader_layout.addWidget(self._pdf_fallback_banner)
 
+        # Real fix: this toolbar's widgets measured a real ~1024px combined
+        # minimum width, on its own already 3x the reader segment's real
+        # 320px floor - the direct cause of buttons rendering as clipped,
+        # unreadable fragments whenever the reader wasn't given a very
+        # wide share of the window. Icon-bearing actions drop their text
+        # label (icon + tooltip only, the standard reader-toolbar pattern
+        # in Acrobat/Zotero); the remaining wide controls get the same
+        # Ignored size policy already proven safe elsewhere in this pass.
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(16, 4, 16, 8)
         self._contents_button = QPushButton("Contents")
         self._contents_button.setCheckable(True)
         self._contents_button.setChecked(True)
         self._contents_button.setToolTip("Show/hide this book's table of contents and bookmarks.")
+        self._contents_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
 
-        self._prev_button = QPushButton("Prev")
+        self._prev_button = QPushButton()
         self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
+        self._prev_button.setToolTip("Previous page")
         self._prev_button.clicked.connect(self._go_previous)
         toolbar.addWidget(self._prev_button)
 
@@ -145,17 +156,19 @@ class ViewerScreen(QWidget):
         self._page_count_label = QLabel()
         toolbar.addWidget(self._page_count_label)
 
-        self._next_button = QPushButton("Next")
+        self._next_button = QPushButton()
         self._next_button.setIcon(button_icon("next"))
         self._next_button.setIconSize(button_icon_size())
+        self._next_button.setToolTip("Next page")
         self._next_button.clicked.connect(self._go_next)
         toolbar.addWidget(self._next_button)
 
         toolbar.addStretch(1)
 
-        self._bookmark_button = QPushButton("Bookmark this page")
+        self._bookmark_button = QPushButton()
         self._bookmark_button.setIcon(button_icon("bookmark"))
         self._bookmark_button.setIconSize(button_icon_size())
+        self._bookmark_button.setToolTip("Bookmark this page")
         self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
 
@@ -163,10 +176,16 @@ class ViewerScreen(QWidget):
         self._copy_citation_button.setToolTip(
             "Copy a citation for the current page to the clipboard."
         )
+        self._copy_citation_button.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         self._copy_citation_button.clicked.connect(self.copy_citation)
         toolbar.addWidget(self._copy_citation_button)
 
         self._font_family_combo = QComboBox()
+        self._font_family_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         for display_name, _font_stack in FONT_CHOICES:
             self._font_family_combo.addItem(display_name)
         initial_index = self._font_family_combo.findText(self._font_family)

@@ -7,7 +7,14 @@ either one changes the language everywhere.
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
@@ -62,6 +69,12 @@ class HeaderBar(QWidget):
         for _ in _STAT_KEYS:
             label = QLabel()
             label.setStyleSheet(f"font-size: {Type.BODY_SM}px;")
+            # Real fix: 5 stat labels side by side with no wrapping measured
+            # a real ~1250px minimum on their own - the direct cause of the
+            # whole window being forced open wider than the screen. Ignored
+            # stops this informational row from dictating that minimum;
+            # each label still shows its full real count.
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
             stats_row.addWidget(label)
             self._stats_labels.append(label)
         layout.addLayout(stats_row)

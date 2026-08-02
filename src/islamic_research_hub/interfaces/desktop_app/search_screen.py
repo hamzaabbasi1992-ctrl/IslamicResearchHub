@@ -53,6 +53,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_ORGANIZATION,
 )
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
+from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
 from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
@@ -225,8 +226,7 @@ class SearchScreen(QWidget):
         layout.setSpacing(2)
         row_buttons: list[tuple[str, QPushButton]] = []
         for name, count in self._browser.list_authors_with_counts():
-            button = QPushButton(f"{name}  ({count})")
-            button.setObjectName("authorRow")
+            button = list_row_button(f"{name}  ({count})", object_name="authorRow")
             button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             button.clicked.connect(lambda _checked, n=name: self._filter_by_author(n))
             layout.addWidget(button)
@@ -267,8 +267,10 @@ class SearchScreen(QWidget):
             self._recent_list_layout.addWidget(empty_label)
         else:
             for summary in recent:
-                button = QPushButton(f"{summary.title}  ({summary.author or 'Unknown author'})")
-                button.setObjectName("authorRow")
+                button = list_row_button(
+                    f"{summary.title}  ({summary.author or 'Unknown author'})",
+                    object_name="authorRow",
+                )
                 button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
                 last_page = self._recent_books.last_page_number(summary.book_id) or 1
                 button.clicked.connect(
@@ -286,13 +288,14 @@ class SearchScreen(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
-        all_chip = QPushButton(f"{ALL_LIBRARIES_LABEL}  ({self._browser.get_header_stats().book_count})")
-        all_chip.setObjectName("libraryChip")
+        all_chip = list_row_button(
+            f"{ALL_LIBRARIES_LABEL}  ({self._browser.get_header_stats().book_count})",
+            object_name="libraryChip",
+        )
         all_chip.clicked.connect(lambda: self._filter_by_library(ALL_LIBRARIES_LABEL))
         self._library_chip_layout.addWidget(all_chip)
         for name, count in self._browser.list_libraries_with_counts():
-            chip = QPushButton(f"{name}  ({count})")
-            chip.setObjectName("libraryChip")
+            chip = list_row_button(f"{name}  ({count})", object_name="libraryChip")
             chip.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             chip.clicked.connect(lambda _checked, n=name: self._filter_by_library(n))
             self._library_chip_layout.addWidget(chip)
@@ -412,22 +415,54 @@ class SearchScreen(QWidget):
         search_row.addWidget(search_button)
         layout.addLayout(search_row)
 
-        filter_row = QHBoxLayout()
+        # Two rows, not one: six controls in a single unwrapped QHBoxLayout
+        # measured a real ~1040px combined minimum width (confirmed by
+        # constructing the real widget tree and reading minimumSizeHint()),
+        # which was the direct cause of the whole window being forced open
+        # wider than the screen on narrower monitors - Qt never lets a
+        # window shrink below its layout's true minimum size.
+        filter_row_1 = QHBoxLayout()
         self._library_combo = QComboBox()
+        # Real fix: a QComboBox's default AdjustToContentsOnFirstShow policy
+        # sizes the closed box to its WIDEST item - one real library name
+        # ("Maktaba Al-Maknoon (PDF Archive)  (3128)") measured 414px on its
+        # own, which was a direct contributor to the window being forced
+        # open wider than the screen. An Ignored horizontal size policy
+        # stops the combo's own content from dictating the row's minimum
+        # width (confirmed directly: it drops a widget's contribution to
+        # its container's minimumSizeHint to near-zero) - the dropdown
+        # popup still shows every name in full when opened.
+        self._library_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         self._library_combo.addItem(ALL_LIBRARIES_LABEL)
         for library in self._browser.list_libraries():
             self._library_combo.addItem(library)
-        filter_row.addWidget(self._library_combo)
+        filter_row_1.addWidget(self._library_combo)
 
         self._author_edit = QLineEdit()
         self._author_edit.setPlaceholderText("Author (exact)")
-        filter_row.addWidget(self._author_edit)
+        filter_row_1.addWidget(self._author_edit)
 
         self._category_edit = QLineEdit()
         self._category_edit.setPlaceholderText("Category (exact)")
-        filter_row.addWidget(self._category_edit)
+        filter_row_1.addWidget(self._category_edit)
 
+        self._exact_match_checkbox = QCheckBox("Exact match")
+        self._exact_match_checkbox.setToolTip(
+            "On: literal spelling only.\n"
+            "Off (default): tolerant of real spelling/keyboard variants "
+            "(e.g. علي/علی, ك/ک)."
+        )
+        self._exact_match_checkbox.toggled.connect(self._on_exact_match_toggled)
+        filter_row_1.addWidget(self._exact_match_checkbox)
+        layout.addLayout(filter_row_1)
+
+        filter_row_2 = QHBoxLayout()
         self._search_target_combo = QComboBox()
+        self._search_target_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         self._search_target_combo.addItem("Name + content", "both")
         self._search_target_combo.addItem("Book name only", "title")
         self._search_target_combo.addItem("Book content only", "content")
@@ -435,9 +470,12 @@ class SearchScreen(QWidget):
             "Search by book name (title), inside book content, or both."
         )
         self._search_target_combo.currentIndexChanged.connect(self._on_search_target_changed)
-        filter_row.addWidget(self._search_target_combo)
+        filter_row_2.addWidget(self._search_target_combo)
 
         self._scope_combo = QComboBox()
+        self._scope_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         self._scope_combo.addItem("Main text", "content")
         self._scope_combo.addItem("Footnotes", "footnotes")
         self._scope_combo.addItem("Both", "both")
@@ -446,18 +484,9 @@ class SearchScreen(QWidget):
             "commentary only, or both."
         )
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
-        filter_row.addWidget(self._scope_combo)
-
-        filter_row.addStretch(1)
-        self._exact_match_checkbox = QCheckBox("Exact match")
-        self._exact_match_checkbox.setToolTip(
-            "On: literal spelling only.\n"
-            "Off (default): tolerant of real spelling/keyboard variants "
-            "(e.g. علي/علی, ك/ک)."
-        )
-        self._exact_match_checkbox.toggled.connect(self._on_exact_match_toggled)
-        filter_row.addWidget(self._exact_match_checkbox)
-        layout.addLayout(filter_row)
+        filter_row_2.addWidget(self._scope_combo)
+        filter_row_2.addStretch(1)
+        layout.addLayout(filter_row_2)
 
         self._status_label = QLabel("")
         self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
@@ -968,9 +997,19 @@ class SearchScreen(QWidget):
         self._detail_layout = QVBoxLayout(self._detail_content)
         self._detail_layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
         self._detail_layout.setSpacing(Spacing.XS)
-        self._detail_layout.addStretch(1)
+        self._show_detail_empty_state()
         pane.setWidget(self._detail_content)
         return pane
+
+    def _show_detail_empty_state(self) -> None:
+        """The detail pane before anything is selected - a real message,
+        not a blank rectangle."""
+        self._detail_layout.addWidget(
+            EmptyStateLabel(
+                "Select a result to see its details here.", centered=True
+            )
+        )
+        self._detail_layout.addStretch(1)
 
     def _on_rating_changed(self, book_id: int) -> None:
         value = self._rating_combo.currentData()

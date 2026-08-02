@@ -39,6 +39,10 @@ class LogsScreen(QWidget):
         header_row = QHBoxLayout()
         self._status_label = QLabel()
         self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
+        # Real fix: this shows a real absolute log path (which can be long),
+        # unwrapped - measured forcing the whole window ~890px wider than
+        # needed on this machine's real log path.
+        self._status_label.setWordWrap(True)
         header_row.addWidget(self._status_label)
         header_row.addStretch(1)
         self._advanced_toggle = QPushButton("Advanced")

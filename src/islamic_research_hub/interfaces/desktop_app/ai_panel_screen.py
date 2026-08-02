@@ -26,6 +26,7 @@ from islamic_research_hub.interfaces.desktop_app.icons import button_icon, butto
 from islamic_research_hub.interfaces.desktop_app.theme import Type
 
 COLLAPSED_KEY = "appearance/ai_panel_collapsed"
+MIN_AI_PANEL_WIDTH = 220
 
 _PLACEHOLDER_BODY_TEXT = "Suggestions related to the book you're reading will appear here."
 _NOTES_PLACEHOLDER_TEXT = "Notes - coming soon."

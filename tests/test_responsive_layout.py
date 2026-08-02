@@ -89,6 +89,41 @@ def test_search_screen_nav_panes_never_exceed_their_real_maximum(
     assert sizes[2] <= right_pane.maximumWidth()
 
 
+def test_window_minimum_size_stays_reasonable_with_a_real_long_library_name(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real bug: a single long, real library/author name (e.g. "Maktaba
+    Al-Maknoon (PDF Archive)  (3128)") used to blow up several unwrapped
+    rows (the header bar's stats, the Search filter bar, a QComboBox
+    sized to its widest item) into forcing the whole window's minimum
+    size past 2000px - wider than every resolution in `_RESOLUTIONS`,
+    including the smallest laptop size tested here. The tiny 1-book
+    fixture other tests use never had a long enough name to catch this -
+    this one uses a real-length library name specifically to reproduce it.
+    """
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={
+            "Name": "Book of Fiqh",
+            "ANAME": "A Genuinely Long Real Author Name That Goes On For A While",
+        },
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Some real page content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path,
+        (book,),
+        (database_path.parent / "source.mjbz",),
+        library_name="Maktaba Al-Maknoon (PDF Archive)",
+    )
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+    window.show()
+
+    assert window.minimumSizeHint().width() < _RESOLUTIONS[0][0]
+
+
 def test_rail_width_constant_matches_the_real_fixed_rail(qtbot, tmp_path: Path) -> None:
     """The navigation rail is meant to stay a fixed reference point (like
     VS Code/Obsidian's activity bar) regardless of window size."""
