@@ -1,5 +1,40 @@
 # Changelog
 
+## Desktop shortcut (runs from source) + a real build_installer.ps1 bug fix
+
+New `run_desktop_app.bat` (project root) + a Windows desktop shortcut
+pointing to it: `cd`s to the project folder and runs
+`python -m islamic_research_hub.interfaces.desktop_app` directly - always
+launches whatever's currently on disk, no rebuild/repackage step, which
+matters since this app is still under active development (a PyInstaller
+`.exe` would need rebuilding after every code change - evaluated and
+explicitly rejected for this use case per direct instruction).
+
+Real bug found and fixed while evaluating the `.exe` path first:
+`build_installer.ps1`'s `--add-data "assets;assets"`/`--icon "assets\...` -
+relative paths - get resolved against `build_temp` (the `--specpath`),
+not the project root, on this PyInstaller version (6.21.0), so the build
+silently failed to find `assets` entirely. Worse, the script kept going
+and printed a false "Build complete" anyway, since
+`$ErrorActionPreference = "Stop"` doesn't catch a native `.exe`'s non-zero
+exit the way it catches a PowerShell-native error. Fixed with
+`$PSScriptRoot`-anchored absolute paths throughout (works regardless of
+invocation directory) and an explicit `$LASTEXITCODE` check that now
+fails loudly. Kept and fixed rather than removed - still useful if a
+packaged, no-Python-required build is wanted later (e.g. handing this off
+to someone without a dev setup).
+
+## Stale backup replaced
+
+Closes the Phase 8.5 "stale backup decision" item. `data/backups/`'s only
+backup (~24GB, dated 2026-07-31) predated the completed Shamela import
+(~90k books) and the recent duplicate-removal pass - restoring it would
+have wiped out virtually the entire current corpus, so it wasn't a usable
+recovery point. Deleted, and replaced with a fresh backup of the current,
+post-dedup database (`data/backups/books_backup_20260802_074832.db`,
+~156GB) via the existing `database_backup_cli.py` (SQLite's own online
+backup API, safe against a live database).
+
 ## Real content-duplicate removal: 68 of 73 high-confidence identical pairs
 
 Closes the Phase 8.5 punch-list item "act on the 73 high-confidence

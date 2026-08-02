@@ -567,9 +567,12 @@ explicit go/no-go, not a bulk pass:
   "Dismiss". Applied to production: the 52 real `LIKELY_DIFFERENT_BOOK`
   pairs are dismissed, 2,080 of 2,132 candidates remain pending. See
   CHANGELOG.
-- **Stale backup decision**: `data/backups/` has one ~24GB backup from
-  before the Shamela import completed - keep, replace with a fresh one,
-  or delete. Not started.
+- **Stale backup decision**: **done.** The ~24GB pre-Shamela backup
+  (missing ~90k books and the recent dedup pass - not a usable restore
+  point for the current corpus) was deleted; a fresh backup of the
+  current, post-dedup database was created via `database_backup_cli.py`
+  (`data/backups/books_backup_20260802_074832.db`, ~156GB, SQLite's
+  online backup API - safe to take against a live database).
 - **`missing_volumes_availability.csv` web research**: 88 trustworthy
   series, 1,358 individual missing volumes, availability not yet
   researched (the original 24-volume version was real manual web
