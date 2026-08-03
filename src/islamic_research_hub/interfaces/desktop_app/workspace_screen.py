@@ -50,8 +50,13 @@ class WorkspaceScreen(QWidget):
         self._splitter.addWidget(search_screen)
         self._splitter.addWidget(reader_stack)
         self._splitter.addWidget(ai_panel)
+        # UI Polish Pass 2: the reader is the primary reading surface, so it
+        # gets double the search segment's stretch weight (grows faster as
+        # the window widens) on top of a real, larger starting share below -
+        # a real external review flagged the reader reading as too narrow
+        # relative to search/metadata.
         self._splitter.setStretchFactor(0, 1)
-        self._splitter.setStretchFactor(1, 1)
+        self._splitter.setStretchFactor(1, 2)
         self._splitter.setStretchFactor(2, 0)
         self._splitter.setCollapsible(0, False)
         self._splitter.setCollapsible(1, True)
@@ -68,7 +73,10 @@ class WorkspaceScreen(QWidget):
         # share of the window, showing `ViewerScreen`'s own real empty
         # state ("Open a book to read it here") instead of being invisible.
         reader_stack.setMinimumWidth(_MIN_READER_WIDTH)
-        self._splitter.setSizes([600, max(600, _MIN_READER_WIDTH), self._last_ai_panel_width])
+        # Reader starts at ~35% more than an even split with Search (810 vs
+        # 600), on top of the doubled stretch factor above - both together
+        # are what actually give the reader a visibly larger, real share.
+        self._splitter.setSizes([600, max(810, _MIN_READER_WIDTH), self._last_ai_panel_width])
         layout.addWidget(self._splitter)
 
         ai_panel.collapsed_changed.connect(self._on_ai_panel_collapsed_changed)

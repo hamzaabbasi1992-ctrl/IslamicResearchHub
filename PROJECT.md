@@ -254,7 +254,13 @@ library; those capabilities aren't required to get v1.0's core value.
   follow-up work once appearance can be confirmed visually (this sandbox
   cannot screenshot the running app). Test suite grew from 427 to 507
   across the whole effort, zero regressions at every step.
-- **UI Polish Pass 2 - queued, not started.** The deferred visual review
+- **UI Polish Pass 2 - done** (see CHANGELOG). Reader widened, detail
+  panel narrowed + made collapsible, result cards tightened, TOC/
+  Bookmarks empty states added, toolbar grouped, stat separators added.
+  Deferred on purpose: the Research/Reading Mode toggle (new
+  functionality, not polish) and icon-only result buttons (lowest
+  priority). Original queued notes kept below for reference.
+- ~~UI Polish Pass 2 - queued, not started.~~ The deferred visual review
   above happened: the user had an outside architect-style review done
   against real screenshots of the running `WorkspaceScreen`, scored 8.5/10,
   confirmed no architecture/backend issues. Polish only, no new

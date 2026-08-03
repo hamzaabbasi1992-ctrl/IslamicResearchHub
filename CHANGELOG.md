@@ -1,5 +1,30 @@
 # Changelog
 
+## UI Polish Pass 2: reader width, collapsible detail panel, tighter results
+
+From the queued PROJECT.md (Phase 4) list, based on an external review of
+the workspace UI. Reader pane widened (~35% larger starting share, double
+the stretch weight vs. Search) at the AI panel/search's expense; the
+Search screen's detail panel is now collapsible (mirrors ViewerScreen's
+existing TOC toggle) and narrowed (260px -> 220px); result cards use
+tighter vertical padding; TOC/Bookmarks panels show a real message
+instead of a blank box when empty; the reader toolbar groups its controls
+with separators; header stat labels get "•" separators. Explicitly out of
+scope, matching the review's own "polish only" framing: the proposed
+Research/Reading Mode toggle (new functionality, not polish) and
+icon-only result-card buttons (lowest priority, deferred).
+
+Real bug found writing the detail-panel-collapse test: `QSplitter.
+setSizes()` refused to shrink the panel below its permanent 220px
+`minimumWidth` at all - fixed the same way `WorkspaceScreen` already
+handles the AI panel (relax the floor to 0 only while collapsed). A
+`QScrollArea`'s own `minimumSizeHint` still leaves a small residual width
+even "collapsed" (confirmed directly - unlike the AI panel's plain
+`QWidget`, `setMinimumWidth(0)` doesn't fully override it) - accepted as
+a real, minor Qt limitation rather than chased further.
+
+8 new tests, 706/706 total pass.
+
 ## Research Notes: collect quotations into Word documents
 
 Select text on any reader page, right-click, and save it straight into a

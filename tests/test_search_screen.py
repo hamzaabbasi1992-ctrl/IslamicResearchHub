@@ -890,6 +890,33 @@ def test_search_box_has_a_completer_seeded_from_authors_and_recent_searches(
     assert "a prior search" in suggestions
 
 
+def test_detail_panel_toggle_collapses_and_expands(qtbot, tmp_path: Path) -> None:
+    """UI Polish Pass 2: the detail (right) pane can be collapsed to free
+    width for the reader/results, mirroring ViewerScreen's existing TOC
+    toggle - visible by default, matching prior behavior."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    assert screen._detail_toggle_button.isChecked() is True
+    assert screen._splitter.sizes()[2] > 0
+
+    expanded_width = screen._splitter.sizes()[2]
+
+    screen._detail_toggle_button.setChecked(False)
+    screen._detail_panel_animation.setCurrentTime(1000)  # jump straight to the end value
+
+    # A QScrollArea's own real minimumSizeHint keeps a small residual width
+    # even fully "collapsed" (see _on_detail_panel_toggled's docstring) -
+    # the real assertion is "shrank dramatically", not literally 0.
+    assert screen._splitter.sizes()[2] < expanded_width / 2
+
+    screen._detail_toggle_button.setChecked(True)
+    screen._detail_panel_animation.setCurrentTime(1000)
+
+    assert screen._splitter.sizes()[2] >= expanded_width
+
+
 class _FakeVoiceTranscriber:
     """Transcriber returning a fixed transcript, recording what it was asked
     to transcribe - a real-shaped, controllable stand-in for

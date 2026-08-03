@@ -165,6 +165,7 @@ class ViewerScreen(QWidget):
         self._contents_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
+        toolbar.addWidget(_toolbar_separator())
 
         self._prev_button = QPushButton()
         self._prev_button.setIcon(button_icon("prev"))
@@ -212,6 +213,7 @@ class ViewerScreen(QWidget):
         self._play_pause_button.setVisible(self._enable_lazy_tts)
         self._play_pause_button.clicked.connect(self._on_play_pause_clicked)
         toolbar.addWidget(self._play_pause_button)
+        toolbar.addWidget(_toolbar_separator())
 
         self._copy_citation_button = QPushButton("Copy citation")
         self._copy_citation_button.setToolTip(
@@ -222,6 +224,7 @@ class ViewerScreen(QWidget):
         )
         self._copy_citation_button.clicked.connect(self.copy_citation)
         toolbar.addWidget(self._copy_citation_button)
+        toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
         self._font_family_combo.setSizePolicy(
@@ -318,11 +321,25 @@ class ViewerScreen(QWidget):
 
     def _reload_toc(self, book_id: int) -> None:
         self._toc_tree.clear()
-        for chapter in self._browser.list_chapters(book_id):
+        chapters = self._browser.list_chapters(book_id)
+        if not chapters:
+            # Real empty state instead of a blank white box - a book with
+            # no digitized table of contents is a real, common case, not
+            # an error.
+            self._toc_tree.addTopLevelItem(
+                QTreeWidgetItem(["No table of contents available."])
+            )
+            return
+        for chapter in chapters:
             self._toc_tree.addTopLevelItem(_chapter_tree_item(chapter))
 
     def _reload_bookmarks_list(self) -> None:
         self._bookmarks_list.clear()
+        if not self._bookmarked_pages:
+            self._bookmarks_list.addItem(
+                "No bookmarks yet - bookmark a page to see it here."
+            )
+            return
         for page_number in sorted(self._bookmarked_pages):
             item = QListWidgetItem(f"Page {page_number}")
             item.setData(Qt.ItemDataRole.UserRole, page_number)
@@ -642,6 +659,16 @@ class ViewerScreen(QWidget):
                 # release) - a lingering temp file is a far better failure
                 # mode than crashing real page navigation over cleanup.
                 LOGGER.warning("Could not delete temporary narration file: %s", path)
+
+
+def _toolbar_separator() -> QFrame:
+    """A thin vertical divider - groups the reader toolbar's controls
+    (navigation / bookmark+narration / citation / font) instead of one
+    long undifferentiated row of equal-weight buttons."""
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.VLine)
+    line.setFrameShadow(QFrame.Shadow.Sunken)
+    return line
 
 
 def _font_stack_for(display_name: str) -> str:

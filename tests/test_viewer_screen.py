@@ -507,3 +507,48 @@ def test_context_menu_open_notes_calls_the_real_entry_point(
     screen._handle_context_menu_action("open_notes", "")
 
     assert calls == [screen]
+
+
+def test_toc_shows_a_real_empty_state_when_the_book_has_no_chapters(
+    qtbot, tmp_path: Path
+) -> None:
+    """UI Polish Pass 2: a book with no digitized table of contents shows
+    a real message instead of a blank white box."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert screen._toc_tree.topLevelItemCount() == 1
+    assert "No table of contents" in screen._toc_tree.topLevelItem(0).text(0)
+
+
+def test_bookmarks_panel_shows_a_real_empty_state_when_there_are_none(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert screen._bookmarks_list.count() == 1
+    assert "No bookmarks" in screen._bookmarks_list.item(0).text()
+
+
+def test_bookmarking_a_page_replaces_the_bookmarks_empty_state(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    screen.toggle_bookmark()
+
+    assert screen._bookmarks_list.count() == 1
+    assert screen._bookmarks_list.item(0).text() == "Page 1"

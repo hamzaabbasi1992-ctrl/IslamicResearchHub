@@ -110,8 +110,11 @@ class HeaderBar(QWidget):
             stats.category_count,
             stats.series_count,
         )
-        for label, key, value in zip(self._stats_labels, _STAT_KEYS, values, strict=True):
-            label.setText(f"{value:,} {self._translator.tr(key)}")
+        for index, (label, key, value) in enumerate(
+            zip(self._stats_labels, _STAT_KEYS, values, strict=True)
+        ):
+            prefix = "• " if index > 0 else ""
+            label.setText(f"{prefix}{value:,} {self._translator.tr(key)}")
 
     def _retranslate(self, _language: str) -> None:
         self._tagline_label.setText(self._translator.tr("tagline"))

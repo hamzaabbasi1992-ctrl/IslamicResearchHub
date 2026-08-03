@@ -50,6 +50,7 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     BookSearchError,
     SqliteBookSearchRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_APPLICATION,
@@ -79,7 +80,10 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_LIMIT = 30
 ALL_LIBRARIES_LABEL = "All libraries"
 LEFT_PANE_WIDTH = 230
-RIGHT_PANE_WIDTH = 260
+RIGHT_PANE_WIDTH = 220
+"""UI Polish Pass 2: narrowed from 260 - the detail panel's real content
+(a handful of label/value rows, a rating dropdown, 1-2 buttons) never
+needed the extra width; freed space goes to the reader/results instead."""
 VOICE_SEARCH_SAMPLE_RATE = 16000
 """Whisper's native rate - capturing directly at this rate avoids a
 resampling step (see faster_whisper_transcriber.py)."""
@@ -132,6 +136,7 @@ class SearchScreen(QWidget):
             QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         )
         self._selected_card_index = -1
+        self._detail_panel_animation = None
 
         # Voice search: same lazy-build-at-most-once-behind-a-lock pattern
         # as semantic search / TTS (see `_get_or_build_voice_search_service`).
@@ -525,6 +530,16 @@ class SearchScreen(QWidget):
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         filter_row_2.addWidget(self._scope_combo)
         filter_row_2.addStretch(1)
+
+        self._detail_toggle_button = QPushButton()
+        self._detail_toggle_button.setCheckable(True)
+        self._detail_toggle_button.setChecked(True)
+        self._detail_toggle_button.setToolTip("Show/hide the details panel")
+        self._detail_toggle_button.setFlat(True)
+        self._detail_toggle_button.setIcon(button_icon("prev"))
+        self._detail_toggle_button.setIconSize(button_icon_size())
+        self._detail_toggle_button.toggled.connect(self._on_detail_panel_toggled)
+        filter_row_2.addWidget(self._detail_toggle_button)
         layout.addLayout(filter_row_2)
 
         self._status_label = QLabel("")
@@ -986,7 +1001,7 @@ class SearchScreen(QWidget):
         card.setProperty("book_id", result.book_id)
         card.setProperty("page_number", result.page_number)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(result.title or "(untitled)")
@@ -1033,7 +1048,7 @@ class SearchScreen(QWidget):
         card.setProperty("book_id", result.book_id)
         card.setProperty("page_number", result.page_number)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(result.title or "(untitled)")
@@ -1073,7 +1088,7 @@ class SearchScreen(QWidget):
         card.setProperty("book_id", summary.book_id)
         card.setProperty("page_number", None)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
         title = QLabel(summary.title or "(untitled)")
@@ -1140,11 +1155,12 @@ class SearchScreen(QWidget):
         pane = QScrollArea()
         pane.setObjectName("resultCard")
         pane.setFrameShape(QFrame.Shape.NoFrame)
-        pane.setMinimumWidth(220)
+        pane.setMinimumWidth(RIGHT_PANE_WIDTH)
         # Responsive Desktop fix: same reasoning as the left pane - a detail
         # panel shouldn't be able to crowd out the results pane either.
         pane.setMaximumWidth(480)
         pane.setWidgetResizable(True)
+        self._detail_pane = pane
 
         self._detail_content = QWidget()
         self._detail_layout = QVBoxLayout(self._detail_content)
@@ -1153,6 +1169,27 @@ class SearchScreen(QWidget):
         self._show_detail_empty_state()
         pane.setWidget(self._detail_content)
         return pane
+
+    def _on_detail_panel_toggled(self, checked: bool) -> None:
+        """Collapse/expand the right (detail) pane - mirrors ViewerScreen's
+        TOC toggle (same `animate_splitter_size` mechanism, same
+        fixed-target-width shape), added so the reader/results can claim
+        that width back when the details panel isn't currently needed.
+
+        Real bug found writing this feature's own test: without relaxing
+        the pane's permanent 220px floor, `QSplitter.setSizes()` refused
+        to shrink it at all (same already-documented issue `WorkspaceScreen`
+        hit with the AI panel). Relaxing it gets the pane down to a small
+        residual width (a `QScrollArea`'s own real `minimumSizeHint()`,
+        confirmed directly - `setMinimumWidth(0)` alone doesn't fully
+        override it the way it does for a plain `QWidget`-based panel like
+        the AI panel), not literally 0px - a real, acceptable Qt
+        limitation for a cosmetic collapse, not worth chasing further.
+        """
+        self._detail_toggle_button.setIcon(button_icon("prev" if checked else "next"))
+        self._detail_pane.setMinimumWidth(RIGHT_PANE_WIDTH if checked else 0)
+        target = RIGHT_PANE_WIDTH if checked else 0
+        self._detail_panel_animation = animate_splitter_size(self._splitter, index=2, end=target)
 
     def _show_detail_empty_state(self) -> None:
         """The detail pane before anything is selected - a real message,
