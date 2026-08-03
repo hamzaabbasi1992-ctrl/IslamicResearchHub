@@ -1,5 +1,82 @@
 # Changelog
 
+## Phase 9, Milestone 2: local voice search (Arabic/Urdu/English)
+
+Speak a query instead of typing it: a mic button in `SearchScreen`'s query
+row (off by default behind a real Settings toggle, same opt-in-download
+reasoning as TTS) records press-to-record audio and feeds the real
+transcript straight into the app's existing keyword search pipeline.
+Planned via `EnterPlanMode` first; follows the same Protocol-port shape as
+TTS - `VoiceTranscriber`/`VoiceSearchService` (`application/voice_transcription.py`)
+mirrors `TtsSpeaker`/`PageNarrationService`, `FasterWhisperTranscriber`
+(`infrastructure/ai/faster_whisper_transcriber.py`) mirrors `MmsTtsSpeaker`,
+`VoiceSearchWorker(QThread)` mirrors `TtsWorker` (simpler - no `request_key`,
+since the mic button is disabled for the whole record+transcribe cycle, so
+overlapping requests can't happen structurally).
+
+**Model choice, verified before committing to it**: `faster-whisper`
+(`SYSTRAN/faster-whisper`, CTranslate2-based), multilingual `small`,
+`device="cpu"`, `compute_type="int8"` - a genuinely new dependency
+ecosystem (does not reuse the `torch`/`transformers` stack the `tts` extra
+already carries), chosen anyway because voice search's whole value is
+being faster than typing, unlike TTS's ~79s/page being an acceptable wait.
+Confirmed offline-from-cache reload in ~1.8s after a ~121s first download.
+A short 2-3 word round-trip test initially looked much worse for Arabic/
+Urdu than English - confirmed this was an artifact of unnaturally short
+test phrases, not a real model limitation: retesting with realistic
+7-8-word spoken-query-length phrases gave 6-7/7 words correct for `small`
+in all three languages.
+
+**A real, already-shipped bug found and fixed while building this**:
+`mms_tts_speaker.py` (TTS Milestone 1, already committed and pushed) force-set
+`HF_HUB_OFFLINE=1` *unconditionally* via `os.environ.setdefault(...)` before
+any model load - confirmed directly (not assumed) that this would make a
+genuinely fresh install unable to ever download a TTS checkpoint in the
+first place, since offline mode was already forced before the very first
+real load could happen. It only appeared to work during Milestone 1's own
+testing because the checkpoints had already been cached by a separate
+verification script that bypassed this code path. Both `mms_tts_speaker.py`
+and the new `faster_whisper_transcriber.py` now use the same corrected
+pattern instead: try a real load with the library's own scoped
+`local_files_only=True` argument first, and only fall back to a real
+network-permitted download on a genuine cache miss. Scoped per-call rather
+than a global env var deliberately - both AI adapters live in the same
+process, and a global override would have silently affected both.
+
+**Two more real bugs found via this feature's own end-to-end verification
+against the live 104,797-book production database, not by manual
+inspection**: a synthesized-then-transcribed real query ("hadith about
+prayer and fasting") came back from Whisper with its own auto-added
+terminal punctuation, which crashed the app's FTS5-backed search entirely
+(`sqlite3.OperationalError: fts5: syntax error near "."` - FTS5's `MATCH`
+operator treats punctuation as query syntax, not literal text).
+  - Content search already caught this as `BookSearchError` and degraded to
+    a friendly message (no crash) - but title search (`BookBrowserRepository.
+    search_by_title`) had no such handling at all, letting a raw
+    `sqlite3.OperationalError` propagate uncaught. Confirmed this was a
+    **pre-existing bug unrelated to voice search** - a plain typed query
+    like `"hadith."` or `"hadith's prayer"` already crashed title search
+    before this fix; voice search just hit it far more often since Whisper
+    reliably adds terminal punctuation to nearly every real transcript.
+    Fixed by catching `sqlite3.OperationalError` and returning no results,
+    matching content search's own existing precedent.
+  - Even with both search paths no longer crashing, a query still carrying
+    stray punctuation practically never found real results - defeating the
+    point of feeding transcripts into "the existing keyword search
+    pipeline." Fixed at the source: `VoiceSearchService.transcribe_query()`
+    now strips non-word punctuation from every transcript (Unicode-aware -
+    verified directly that this leaves real Arabic/Urdu text untouched)
+    before it ever reaches search.
+
+19 new tests (5 in `test_voice_search.py`, 3 in `test_pcm_conversion.py`, 5
+new cases in `test_search_screen.py`, 1 regression case covering 5 real
+punctuated queries in `test_book_browser_repository.py`), 676/676 total
+pass. Manually verified end-to-end against the real production database:
+real TTS-synthesized audio round-tripped through the real, fully-wired
+`SearchScreen` (not a standalone script) via `_get_or_build_voice_search_service()`,
+producing 2 real content results for an English query with no crash in
+any language.
+
 ## Phase 9, Milestone 1: local text-to-speech playback (Arabic/Urdu/English)
 
 The first real Phase 9 feature: read the currently-displayed page aloud in

@@ -135,6 +135,7 @@ ACCENT_SOFT = LIGHT.accent_soft
 ACCENT_INK = LIGHT.accent_ink
 LINE = LIGHT.line
 LINE_SOFT = LIGHT.line_soft
+DANGER = LIGHT.danger
 
 RTL_FONT_FAMILY = (
     "'Noto Nastaliq Urdu', 'Jameel Noori Nastaliq', Tahoma, 'Segoe UI', sans-serif"

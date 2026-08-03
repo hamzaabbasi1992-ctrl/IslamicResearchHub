@@ -4,21 +4,9 @@ Requires the optional "tts" dependency group (`pip install -e .[tts]`).
 """
 
 import logging
-import os
 
-# Must run before `transformers`/`huggingface_hub` are imported below - same
-# real bug class already fixed once for `SentenceTransformerEmbedder`: these
-# libraries read HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE at *import time*, not
-# per-call, so setting them after import is too late and a network request
-# still goes out. Each checkpoint is small (~140MB) and cached after its
-# first real load, so offline loading is correct regardless of whether a
-# network is available at the time.
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
-os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "3")
-
-import torch  # noqa: E402
-from transformers import AutoTokenizer, VitsModel  # noqa: E402
+import torch
+from transformers import AutoTokenizer, VitsModel
 
 LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +54,35 @@ class MmsTtsSpeaker:
         if language not in self._models:
             checkpoint = CHECKPOINTS_BY_LANGUAGE[language]
             LOGGER.info("Loading TTS model for %s: %s", language, checkpoint)
-            self._models[language] = VitsModel.from_pretrained(checkpoint)
-            self._tokenizers[language] = AutoTokenizer.from_pretrained(checkpoint)
+            model, tokenizer = _load_offline_or_download(checkpoint)
+            self._models[language] = model
+            self._tokenizers[language] = tokenizer
         return self._models[language], self._tokenizers[language]
+
+
+def _load_offline_or_download(checkpoint: str) -> tuple[VitsModel, object]:
+    """Try a real, already-cached checkpoint first (fast, no network call
+    at all); only reach for a real download on a genuine cache miss (a
+    first-ever use on this machine).
+
+    Real bug found and fixed: this used to force offline mode
+    *unconditionally* via `os.environ.setdefault("HF_HUB_OFFLINE", "1")`
+    before any import - confirmed directly (not assumed) that this made a
+    brand-new install unable to ever download a checkpoint in the first
+    place, since offline mode was already forced before the very first
+    real load could happen. `local_files_only=True` as an explicit, scoped
+    argument here achieves the original goal (don't hang on an
+    unnecessary network check once already cached) without that failure
+    mode, and without leaking into other HuggingFace-based code sharing
+    this process (`FasterWhisperTranscriber` also lives in this package -
+    a global env var would have silently affected it too).
+    """
+    try:
+        model = VitsModel.from_pretrained(checkpoint, local_files_only=True)
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint, local_files_only=True)
+        return model, tokenizer
+    except Exception:
+        LOGGER.info("TTS checkpoint %s not cached yet - downloading (first use only).", checkpoint)
+        model = VitsModel.from_pretrained(checkpoint)
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+        return model, tokenizer

@@ -4,8 +4,9 @@ import logging
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QSettings, QUrl, Qt, Signal
+from PySide6.QtCore import QEvent, QIODevice, QObject, QSettings, QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QKeyEvent
+from PySide6.QtMultimedia import QAudioFormat, QAudioSource, QMediaDevices
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -28,11 +29,13 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.application.book_search import BookSearchService
 from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
 from islamic_research_hub.application.semantic_book_search import SemanticBookSearchService
+from islamic_research_hub.application.voice_transcription import VoiceSearchService
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
 from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
 from islamic_research_hub.domain.models.search_result import SearchResult
 from islamic_research_hub.domain.models.semantic_search_result import SemanticSearchResult
+from islamic_research_hub.infrastructure.audio.pcm_conversion import pcm16_bytes_to_samples
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     MAX_BROWSE_RESULTS,
     BookBrowserRepository,
@@ -59,12 +62,14 @@ from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
 )
 from islamic_research_hub.interfaces.desktop_app.theme import (
+    DANGER,
     MUTED_LABEL_STYLE,
     RTL_TEXT_STYLE,
     SURFACE_RAISED,
     Spacing,
     Type,
 )
+from islamic_research_hub.interfaces.desktop_app.voice_search_worker import VoiceSearchWorker
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 from islamic_research_hub.shared.citation_formatting import format_citation
 from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_html
@@ -75,6 +80,12 @@ DEFAULT_LIMIT = 30
 ALL_LIBRARIES_LABEL = "All libraries"
 LEFT_PANE_WIDTH = 230
 RIGHT_PANE_WIDTH = 260
+VOICE_SEARCH_SAMPLE_RATE = 16000
+"""Whisper's native rate - capturing directly at this rate avoids a
+resampling step (see faster_whisper_transcriber.py)."""
+MAX_RECORDING_MS = 12_000
+"""A spoken search query placeholder ceiling - tuned against real spoken
+queries during manual verification, not a hard product requirement."""
 _EXCERPT_MAX_HEIGHT_PX = 40
 """Caps a result card's excerpt to ~2 lines (Type.BODY=13px x 150% line-height
 x 2) - dense desktop result rows instead of unbounded, mobile-card-style growth."""
@@ -96,6 +107,7 @@ class SearchScreen(QWidget):
         semantic_search_service: SemanticBookSearchService | None = None,
         enable_lazy_semantic_search: bool = False,
         recent_search_store: RecentSearchStore | None = None,
+        enable_lazy_voice_search: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -120,6 +132,21 @@ class SearchScreen(QWidget):
             QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         )
         self._selected_card_index = -1
+
+        # Voice search: same lazy-build-at-most-once-behind-a-lock pattern
+        # as semantic search / TTS (see `_get_or_build_voice_search_service`).
+        self._enable_lazy_voice_search = enable_lazy_voice_search
+        self._voice_search_lock = threading.Lock()
+        self._voice_search_service: VoiceSearchService | None = None
+        self._voice_search_attempted = False
+        self._voice_worker: VoiceSearchWorker | None = None
+        self._audio_source: QAudioSource | None = None
+        self._audio_io_device: QIODevice | None = None
+        self._audio_buffer = bytearray()
+        self._max_record_timer = QTimer(self)
+        self._max_record_timer.setSingleShot(True)
+        self._max_record_timer.setInterval(MAX_RECORDING_MS)
+        self._max_record_timer.timeout.connect(self._stop_recording)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -413,6 +440,18 @@ class SearchScreen(QWidget):
         search_button.setDefault(True)
         search_button.clicked.connect(self._run_search)
         search_row.addWidget(search_button)
+
+        self._mic_button = QPushButton()
+        self._mic_button.setIcon(button_icon("mic"))
+        self._mic_button.setIconSize(button_icon_size())
+        self._mic_button.setToolTip("Speak a search query")
+        self._mic_button.setMinimumHeight(40)
+        # Visible only when voice search is actually enabled (Settings
+        # toggle, wired via MainWindow) - same visibility-gating discipline
+        # as ViewerScreen's TTS play button.
+        self._mic_button.setVisible(self._enable_lazy_voice_search)
+        self._mic_button.clicked.connect(self._on_mic_button_clicked)
+        search_row.addWidget(self._mic_button)
         layout.addLayout(search_row)
 
         # Two rows, not one: six controls in a single unwrapped QHBoxLayout
@@ -730,6 +769,120 @@ class SearchScreen(QWidget):
         except Exception:
             LOGGER.exception("Semantic search unavailable - falling back to keyword-only.")
             return None
+
+    # ----------------------------------------------------------- voice search
+
+    def _on_mic_button_clicked(self) -> None:
+        if self._audio_source is not None:
+            self._stop_recording()
+        else:
+            self._start_recording()
+
+    def _start_recording(self) -> None:
+        device = QMediaDevices.defaultAudioInput()
+        if device.isNull():
+            self._status_label.setText("No microphone was found.")
+            return
+        audio_format = QAudioFormat()
+        audio_format.setSampleRate(VOICE_SEARCH_SAMPLE_RATE)
+        audio_format.setChannelCount(1)
+        audio_format.setSampleFormat(QAudioFormat.SampleFormat.Int16)
+        if not device.isFormatSupported(audio_format):
+            self._status_label.setText(
+                "This microphone doesn't support the required audio format."
+            )
+            return
+
+        self._audio_buffer = bytearray()
+        source = QAudioSource(device, audio_format, self)
+        io_device = source.start()
+        if io_device is None:
+            self._status_label.setText("Could not start recording from the microphone.")
+            return
+        io_device.readyRead.connect(self._on_audio_data_ready)
+        self._audio_source = source
+        self._audio_io_device = io_device
+        self._mic_button.setIcon(button_icon("mic", DANGER))
+        self._mic_button.setToolTip("Recording... click to stop")
+        self._status_label.setText("Listening...")
+        self._max_record_timer.start()
+
+    def _on_audio_data_ready(self) -> None:
+        if self._audio_io_device is not None:
+            self._audio_buffer.extend(self._audio_io_device.readAll().data())
+
+    def _stop_recording(self) -> None:
+        self._max_record_timer.stop()
+        if self._audio_source is not None:
+            self._audio_source.stop()
+        if self._audio_io_device is not None:
+            try:
+                self._audio_io_device.readyRead.disconnect(self._on_audio_data_ready)
+            except (TypeError, RuntimeError):
+                pass
+        self._audio_source = None
+        self._audio_io_device = None
+        samples = pcm16_bytes_to_samples(bytes(self._audio_buffer))
+        self._audio_buffer = bytearray()
+        self._on_recording_captured(samples, VOICE_SEARCH_SAMPLE_RATE)
+
+    def _on_recording_captured(self, samples: tuple[float, ...], sample_rate: int) -> None:
+        """Directly-callable completion seam, separate from `_stop_recording`'s
+        real `QAudioSource` plumbing - a real microphone doesn't exist in a
+        headless test, so widget tests call this with synthetic samples
+        instead of driving real hardware."""
+        self._mic_button.setEnabled(False)
+        self._mic_button.setIcon(button_icon("mic"))
+        self._mic_button.setToolTip("Speak a search query")
+        self._status_label.setText("Transcribing...")
+        worker = VoiceSearchWorker(
+            self._get_or_build_voice_search_service, samples, sample_rate, self
+        )
+        worker.transcription_ready.connect(self._on_transcription_ready)
+        worker.transcription_failed.connect(self._on_transcription_failed)
+        self._voice_worker = worker
+        worker.start()
+
+    def _get_or_build_voice_search_service(self) -> VoiceSearchService | None:
+        """Return the cached voice search service, building it at most once.
+
+        Runs on the worker thread - guarded by a lock so two overlapping
+        attempts can't both try to build the model at once. Mirrors
+        `_get_or_build_semantic_service`.
+        """
+        with self._voice_search_lock:
+            if self._voice_search_service is None and self._enable_lazy_voice_search:
+                if not self._voice_search_attempted:
+                    self._voice_search_attempted = True
+                    self._voice_search_service = self._build_real_voice_search_service()
+            return self._voice_search_service
+
+    def _build_real_voice_search_service(self) -> VoiceSearchService | None:
+        """Build the real local faster-whisper voice search service, or None on any failure.
+
+        Failure is expected and normal here - the optional "voice" extra
+        (`faster-whisper`) may not be installed, or model loading may fail
+        for other reasons. Either way, typed search must keep working
+        unaffected.
+        """
+        try:
+            from islamic_research_hub.infrastructure.ai.faster_whisper_transcriber import (
+                FasterWhisperTranscriber,
+            )
+
+            return VoiceSearchService(FasterWhisperTranscriber())
+        except Exception:
+            LOGGER.exception("Voice search unavailable.")
+            return None
+
+    def _on_transcription_ready(self, text: str) -> None:
+        self._mic_button.setEnabled(True)
+        self._query_edit.setText(text)
+        self._run_search()
+
+    def _on_transcription_failed(self) -> None:
+        self._mic_button.setEnabled(True)
+        self._status_label.setText("Could not understand the recording - please try again.")
 
     def _browse_by_filters(
         self, library: str | None, author: str | None, category: str | None

@@ -34,6 +34,7 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FO
 FONT_SIZE_KEY = "viewer/font_size"
 FONT_FAMILY_KEY = "viewer/font_family"
 TTS_ENABLED_KEY = "tts/enabled"
+VOICE_SEARCH_ENABLED_KEY = "voice_search/enabled"
 FONT_SIZE_CHOICES = (14, 16, 18, 20, 22, 24, 28)
 FONT_SCALE_CHOICES = (0.9, 1.0, 1.1, 1.25, 1.5)
 _THEME_NAME_KEYS = (("light", "theme-light"), ("dark", "theme-dark"), ("high_contrast", "theme-high-contrast"))
@@ -82,6 +83,9 @@ class SettingsScreen(QWidget):
         self._font_size_label.setText(self._translator.tr("settings-default-font-size"))
         self._font_family_label.setText(self._translator.tr("settings-default-font-family"))
         self._tts_enabled_checkbox.setText(self._translator.tr("settings-tts-enabled"))
+        self._voice_search_enabled_checkbox.setText(
+            self._translator.tr("settings-voice-search-enabled")
+        )
         self._appearance_heading.setText(self._translator.tr("settings-appearance"))
         self._theme_label.setText(self._translator.tr("settings-theme"))
         self._font_scale_label.setText(self._translator.tr("settings-font-scale"))
@@ -157,6 +161,15 @@ class SettingsScreen(QWidget):
         self._tts_enabled_checkbox.setChecked(self.tts_enabled())
         self._tts_enabled_checkbox.toggled.connect(self._on_tts_enabled_changed)
         block_layout.addWidget(self._tts_enabled_checkbox)
+
+        self._voice_search_enabled_checkbox = QCheckBox(
+            self._translator.tr("settings-voice-search-enabled")
+        )
+        self._voice_search_enabled_checkbox.setChecked(self.voice_search_enabled())
+        self._voice_search_enabled_checkbox.toggled.connect(
+            self._on_voice_search_enabled_changed
+        )
+        block_layout.addWidget(self._voice_search_enabled_checkbox)
         return block
 
     def _build_appearance_block(self) -> QFrame:
@@ -261,6 +274,12 @@ class SettingsScreen(QWidget):
         it's an optional local model download, not something to start silently)."""
         return bool(self._settings.value(TTS_ENABLED_KEY, False, type=bool))
 
+    def voice_search_enabled(self) -> bool:
+        """Return whether the user has turned on spoken search queries (off by
+        default - same reasoning as `tts_enabled()`: an optional local model
+        download, not something to start silently)."""
+        return bool(self._settings.value(VOICE_SEARCH_ENABLED_KEY, False, type=bool))
+
     def _on_language_changed(self, _index: int) -> None:
         code = self._language_combo.currentData()
         self._translator.set_language(code)
@@ -274,6 +293,9 @@ class SettingsScreen(QWidget):
 
     def _on_tts_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(TTS_ENABLED_KEY, checked)
+
+    def _on_voice_search_enabled_changed(self, checked: bool) -> None:
+        self._settings.setValue(VOICE_SEARCH_ENABLED_KEY, checked)
 
     def _on_theme_changed(self, _index: int) -> None:
         theme_name = self._theme_combo.currentData()

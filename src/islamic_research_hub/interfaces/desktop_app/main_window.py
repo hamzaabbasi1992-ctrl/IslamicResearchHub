@@ -50,6 +50,7 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
     TTS_ENABLED_KEY,
+    VOICE_SEARCH_ENABLED_KEY,
     SettingsScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.shortcuts import install_shortcuts
@@ -148,6 +149,14 @@ class MainWindow(QMainWindow):
                 # ~8-9s per search after that at ~600K+ embedded pages,
                 # entirely in the background.
                 enable_lazy_semantic_search=True,
+                # Runs local faster-whisper transcription on a background
+                # QThread (see VoiceSearchWorker), same never-block-the-GUI
+                # pattern as semantic search above. Defaults off, same
+                # reasoning as TTS below - tied to a real Settings toggle
+                # since it implies an optional model download.
+                enable_lazy_voice_search=bool(
+                    self._settings.value(VOICE_SEARCH_ENABLED_KEY, False, type=bool)
+                ),
             )
             initial_font_px = int(self._settings.value(FONT_SIZE_KEY, DEFAULT_FONT_PX))
             initial_font_family = str(

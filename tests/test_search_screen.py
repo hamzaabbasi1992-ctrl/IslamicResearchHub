@@ -888,3 +888,124 @@ def test_search_box_has_a_completer_seeded_from_authors_and_recent_searches(
     suggestions = {model.index(row, 0).data() for row in range(model.rowCount())}
     assert "Author One" in suggestions
     assert "a prior search" in suggestions
+
+
+class _FakeVoiceTranscriber:
+    """Transcriber returning a fixed transcript, recording what it was asked
+    to transcribe - a real-shaped, controllable stand-in for
+    FasterWhisperTranscriber, mirroring how FakeSemanticSearchService stands
+    in for the real semantic search model."""
+
+    def __init__(self, transcript: str = "jurisprudence", fail: bool = False) -> None:
+        self.transcript = transcript
+        self.fail = fail
+        self.last_samples: tuple[float, ...] | None = None
+
+    def transcribe(self, samples: tuple[float, ...], sample_rate: int) -> str:
+        if self.fail:
+            raise RuntimeError("transcription failed")
+        self.last_samples = samples
+        return self.transcript
+
+
+def _install_fake_voice_transcriber(
+    screen: SearchScreen, transcript: str = "jurisprudence", fail: bool = False
+) -> _FakeVoiceTranscriber:
+    """Inject a fake transcriber in place of the real FasterWhisperTranscriber,
+    mirroring _install_fake_tts in test_viewer_screen.py."""
+    from islamic_research_hub.application.voice_transcription import VoiceSearchService
+
+    transcriber = _FakeVoiceTranscriber(transcript=transcript, fail=fail)
+    screen._build_real_voice_search_service = lambda: (
+        None if fail else VoiceSearchService(transcriber)
+    )
+    return transcriber
+
+
+def test_mic_button_hidden_when_voice_search_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    """Without enable_lazy_voice_search, the mic button doesn't even show -
+    a dead control offering a feature that's off is worse than no control."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+
+    assert screen._mic_button.isHidden() is True
+
+
+def test_mic_button_visible_when_voice_search_enabled(qtbot, tmp_path: Path) -> None:
+    """With enable_lazy_voice_search=True (the real Settings-toggle-on
+    case), the mic button shows."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+    )
+    qtbot.addWidget(screen)
+
+    assert screen._mic_button.isHidden() is False
+
+
+def test_lazy_voice_search_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
+    """Without enable_lazy_voice_search, no real service is ever built -
+    real model loading is opt-in, never a side effect of recording."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    build_calls = []
+    screen._build_real_voice_search_service = lambda: (build_calls.append(1), None)[1]
+
+    screen._on_recording_captured((0.1, 0.2, 0.1), 16000)
+
+    assert build_calls == []
+
+
+def test_finishing_a_recording_transcribes_and_runs_search(qtbot, tmp_path: Path) -> None:
+    """`_on_recording_captured` is the directly-callable, test-friendly
+    completion seam - real QAudioSource microphone capture has no place in
+    a headless test, so this calls it with synthetic samples instead of
+    driving real hardware. A successful transcript fills the query box and
+    runs a real search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+    )
+    qtbot.addWidget(screen)
+    transcriber = _install_fake_voice_transcriber(screen, transcript="jurisprudence")
+
+    screen._on_recording_captured((0.1, 0.2, 0.1), 16000)
+    with qtbot.waitSignal(screen._voice_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert transcriber.last_samples == (0.1, 0.2, 0.1)
+    assert screen._query_edit.text() == "jurisprudence"
+    assert "1 content result" in screen._status_label.text()
+    assert screen._mic_button.isEnabled()
+
+
+def test_voice_search_failure_resets_mic_button_without_crashing(qtbot, tmp_path: Path) -> None:
+    """A build/transcription failure (e.g. the optional "voice" extra isn't
+    installed, or real silence was recorded) must degrade gracefully -
+    typed search keeps working unaffected."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(
+        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+    )
+    qtbot.addWidget(screen)
+    _install_fake_voice_transcriber(screen, fail=True)
+
+    screen._on_recording_captured((0.1, 0.2, 0.1), 16000)
+    with qtbot.waitSignal(screen._voice_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert screen._mic_button.isEnabled()
+    assert screen._query_edit.text() == ""
+    # The screen itself is still fully usable - real typed search still works.
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    assert "1 content result" in screen._status_label.text()

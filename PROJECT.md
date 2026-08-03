@@ -712,10 +712,29 @@ differentiator the way Phase 6/10's items are:
   flow are real, separate scope for whenever (if ever) this project
   gains actual multi-user/community infrastructure - not assumed to be
   the same size as the rating slice just shipped.
-- **Voice search with AI**: local speech-to-text by default (a
-  Whisper-class model handles Arabic/Urdu/English) feeding the existing
-  search pipeline, same local-AI pattern as the embedding pilot; cloud
-  STT as an optional upgrade per the Architecture policy above.
+- **Voice search with AI**: **Milestone 2 done** - a mic button in
+  `SearchScreen`'s query row records a spoken query and feeds the real
+  transcript into the existing keyword search pipeline, off by default
+  behind a real Settings toggle. Local model chosen and verified for real:
+  `faster-whisper` (CTranslate2-based Whisper, multilingual `small`,
+  CPU/int8) - a real, deliberate new dependency ecosystem (not the `tts`
+  extra's `torch`/`transformers` stack), chosen because voice search's
+  whole value is being faster than typing. Real round-trip accuracy
+  confirmed with realistic query-length phrases (6-7/7 words correct per
+  language). Found and fixed three real bugs along the way (see
+  CHANGELOG): an already-shipped fresh-install-breaking bug in TTS's own
+  offline-loading code, and two crashes/dead-ends surfaced only by this
+  feature's own end-to-end test against the live production database - a
+  pre-existing, voice-search-unrelated title-search crash on any
+  punctuated query, and Whisper's own auto-added punctuation defeating
+  search entirely even once the crash was fixed. Cloud STT remains a
+  possible optional upgrade per the Architecture policy above, not needed
+  yet.
+  - **Deferred to a later milestone, not silently dropped**: continuous/
+    hands-free listening (press-to-record only), a confirm-before-searching
+    step, language hinting, voice search inside the viewer screens, cloud
+    STT, a waveform/VU-meter, and query-shaping the transcript (e.g. spoken
+    "surah two ayah thirty" into a citation-shaped query).
 - **NotebookLM-style AI research workspace** (summaries, audio
   overviews, visual reports): a user selects a scope - one book, several
   books, or a whole taxonomy-defined collection - and generates a book/

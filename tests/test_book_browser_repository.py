@@ -465,6 +465,24 @@ def test_search_by_title_returns_nothing_for_an_empty_query(tmp_path: Path) -> N
     assert BookBrowserRepository(database_path).search_by_title("   ") == ()
 
 
+def test_search_by_title_degrades_gracefully_on_unparseable_fts5_syntax(tmp_path: Path) -> None:
+    """Real crash found via voice search's own end-to-end verification: a
+    query containing unescaped FTS5-special punctuation (a period, comma,
+    apostrophe...) used to raise a raw, uncaught sqlite3.OperationalError -
+    confirmed directly against the real production database. A malformed
+    query now simply finds no title matches, like any other no-match
+    query, instead of crashing - matching content search's own precedent
+    (BookSearchError)."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    repository = BookBrowserRepository(database_path)
+
+    for query in ("Hadith.", "Hadith, prayer", "Hadith's prayer", "Hadith!", "Hadith (prayer)"):
+        assert repository.search_by_title(query) == ()
+
+
 def test_search_by_title_uses_the_real_fts5_index_when_migrated(tmp_path: Path) -> None:
     """Once migration 15 has run, title search is ranked by bm25, not alphabetical."""
     database_path = tmp_path / "books.db"

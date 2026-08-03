@@ -1,5 +1,6 @@
 """Read-only SQLite adapter supporting the web browsing/reading interface."""
 
+import logging
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -16,6 +17,8 @@ from islamic_research_hub.shared.arabic_text_normalization import (
 
 MAX_BROWSE_RESULTS = 200
 """Cap on books returned per browse call, so a large library/category stays usable."""
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BookBrowserRepository:
@@ -157,18 +160,40 @@ class BookBrowserRepository:
                 parameters.append(category)
             parameters.append(limit)
 
-            rows = connection.execute(
-                f"""
-                SELECT b.BookID, b.Title, b.Author, l.Name
-                FROM {fts_table}
-                JOIN Books b ON b.BookID = {fts_table}.rowid
-                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
-                WHERE {" AND ".join(conditions)}
-                ORDER BY rank
-                LIMIT ?
-                """,
-                parameters,
-            ).fetchall()
+            # Real bug found via voice search's own end-to-end verification:
+            # this query passes `query` straight into FTS5's MATCH operator,
+            # which has its own query-expression syntax (deliberately, so a
+            # typed `AND`/`OR`/`NOT` or a quoted "exact phrase" works here -
+            # see this method's docstring) - but that means a query
+            # containing *unescaped* FTS5-special punctuation (a period,
+            # comma, colon, apostrophe, parenthesis...) raises a raw
+            # `sqlite3.OperationalError`, uncaught here or by any caller
+            # (unlike content search, which already wraps this same failure
+            # mode as `BookSearchError`). Confirmed directly: a plain typed
+            # query like "hadith." or "hadith's prayer" already crashed this
+            # method before this fix - not something voice search
+            # introduced, but voice search's real transcripts (Whisper
+            # reliably adds terminal punctuation) hit it on nearly every
+            # query, which is how this was found. A malformed query simply
+            # finding no title matches (like any other no-match query)
+            # is the correct degrade-gracefully behavior, matching content
+            # search's own precedent.
+            try:
+                rows = connection.execute(
+                    f"""
+                    SELECT b.BookID, b.Title, b.Author, l.Name
+                    FROM {fts_table}
+                    JOIN Books b ON b.BookID = {fts_table}.rowid
+                    LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                    WHERE {" AND ".join(conditions)}
+                    ORDER BY rank
+                    LIMIT ?
+                    """,
+                    parameters,
+                ).fetchall()
+            except sqlite3.OperationalError:
+                LOGGER.warning("Title search query could not be parsed as FTS5 syntax: %r", query)
+                return ()
         return tuple(BookSummary(*row) for row in rows)
 
     @staticmethod
