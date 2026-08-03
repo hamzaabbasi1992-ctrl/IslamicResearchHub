@@ -1,5 +1,65 @@
 # Changelog
 
+## Research Notes: collect quotations into Word documents
+
+Select text on any reader page, right-click, and save it straight into a
+real Microsoft Word (`.docx`) document under `Documents/Maktaba Research
+Notes/` - each quotation appended with its citation details (book,
+author, volume, chapter, page, date), existing content never overwritten.
+Built to spec from a user-provided feature request; kept deliberately
+self-contained in its own `research_notes/` package
+(`research_notes_manager.py`, `docx_writer.py`, `notes_dialog.py`) rather
+than spread across this project's usual domain/application/infrastructure
+layers, per the spec's explicit "do not mix this feature into unrelated
+code."
+
+New right-click menu on the reader's content pane: **Copy**, **Copy with
+Citation**, **Save to Research Notes**, and **Open Current Notes** (a
+user-suggested addition mid-spec - opens the most recently used note
+document directly in Word, so the loop of read → quote → write stays
+tight without ever leaving the keyboard). "Save to Research Notes" shows
+a real list of existing `.docx` files plus "+ Create New Notes"; creating
+or appending never overwrites another document (name collisions get a
+real `(2)`/`(3)` suffix, matching Windows' own convention).
+
+**Future-ready by construction, not by promise**: `ResearchNotesManager`
+depends only on a small `NotesStorage` Protocol (`list_documents`/
+`create_document`/`append_quotation`), the same Protocol-port idiom this
+project already uses for TTS/voice search - `docx_writer.LocalDocxStorage`
+is the only implementation today, but a future Google Docs/Drive/OneDrive/
+Dropbox backend would be a second class with the same three methods,
+swappable with no change to the manager or the dialog.
+
+**Two real bugs found via this feature's own manual verification against
+real files, not assumed correct from the tests alone**:
+- `ResearchNotesManager` defaulted to a bare `QSettings()` (no
+  organization/application name) for remembering the "current" note
+  document - confirmed directly that this doesn't reliably persist even
+  within the same process (`current_document()` came back `None` right
+  after a real save). Every other settings-backed store in this app
+  (`RecentSearchStore`, the TTS/voice-search toggles) already uses the
+  explicit `SETTINGS_ORGANIZATION`/`SETTINGS_APPLICATION` constants -
+  fixed to match, confirmed the fix by round-tripping a real document
+  through two separate manager instances (simulating an app restart).
+- A `PermissionError` from python-docx's `save()` (the real failure mode
+  when a document is open in Word, which holds an exclusive lock on
+  Windows) is caught and translated into `NoteFileLockedError` with the
+  exact message the spec calls for, rather than crashing - verified via a
+  fake `Document` standing in for a real save failure, since a genuine
+  cross-process Word file lock isn't reproducible in an automated test.
+
+24 new tests across four files (`test_docx_writer.py`,
+`test_research_notes_manager.py`, `test_notes_dialog.py`, 4 new cases in
+`test_viewer_screen.py`), 702/702 total pass. Manually verified against a
+real `.docx` file in the real `Documents/Maktaba Research Notes/` folder -
+two quotations appended correctly, second entry correctly omitting the
+volume/chapter fields it didn't have, both citation blocks matching the
+spec's exact format - then cleaned up afterward so nothing was left behind.
+
+New dependency: `python-docx`, added to the `gui` extra (bundled with the
+desktop app, not a separate opt-in extra - unlike the AI features, this
+feature has no meaningful "degraded" mode without it).
+
 ## Phase 9, Milestone 2: local voice search (Arabic/Urdu/English)
 
 Speak a query instead of typing it: a mic button in `SearchScreen`'s query

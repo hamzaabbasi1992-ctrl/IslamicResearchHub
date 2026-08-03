@@ -254,6 +254,36 @@ library; those capabilities aren't required to get v1.0's core value.
   follow-up work once appearance can be confirmed visually (this sandbox
   cannot screenshot the running app). Test suite grew from 427 to 507
   across the whole effort, zero regressions at every step.
+- **UI Polish Pass 2 - queued, not started.** The deferred visual review
+  above happened: the user had an outside architect-style review done
+  against real screenshots of the running `WorkspaceScreen`, scored 8.5/10,
+  confirmed no architecture/backend issues. Polish only, no new
+  functionality, no schema/backend changes. Queued items, roughly
+  priority-ordered:
+  - Reader pane too narrow relative to search/metadata - widen it
+    (~35%), at the expense of the metadata panel's width.
+  - Make the metadata panel and TOC collapsible where they aren't
+    already (TOC already collapses in the standalone reader via
+    `_on_contents_toggled`/`animate_splitter_size` - needs checking
+    whether that's true in `WorkspaceScreen` too, not assumed).
+  - Reduce search result card height/padding; show more results per
+    screen.
+  - Real empty-state copy for the Assistant panel ("coming soon" reads
+    unfinished), Bookmarks, and Contents panels - reuse the existing
+    `EmptyStateLabel` pattern already used elsewhere, not a new pattern.
+  - Separate Categories and Libraries visually in the sidebar.
+  - Tighter visual hierarchy on book titles vs. metadata (size/weight).
+  - Group/simplify the reader toolbar; convert repetitive text buttons
+    to icon+text where it isn't already.
+  - Stat-bar formatting (separators between book/library/author counts).
+  - Verify the review's specific numbers (e.g. "reader is ~20% of
+    screen") against the real current layout before implementing -
+    reviewer's estimate from a screenshot, not measured.
+  - **Not part of this pass, a separate later decision**: the reviewer
+    also proposed a Research Mode / Reading Mode toggle (collapse
+    search+sidebars for distraction-free reading). Genuinely a good idea,
+    but it's new functionality, not polish - the review's own framing
+    ("do not add new functionality") excludes it from this pass.
 
 ### Phase 5 — Book Viewer: **done**
 
@@ -284,6 +314,18 @@ content of either format exists anywhere in the corpus.
   production database (fresh backup first, verified `user_version` 7 ->
   8, both new tables present, and a real bookmark + recent-open
   round-trip against a real production book).
+- **Research Notes: done** (added later, from a direct user feature
+  request, not part of the original Phase 5 scope). Select text on any
+  reader page, right-click, and save it into a real Microsoft Word
+  (`.docx`) document under `Documents/Maktaba Research Notes/`, citation
+  details attached automatically, existing content never overwritten.
+  Kept in its own self-contained `research_notes/` package rather than
+  spread across the usual layers, per the spec's own explicit ask. A
+  `NotesStorage` Protocol (this project's existing TTS/voice-search
+  adapter idiom) keeps the local `.docx` backend swappable for a future
+  cloud one without touching the manager or dialog. See CHANGELOG for two
+  real bugs found via manual verification (a settings-persistence bug and
+  a Word-file-lock error path), both fixed and confirmed.
 
 ### Phase 6 — Real differentiators, buildable now: **done**
 

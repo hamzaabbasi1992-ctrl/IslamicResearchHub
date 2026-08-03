@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -45,6 +46,10 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
     Type,
 )
 from islamic_research_hub.interfaces.desktop_app.tts_worker import TtsWorker
+from islamic_research_hub.research_notes.notes_dialog import (
+    open_current_notes,
+    show_save_to_notes_dialog,
+)
 from islamic_research_hub.shared.citation_formatting import format_citation
 
 LOGGER = logging.getLogger(__name__)
@@ -255,6 +260,8 @@ class ViewerScreen(QWidget):
         self._content_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self._content_label.setMaximumWidth(MAX_READING_COLUMN_WIDTH)
         self._content_label.setStyleSheet(f"padding: 16px 24px; {RTL_TEXT_STYLE}")
+        self._content_label.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self._content_label.customContextMenuRequested.connect(self._show_content_context_menu)
         scroll_area.setWidget(self._content_label)
         self._body_splitter.addWidget(scroll_area)
         self._body_splitter.setStretchFactor(0, 0)
@@ -342,6 +349,64 @@ class ViewerScreen(QWidget):
             volume_number=self._current_volume_number,
         )
         QGuiApplication.clipboard().setText(citation)
+
+    def _show_content_context_menu(self, position) -> None:
+        selected_text = self._content_label.selectedText()
+        menu = QMenu(self)
+        actions = {
+            "copy": menu.addAction("Copy"),
+            "copy_citation": menu.addAction("Copy with Citation"),
+            "save_notes": menu.addAction("Save to Research Notes"),
+        }
+        for action in actions.values():
+            action.setEnabled(bool(selected_text))
+        menu.addSeparator()
+        actions["open_notes"] = menu.addAction("Open Current Notes")
+
+        chosen = menu.exec(self._content_label.mapToGlobal(position))
+        for name, action in actions.items():
+            if chosen is action:
+                self._handle_context_menu_action(name, selected_text)
+                return
+
+    def _handle_context_menu_action(self, action: str, selected_text: str) -> None:
+        """Directly-callable, test-friendly seam - a real QMenu popup has
+        no place in a headless test (mirrors search_screen.py's
+        `_on_recording_captured`), so tests call this with a synthetic
+        action name instead of driving a real popup menu."""
+        if action == "copy":
+            QGuiApplication.clipboard().setText(selected_text)
+        elif action == "copy_citation":
+            self._copy_selection_with_citation(selected_text)
+        elif action == "save_notes":
+            self._save_selection_to_research_notes(selected_text)
+        elif action == "open_notes":
+            open_current_notes(self)
+
+    def _copy_selection_with_citation(self, selected_text: str) -> None:
+        page_number = self.current_page_number()
+        if self._current_title is None or page_number is None:
+            return
+        citation = format_citation(
+            self._current_title,
+            page_number,
+            paragraph_index=1,
+            volume_number=self._current_volume_number,
+        )
+        QGuiApplication.clipboard().setText(f"{selected_text}\n\n{citation}")
+
+    def _save_selection_to_research_notes(self, selected_text: str) -> None:
+        page_number = self.current_page_number()
+        if self._current_book_id is None or self._current_title is None or page_number is None:
+            return
+        show_save_to_notes_dialog(
+            self,
+            self._browser,
+            self._current_book_id,
+            self._current_title,
+            page_number,
+            selected_text,
+        )
 
     def load_book(self, book_id: int, bookmarked_pages: set[int] | None = None) -> bool:
         """Load one book's pages into the viewer. Returns False if not found."""

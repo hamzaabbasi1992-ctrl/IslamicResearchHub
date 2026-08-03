@@ -421,3 +421,89 @@ def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: P
     # The screen itself is still fully usable - real navigation still works.
     screen._go_next()
     assert screen._content_label.text() == "Second page content"
+
+
+def test_context_menu_copy_puts_selected_text_on_the_clipboard(qtbot, tmp_path: Path) -> None:
+    """`_handle_context_menu_action` is the directly-callable, test-friendly
+    seam - a real QMenu popup has no place in a headless test, so these
+    tests call it with a synthetic selection instead of driving a real
+    right-click menu."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    screen._handle_context_menu_action("copy", "some selected text")
+
+    assert QGuiApplication.clipboard().text() == "some selected text"
+
+
+def test_context_menu_copy_with_citation_includes_the_real_citation(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen.jump_to_page_number(2)
+
+    screen._handle_context_menu_action("copy_citation", "a quoted passage")
+
+    clipboard_text = QGuiApplication.clipboard().text()
+    assert "a quoted passage" in clipboard_text
+    assert "Book Book of Fiqh, Page 2, Paragraph 1" in clipboard_text
+
+
+def test_context_menu_save_notes_opens_the_dialog_with_real_context(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Save to Research Notes hands the dialog the real, currently-loaded
+    book/page context - no new backend needed, same data Copy Citation
+    already uses."""
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen.jump_to_page_number(2)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module,
+        "show_save_to_notes_dialog",
+        lambda *args: calls.append(args),
+    )
+
+    screen._handle_context_menu_action("save_notes", "a quoted passage")
+
+    assert len(calls) == 1
+    parent, browser, book_id, title, page_number, selected_text = calls[0]
+    assert parent is screen
+    assert browser is screen._browser
+    assert book_id == 1
+    assert title == "Book of Fiqh"
+    assert page_number == 2
+    assert selected_text == "a quoted passage"
+
+
+def test_context_menu_open_notes_calls_the_real_entry_point(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "open_current_notes", lambda parent: calls.append(parent)
+    )
+
+    screen._handle_context_menu_action("open_notes", "")
+
+    assert calls == [screen]
