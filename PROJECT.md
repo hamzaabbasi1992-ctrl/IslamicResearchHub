@@ -548,7 +548,14 @@ explicit go/no-go, not a bulk pass:
   length-preserving normalization pass so match positions still map
   correctly onto the original text). Real, buildable, but touches the
   single most-used code path in the app - planned as its own careful
-  milestone, not rushed in.
+  milestone, not rushed in. **Explicitly deferred to a later phase
+  (tentatively ~Phase 13) per direct instruction** - not urgent (search
+  already works correctly today, this is a storage optimization only;
+  no user-facing behavior depends on it), and disk pressure that made it
+  attractive is temporarily resolved (see the D:/F: cleanup note in
+  CHANGELOG - both drives back above 200GB free as of this session).
+  Revisit once a dedicated session is warranted; measure actual
+  reclaimable space first before committing real effort.
 - **Act on the 73 high-confidence (~100% content-identical) duplicate
   pairs**: **68 of 73 done**, with explicit approval of the exact policy
   first. Real complication found: the smaller side of each pair is a
