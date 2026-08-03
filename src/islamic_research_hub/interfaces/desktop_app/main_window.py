@@ -49,6 +49,7 @@ from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScre
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
+    TTS_ENABLED_KEY,
     SettingsScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.shortcuts import install_shortcuts
@@ -156,6 +157,20 @@ class MainWindow(QMainWindow):
                 database_path,
                 initial_font_px=initial_font_px,
                 initial_font_family=initial_font_family,
+                # Runs local MMS-TTS synthesis on a background QThread (see
+                # TtsWorker/ViewerScreen._get_or_build_tts_narration_service),
+                # same never-block-the-GUI pattern as semantic search above -
+                # essential here, not optional: confirmed for real against
+                # the actual running app (not just a standalone script) that
+                # a real ~2,000-character page takes ~79s to synthesize on
+                # CPU (~3.1x realtime - see CHANGELOG). Unlike semantic
+                # search this defaults off - it's tied to a real Settings
+                # toggle (TTS_ENABLED_KEY) that's off until the user opts in,
+                # since it implies an optional model download and a real
+                # wait before a long page starts playing.
+                enable_lazy_tts=bool(
+                    self._settings.value(TTS_ENABLED_KEY, False, type=bool)
+                ),
             )
             self._viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_screen.pdf_fallback_requested.connect(self._on_pdf_fallback_requested)

@@ -14,19 +14,7 @@ from pathlib import Path
 
 from islamic_research_hub.domain.models.taxonomy import TaxonomyTerm
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
-
-_LANGUAGE_CANONICAL_NAMES = {
-    "ur": "Urdu",
-    "urdu": "Urdu",
-    "ar": "Arabic",
-    "arabic": "Arabic",
-    "en": "English",
-    "english": "English",
-}
-"""Maps every real raw `Books.Language` value found in this corpus
-(case-insensitive) to one canonical display name - confirmed for real
-that "ur" and "Urdu" are the same language stored two different ways
-in the real data, not two languages."""
+from islamic_research_hub.shared.language_names import LANGUAGE_CANONICAL_NAMES
 
 
 class UnknownDimensionError(Exception):
@@ -469,7 +457,7 @@ class TaxonomyRepository:
 
     def populate_languages_from_books(self) -> int:
         """Populate the "language" dimension from `Books.Language`, merging
-        real known variants (see `_LANGUAGE_CANONICAL_NAMES`) into one
+        real known variants (see `LANGUAGE_CANONICAL_NAMES`) into one
         canonical term per language rather than one term per raw spelling.
         Idempotent via `StableKey` ("language:<canonical, lowercased>").
         Returns the total number of real language terms after this call.
@@ -481,7 +469,7 @@ class TaxonomyRepository:
             ).fetchall()
 
         canonical_names = {
-            _LANGUAGE_CANONICAL_NAMES.get(raw.lower(), raw) for (raw,) in rows
+            LANGUAGE_CANONICAL_NAMES.get(raw.lower(), raw) for (raw,) in rows
         }
         for canonical in sorted(canonical_names):
             self.get_or_create_term(
@@ -544,7 +532,7 @@ class TaxonomyRepository:
 
             language_pairs = []
             for book_id, raw_language in book_languages:
-                canonical = _LANGUAGE_CANONICAL_NAMES.get(raw_language.lower(), raw_language)
+                canonical = LANGUAGE_CANONICAL_NAMES.get(raw_language.lower(), raw_language)
                 term_id = language_term_by_key.get(f"language:{canonical.lower()}")
                 if term_id is not None:
                     language_pairs.append((book_id, term_id))

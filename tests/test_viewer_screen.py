@@ -283,3 +283,141 @@ def test_initial_font_family_is_honored(qtbot, tmp_path: Path) -> None:
 
     assert screen.selected_font_family() == "Scheherazade New"
     assert screen._font_family_combo.currentText() == "Scheherazade New"
+
+
+class _FakeTtsSpeaker:
+    """Speaker returning a real, tiny, silent-but-valid waveform - real
+    enough to become a real playable WAV file, without a real model."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.last_text: str | None = None
+
+    def synthesize(self, text: str, language: str) -> tuple[tuple[float, ...], int]:
+        if self.fail:
+            raise RuntimeError("synthesis failed")
+        self.last_text = text
+        return (0.0, 0.1, 0.0, -0.1) * 50, 8000
+
+
+def _install_fake_tts(screen: "ViewerScreen", fail: bool = False) -> _FakeTtsSpeaker:
+    """Inject a fake speaker in place of the real MmsTtsSpeaker, mirroring
+    how test_search_screen.py monkeypatches _build_real_semantic_search_service
+    to avoid a real model load in the widget test suite."""
+    from islamic_research_hub.application.page_narration import PageNarrationService
+
+    speaker = _FakeTtsSpeaker(fail=fail)
+    screen._build_real_tts_narration_service = lambda: (
+        None if fail else PageNarrationService(speaker)
+    )
+    return speaker
+
+
+def test_play_button_hidden_when_tts_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    """Without enable_lazy_tts, the play button doesn't even show - a dead
+    control offering a feature that's off is worse than no control.
+
+    isHidden() reflects the widget's own explicit visibility flag
+    regardless of whether the top-level window is actually on-screen -
+    unlike isVisible(), which also depends on the whole ancestor chain
+    being shown, unreliable in a headless test (see test_search_screen.py).
+    """
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    assert screen._play_pause_button.isHidden() is True
+
+
+def test_play_button_visible_when_tts_enabled(qtbot, tmp_path: Path) -> None:
+    """With enable_lazy_tts=True (the real Settings-toggle-on case), the
+    button shows."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+
+    assert screen._play_pause_button.isHidden() is False
+
+
+def test_lazy_tts_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
+    """Without enable_lazy_tts, no real service is ever built - real model
+    loading is opt-in, never a side effect of opening a book."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    build_calls = []
+    screen._build_real_tts_narration_service = lambda: (build_calls.append(1), None)[1]
+
+    screen._start_narration()
+
+    assert build_calls == []
+
+
+def test_clicking_play_synthesizes_and_writes_a_real_wav_file(qtbot, tmp_path: Path) -> None:
+    """Clicking Play, with a fake (fast) speaker standing in for the real
+    model, reaches a real playable WAV file and flips the icon to pause."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    speaker = _install_fake_tts(screen)
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert speaker.last_text == "First page content"
+    assert screen._tts_wav_path is not None
+    assert Path(screen._tts_wav_path).is_file()
+    assert screen._play_pause_button.isEnabled()
+
+
+def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Path) -> None:
+    """Real bug this guards against: turning the page mid-playback used to
+    have no cleanup path at all - the toolbar's page-change funnel
+    (_render_current_page) now stops playback and removes the temp WAV."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen)
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+    wav_path = Path(screen._tts_wav_path)
+    assert wav_path.is_file()
+
+    screen._go_next()
+
+    assert screen._tts_wav_path is None
+    assert not wav_path.is_file()
+
+
+def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: Path) -> None:
+    """A build failure (e.g. the optional "tts" extra isn't installed) must
+    degrade gracefully - reading/navigation keeps working unaffected."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen, fail=True)
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert screen._play_pause_button.isEnabled()
+    assert screen._tts_wav_path is None
+    # The screen itself is still fully usable - real navigation still works.
+    screen._go_next()
+    assert screen._content_label.text() == "Second page content"

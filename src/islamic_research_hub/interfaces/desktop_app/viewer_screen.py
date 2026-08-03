@@ -1,9 +1,12 @@
 """Viewer screen: read one book's pages in-app, with page navigation."""
 
+import logging
+import threading
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
@@ -22,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.application.page_narration import PageNarrationService
 from islamic_research_hub.domain.models.book import Chapter
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
@@ -40,7 +44,10 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
     Spacing,
     Type,
 )
+from islamic_research_hub.interfaces.desktop_app.tts_worker import TtsWorker
 from islamic_research_hub.shared.citation_formatting import format_citation
+
+LOGGER = logging.getLogger(__name__)
 
 MIN_FONT_PX = 13
 MAX_FONT_PX = 30
@@ -64,6 +71,7 @@ class ViewerScreen(QWidget):
         browser: BookBrowserRepository | None = None,
         initial_font_px: float | None = None,
         initial_font_family: str | None = None,
+        enable_lazy_tts: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -75,8 +83,21 @@ class ViewerScreen(QWidget):
         self._current_book_id: int | None = None
         self._current_title: str | None = None
         self._current_volume_number: int | None = None
+        self._current_language: str | None = None
         self._bookmarked_pages: set[int] = set()
         self._nav_panel_animation = None
+
+        # Text-to-speech: same lazy-build-at-most-once-behind-a-lock pattern
+        # as SearchScreen's semantic search (see `_get_or_build_tts_narration_service`).
+        self._enable_lazy_tts = enable_lazy_tts
+        self._tts_lock = threading.Lock()
+        self._tts_narration_service: PageNarrationService | None = None
+        self._tts_attempted = False
+        self._tts_worker: TtsWorker | None = None
+        self._tts_wav_path: str | None = None
+        self._media_player = QMediaPlayer(self)
+        self._tts_audio_output = QAudioOutput(self)
+        self._media_player.setAudioOutput(self._tts_audio_output)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -171,6 +192,21 @@ class ViewerScreen(QWidget):
         self._bookmark_button.setToolTip("Bookmark this page")
         self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
+
+        self._play_pause_button = QPushButton()
+        self._play_pause_button.setIcon(button_icon("play"))
+        self._play_pause_button.setIconSize(button_icon_size())
+        self._play_pause_button.setToolTip("Read this page aloud")
+        # Visible only when TTS is actually enabled (Settings toggle, wired
+        # via MainWindow) - a dead button offering a feature the user turned
+        # off (or a test double never enabled) is worse than no button.
+        # Once visible, a real build *failure* (missing optional dependency,
+        # model load error) disables rather than hides it - same
+        # degrade-gracefully-but-stay-visible philosophy SearchScreen's
+        # semantic search panel already uses.
+        self._play_pause_button.setVisible(self._enable_lazy_tts)
+        self._play_pause_button.clicked.connect(self._on_play_pause_clicked)
+        toolbar.addWidget(self._play_pause_button)
 
         self._copy_citation_button = QPushButton("Copy citation")
         self._copy_citation_button.setToolTip(
@@ -319,6 +355,7 @@ class ViewerScreen(QWidget):
         self._current_book_id = book_id
         self._current_title = title
         self._current_volume_number = metadata.volume_number if metadata else None
+        self._current_language = metadata.language if metadata else None
         self._bookmarked_pages = set(bookmarked_pages or ())
         self._title_label.setText(title or "(untitled)")
         self._author_label.setText(author or "Unknown author")
@@ -422,6 +459,7 @@ class ViewerScreen(QWidget):
         )
 
     def _render_current_page(self) -> None:
+        self._stop_narration()
         if not self._pages:
             return
         page = self._pages[self._current_index]
@@ -431,6 +469,114 @@ class ViewerScreen(QWidget):
         self._prev_button.setEnabled(self._current_index > 0)
         self._next_button.setEnabled(self._current_index < len(self._pages) - 1)
         self._update_bookmark_button()
+
+    def _current_narration_key(self) -> tuple[int | None, int | None]:
+        return (self._current_book_id, self.current_page_number())
+
+    def _on_play_pause_clicked(self) -> None:
+        state = self._media_player.playbackState()
+        if state == QMediaPlayer.PlaybackState.PlayingState:
+            self._media_player.pause()
+            self._play_pause_button.setIcon(button_icon("play"))
+            return
+        if (
+            state == QMediaPlayer.PlaybackState.PausedState
+            and self._media_player.source().isValid()
+        ):
+            self._media_player.play()
+            self._play_pause_button.setIcon(button_icon("pause"))
+            return
+        self._start_narration()
+
+    def _start_narration(self) -> None:
+        if not self._pages:
+            return
+        page = self._pages[self._current_index]
+        if not page.content_f:
+            return
+        self._play_pause_button.setEnabled(False)
+        worker = TtsWorker(
+            self._get_or_build_tts_narration_service,
+            page.content_f,
+            self._current_language,
+            self._current_narration_key(),
+            self,
+        )
+        worker.narration_ready.connect(self._on_narration_ready)
+        worker.narration_failed.connect(self._on_narration_failed)
+        self._tts_worker = worker
+        worker.start()
+
+    def _get_or_build_tts_narration_service(self) -> PageNarrationService | None:
+        """Return the cached narration service, building it at most once.
+
+        Runs on the worker thread - guarded by a lock so two overlapping
+        Play clicks can't both attempt the (real, ~1s+) model load at once.
+        Mirrors `SearchScreen._get_or_build_semantic_service` exactly.
+        """
+        with self._tts_lock:
+            if self._tts_narration_service is None and self._enable_lazy_tts:
+                if not self._tts_attempted:
+                    self._tts_attempted = True
+                    self._tts_narration_service = self._build_real_tts_narration_service()
+            return self._tts_narration_service
+
+    def _build_real_tts_narration_service(self) -> PageNarrationService | None:
+        """Build the real local MMS-TTS narration service, or None on any failure.
+
+        Failure is expected and normal here - the optional "tts" extra
+        (`transformers`/`torch`/`scipy`) may not be installed, or model
+        loading may fail for other reasons. Either way, reading/navigation
+        must keep working unaffected.
+        """
+        try:
+            from islamic_research_hub.infrastructure.ai.mms_tts_speaker import MmsTtsSpeaker
+
+            return PageNarrationService(MmsTtsSpeaker())
+        except Exception:
+            LOGGER.exception("Text-to-speech unavailable.")
+            return None
+
+    def _on_narration_ready(self, wav_path: str, request_key: object) -> None:
+        self._play_pause_button.setEnabled(True)
+        if request_key != self._current_narration_key():
+            Path(wav_path).unlink(missing_ok=True)  # stale - page changed while synthesizing
+            return
+        self._cleanup_narration_file()
+        self._tts_wav_path = wav_path
+        self._media_player.setSource(QUrl.fromLocalFile(wav_path))
+        self._media_player.play()
+        self._play_pause_button.setIcon(button_icon("pause"))
+
+    def _on_narration_failed(self, request_key: object) -> None:
+        self._play_pause_button.setEnabled(True)
+        if request_key != self._current_narration_key():
+            return
+        self._play_pause_button.setIcon(button_icon("play"))
+        self._play_pause_button.setToolTip("Text-to-speech unavailable")
+
+    def _stop_narration(self) -> None:
+        self._media_player.stop()
+        # Real bug found writing this feature's own tests: on Windows,
+        # QMediaPlayer.stop() does not synchronously release its lock on the
+        # source file - deleting the temp WAV immediately afterward raised a
+        # real PermissionError, which would have crashed page navigation
+        # (_go_next/_go_previous both funnel through this). Clearing the
+        # source explicitly is what actually releases the file handle.
+        self._media_player.setSource(QUrl())
+        self._cleanup_narration_file()
+        self._play_pause_button.setIcon(button_icon("play"))
+
+    def _cleanup_narration_file(self) -> None:
+        if self._tts_wav_path is not None:
+            path, self._tts_wav_path = self._tts_wav_path, None
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                # Still locked despite clearing the source (a delayed OS
+                # release) - a lingering temp file is a far better failure
+                # mode than crashing real page navigation over cleanup.
+                LOGGER.warning("Could not delete temporary narration file: %s", path)
 
 
 def _font_stack_for(display_name: str) -> str:

@@ -81,6 +81,11 @@ _SVG_PATHS: dict[str, str] = {
         'fill="{color}"/>'
     ),
     "clock": '<circle cx="12" cy="12" r="8.5"/><polyline points="12 7.5 12 12 15.5 14"/>',
+    "play": '<path d="M7 4.5v15l13-7.5z" fill="{color}"/>',
+    "pause": (
+        '<rect x="6" y="4.5" width="4" height="15" fill="{color}"/>'
+        '<rect x="14" y="4.5" width="4" height="15" fill="{color}"/>'
+    ),
     "x": '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
     "taxonomy": (
         '<circle cx="12" cy="4.5" r="2"/><circle cx="5" cy="19.5" r="2"/><circle cx="19" cy="19.5" r="2"/>'

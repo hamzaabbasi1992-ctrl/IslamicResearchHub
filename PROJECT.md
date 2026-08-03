@@ -668,16 +668,28 @@ worth being honest that most of this is commodity value-add (any AI
 wrapper on any document pile could offer TTS/voice search), not a
 differentiator the way Phase 6/10's items are:
 
-- **Text-to-speech, Arabic/Urdu/English**: local TTS by default, cloud
-  TTS as an optional upgrade (see the AI provider policy under
-  Architecture, above). Urdu is the real risk on the local path - fewer
-  good open-source Urdu TTS models exist than for Arabic/English; needs
-  a quality check before committing to a specific local engine (a real
-  reason a cloud option matters more for Urdu than the other two
-  languages). Real scope includes multiple voices, adjustable speed,
-  male/female options, and separate pronunciation handling for
-  classical Arabic recitation-style text vs. conversational Urdu/
-  English.
+- **Text-to-speech, Arabic/Urdu/English**: **Milestone 1 done** - read the
+  current page aloud in `ViewerScreen`, one default local voice per
+  language, off by default behind a real Settings toggle. Local model
+  chosen and verified for real (not assumed): `facebook/mms-tts-{ara,
+  urd-script_arabic,eng}` (Meta's MMS project) - the Urdu risk this item
+  originally flagged is resolved for real, since MMS covers Urdu under the
+  same architecture/checkpoint family as Arabic, unlike Piper (no
+  confirmed Urdu voice). Real, measured synthesis speed: ~3.1x realtime on
+  CPU - a real ~2,000-character page took ~79s end-to-end against a real
+  production book, confirmed reaching `PlaybackState.PlayingState` in Qt's
+  own media backend. Found and fixed two real issues along the way: raw
+  structural markup in ~471,000 pages (mostly Maktaba Jibreel) that would
+  have been read aloud literally, and a real Windows file-lock bug turning
+  the page mid-playback (caught by the feature's own tests, not manual
+  testing). See CHANGELOG.
+  - **Deferred to a later milestone, not silently dropped**: multiple
+    voices, adjustable speed, male/female options, separate pronunciation
+    handling for classical Arabic recitation-style text vs. conversational
+    Urdu/English, cloud TTS upgrade, `PdfViewerScreen` support (blocked on
+    OCR - PDF-only books have no extracted text at all), chunked/streaming
+    synthesis (the real ~79s-for-a-long-page wait is the direct motivation
+    for this becoming a real priority next, not hypothetical).
 - **English-language books**: not a technical feature - every library
   imported so far (Jibreel, Al-Maknoon, Islam, Shamila Urdu, Shamela) is
   Arabic/Urdu. This needs its own Phase-1-style source investigation
