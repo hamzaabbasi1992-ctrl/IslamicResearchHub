@@ -1,5 +1,69 @@
 # Changelog
 
+## Shamela title-mismatch bug: root cause confirmed; missing-volumes research done for real
+
+The Shamela source library (previously missing on this machine - a
+new-machine gap) became reachable again at `D:\المكتبة الشاملة`. This
+closes out both items the last session left blocked.
+
+**Root cause, confirmed directly, not inferred**: queried
+`book_index.db` (Shamela's real, official catalog) for the exact
+`shamelaID`s behind every confirmed title-mismatch case (SeriesID 2216,
+414, plus two more found this session while sampling - 2054 labeled
+"Sikhism" but really the 45-volume Kuwaiti Fiqh Encyclopedia, 781
+labeled about "the effects of sin" but really a 31-volume Qur'an
+grammar commentary). **The real catalog already contains these exact
+wrong titles against these exact IDs.** This project's importer reads
+`book_index.db` correctly - the bug is genuine upstream data noise in
+Shamela's own crowd-sourced catalog, not a bug in
+`shamela_book_reader.py`/`shamela_catalog_reader.py`. Nothing to fix in
+this project's code; not otherwise algorithmically detectable, since
+individual `.mdb` files carry no independent title to cross-check
+against (an architectural fact confirmed back in Phase 8).
+
+**Missing-volumes web research, done for real** (previously blocked on
+the above): re-verified all 35 "plausible" small-gap series directly
+against the real catalog now that it's reachable - 28 of 35 have a real
+title with zero mismatch (exact string match against `book_index.db`);
+the other 7 simply have no catalog entry at all (a different,
+already-understood case - falls back to the bare filename, not a wrong
+title). So this list was genuinely safe to research, unlike the 53
+large-span series (left alone, same suspicious pattern as 2216/414).
+
+Researching the 28 surfaced a second real finding, checked directly
+against `book_index.db`'s `bookInfo` field (not guessed from web search
+alone): most of them aren't "missing book volumes" in the way the
+original task assumed.
+- **6 aren't real gaps**: the catalog states the work has only 1 real
+  part (`عدد الأجزاء: 1`), or - one case, `منتقى من الجزء الأول
+  والثالث من حديث المروزي` - the title itself says the original work
+  only ever excerpted parts 1 and 3; there never was a part 2.
+- **2 are journal-serialized**, confirmed by the catalog's own explicit
+  note: `[ترقيم الكتاب موافق للمطبوع، ورقم الجزء هو رقم العدد من
+  المجلة]` (published in مجلة الجامعة الإسلامية) - the "volume number"
+  is a journal issue number, not a book volume. Finding "volume 3"
+  means finding journal issue 3, a different and more specialized
+  research target than "book volume 3."
+- **1 has no real title at all**: "منوع" ("Miscellaneous") turned out
+  to be Shamela's own internal placeholder message for an orphaned file
+  its software found lying around, not a real book - confirmed directly
+  from the catalog's own `bookInfo` text.
+- **4 are confirmed genuine gaps** (catalog states a real total part
+  count matching the claimed gap): Ibn al-Jawzi's *al-Muntazam* (10
+  vols, missing 2-4), *Tarikh Ibn Ma'in* (two separate real 4-volume
+  uploads, both missing vol. 2), and a real 8-volume *Muwatta Malik*
+  edition (missing vols. 6-7). Real web availability found for 3 of
+  these 4 - the *Muwatta* edition confirmed with all 8 volumes hosted
+  on archive.org.
+- The remaining **16 of 28** stay genuinely ambiguous - the catalog
+  gives no part-count metadata either way, not resolved further this
+  pass rather than guessed at.
+
+Full per-series results written to `docs/book_inventory/
+missing_volumes_availability.csv` (Availability + Notes columns,
+replacing the "Not yet researched" placeholders) - gitignored, local
+only, not part of this commit.
+
 ## Series false-merge fix: real scope much bigger than estimated, applied to production
 
 Closes the Phase 8.5 "series false-merge regex fix" item.
