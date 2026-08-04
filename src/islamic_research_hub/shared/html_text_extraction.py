@@ -17,6 +17,7 @@ indiscriminately:
   marker, so it is preserved as "Arabic-script quotation", not mislabeled.
 """
 
+import unicodedata
 from html.parser import HTMLParser
 
 _HEADING_CLASS = "mb1"
@@ -71,6 +72,25 @@ def strip_html_to_text(html_text: str | None) -> str | None:
     parser.feed(html_text)
     text = _assemble(parser.parts())
     return text or None
+
+
+def strip_invisible_format_characters(text: str | None) -> str | None:
+    """Drop Unicode "format" characters (category `Cf`) - joiners, marks,
+    and byte-order marks that are meant to be invisible.
+
+    Real reader bug reported directly against the running app: a screenshot
+    of a real page showed small stray circular symbols scattered through
+    otherwise-normal Urdu text. Investigation of the real page content
+    (book 4913, page 27) found 139 U+200C (ZWNJ, used correctly elsewhere
+    for real Urdu letter-joining) and 63 U+FEFF (ZWNBSP/BOM) characters -
+    when the font actually rendering them can't treat them as invisible,
+    each one shows up as a fallback "tofu" glyph instead. Every `Cf`
+    character is dropped rather than hardcoding just these two, since any
+    other stray format character in the corpus would fail the same way.
+    """
+    if text is None:
+        return None
+    return "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
 
 
 def _assemble(parts: list[tuple[str | None, frozenset[str]]]) -> str:

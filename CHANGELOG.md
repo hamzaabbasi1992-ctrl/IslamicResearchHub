@@ -1,5 +1,41 @@
 # Changelog
 
+## Reader bug fixes: maximize, AI panel visibility, tofu glyphs
+
+Three real bugs reported directly against the running app, all found and
+fixed:
+
+- **Maximize/minimize did nothing visible.** `PanelToggle.set_maximized()`
+  used to shrink sibling panels down to their own `minimumSizeHint()` -
+  at the app's real default window size (1180x760), `SearchScreen`'s own
+  internal 3-pane layout alone has a real ~650px `minimumSizeHint`, which
+  together with the reader's 320px minimum already consumed almost the
+  whole window, leaving nothing to actually grow into. Siblings are now
+  genuinely hidden (0px, via both `setMinimumWidth(0)` and
+  `setMaximumWidth(0)` - confirmed directly that both are required to
+  override a large `minimumSizeHint`) and restored exactly on toggle-back.
+- **AI panel effectively invisible on wide/maximized windows.**
+  `WorkspaceScreen`'s outer splitter gave the AI panel a stretch factor of
+  0, so its share of the window actually *shrank* as the window grew
+  (18.5% at 1180px down to 9.3% at 2560px, confirmed by direct
+  measurement). Stretch factors changed to `(2, 4, 1)` for
+  (search, reader, AI panel) - the AI panel now keeps a stable ~19.7%
+  share at every window size tested.
+- **Stray circular "tofu" symbols in reader text.** Traced to real page
+  content carrying invisible Unicode format characters (U+200C ZWNJ,
+  U+FEFF ZWNBSP/BOM - 139 and 63 occurrences respectively on one real
+  page) that the installed font renders as visible fallback glyphs instead
+  of treating as invisible. New `strip_invisible_format_characters()`
+  (`shared/html_text_extraction.py`) drops any Unicode category-`Cf`
+  character at display time only - the stored/searchable text is
+  untouched.
+
+Investigated but left as-is per direct instruction: none of the 10
+Urdu/Arabic reading fonts offered in Settings are actually installed on
+the user's machine, so `resolve_installed_font_family()` correctly (by
+its own design) falls back to the same "Tahoma" for all of them, meaning
+the font picker currently has no visible effect for Urdu/Arabic text.
+
 ## AI Agent, Milestone 1: cloud-backed Q&A, natural-language search, summarization
 
 The AI Agent vision raised earlier this session (deferred until other

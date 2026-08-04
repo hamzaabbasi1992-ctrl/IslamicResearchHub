@@ -25,15 +25,49 @@ def _splitter(qtbot) -> QSplitter:
     return splitter
 
 
-def test_maximize_shrinks_siblings_to_their_own_minimums(qtbot) -> None:
+def test_maximize_fully_hides_siblings_not_just_shrinks_them(qtbot) -> None:
+    """Real bug found and fixed: shrinking siblings to their own
+    minimumWidth (the original approach) often freed little or no real
+    space - confirmed directly against the real app, where SearchScreen's
+    own internal layout alone has a real ~650px minimumSizeHint. Siblings
+    are now genuinely hidden (0px), regardless of their own minimum."""
     splitter = _splitter(qtbot)
     toggle = PanelToggle(splitter, index=2, expanded_width=220)
 
     toggle.set_maximized(True)
 
-    assert splitter.sizes()[0] == 180  # sibling's real minimumWidth
-    assert splitter.sizes()[2] > 220
+    assert splitter.sizes()[0] == 0
+    assert splitter.sizes()[1] == 0
+    assert splitter.sizes()[2] == sum(_splitter(qtbot).sizes())  # the whole splitter
     assert toggle.is_maximized is True
+
+
+def test_maximize_works_even_when_a_sibling_has_a_large_minimum_size_hint(qtbot) -> None:
+    """The real-world case this fix targets: a sibling whose own internal
+    layout demands a large minimumSizeHint (like SearchScreen's real
+    ~650px) must not block maximize from using that space."""
+    splitter = QSplitter(Qt.Orientation.Horizontal)
+    from PySide6.QtWidgets import QHBoxLayout, QLineEdit
+
+    wide_content = QWidget()
+    wide_layout = QHBoxLayout(wide_content)
+    for _ in range(20):
+        edit = QLineEdit()
+        edit.setMinimumWidth(50)
+        wide_layout.addWidget(edit)
+    b, c = QWidget(), QWidget()
+    splitter.addWidget(wide_content)
+    splitter.addWidget(b)
+    splitter.addWidget(c)
+    qtbot.addWidget(splitter)
+    splitter.resize(1200, 600)
+    splitter.setSizes([700, 300, 200])
+    assert wide_content.minimumSizeHint().width() > 700  # confirms the real-world scenario
+
+    toggle = PanelToggle(splitter, index=2, expanded_width=200)
+    toggle.set_maximized(True)
+
+    assert splitter.sizes()[2] > 900  # got the real space, not blocked by the sibling's hint
 
 
 def test_restore_returns_to_the_exact_pre_maximize_sizes(qtbot) -> None:

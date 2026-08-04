@@ -1,6 +1,9 @@
 """Tests for stripping Shamila Urdu's HTML-styled content to structured plain text."""
 
-from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
+from islamic_research_hub.shared.html_text_extraction import (
+    strip_html_to_text,
+    strip_invisible_format_characters,
+)
 
 
 def test_none_input_returns_none() -> None:
@@ -101,3 +104,22 @@ def test_headings_separated_by_body_text_stay_on_separate_lines() -> None:
     )
 
     assert strip_html_to_text(html) == "## First\nbody\n## Second"
+
+
+def test_strip_invisible_format_characters_none_input_returns_none() -> None:
+    assert strip_invisible_format_characters(None) is None
+
+
+def test_strip_invisible_format_characters_removes_zwnj_and_bom() -> None:
+    """Real reader bug: ZWNJ (U+200C) and BOM/ZWNBSP (U+FEFF) found
+    scattered through real page content rendered as visible "tofu" glyphs
+    instead of behaving as invisible, on a font that doesn't support them."""
+    text = "کچھ‌متن﻿یہاں"
+
+    assert strip_invisible_format_characters(text) == "کچھمتنیہاں"
+
+
+def test_strip_invisible_format_characters_leaves_ordinary_text_untouched() -> None:
+    text = "اردو Urdu ١٢٣"
+
+    assert strip_invisible_format_characters(text) == text

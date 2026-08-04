@@ -54,7 +54,10 @@ from islamic_research_hub.research_notes.notes_dialog import (
 )
 from islamic_research_hub.research_notes.research_notes_manager import ResearchNotesManager
 from islamic_research_hub.shared.citation_formatting import format_citation
-from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
+from islamic_research_hub.shared.html_text_extraction import (
+    strip_html_to_text,
+    strip_invisible_format_characters,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -636,7 +639,15 @@ class ViewerScreen(QWidget):
         # on-screen text itself - the same shared strip_html_to_text()
         # applies here now, so headings render as plain text instead of
         # literal tags.
-        self._content_label.setText(strip_html_to_text(page.content_f) or "(no content)")
+        #
+        # Real bug reported directly against the running app (screenshot):
+        # stray circular "tofu" symbols scattered through otherwise-normal
+        # Urdu text. Root cause confirmed on real page content: invisible
+        # Unicode format characters (ZWNJ/BOM) that the installed font
+        # can't actually render as invisible. Stripped here, at display
+        # time only - the underlying stored/searchable text is untouched.
+        text = strip_invisible_format_characters(strip_html_to_text(page.content_f))
+        self._content_label.setText(text or "(no content)")
         self._page_input.setText(str(self._current_index + 1))
         self._page_count_label.setText(f"/ {len(self._pages)}")
         self._prev_button.setEnabled(self._current_index > 0)

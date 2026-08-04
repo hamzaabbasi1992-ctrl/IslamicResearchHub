@@ -19,9 +19,23 @@ from PySide6.QtWidgets import QSplitter
 class PanelToggle:
     """Maximize/restore one segment of a `QSplitter`.
 
-    An instant snap (not animated) - shrinks every sibling segment to
-    its own real `minimumWidth()` and gives this segment the rest,
-    remembering the pre-maximize sizes to restore exactly on toggle-back.
+    An instant snap (not animated) - fully hides every sibling segment
+    (not just shrinks them to their own minimum) and gives this segment
+    the whole splitter, remembering the pre-maximize sizes to restore
+    exactly on toggle-back.
+
+    Real bug found and fixed here: shrinking siblings to their own
+    `minimumSizeHint()` (the original approach) often freed little or no
+    real space - confirmed directly against the real app at its default
+    1180px window width, `SearchScreen`'s own internal 3-pane layout
+    alone has a real ~650px `minimumSizeHint`, which combined with the
+    reader's 320px minimum already consumed nearly the whole window,
+    leaving the AI panel's maximize button doing visibly nothing. Siblings
+    are now genuinely hidden instead: `minimumWidth`/`maximumWidth` are
+    both temporarily pinned to 0 (confirmed directly this is what it
+    takes to get a real 0px collapse from `QSplitter.setSizes()`,
+    regardless of a widget's own `minimumSizeHint`) and restored exactly
+    on toggle-back.
     """
 
     def __init__(self, splitter: QSplitter, index: int, expanded_width: int) -> None:
@@ -30,6 +44,7 @@ class PanelToggle:
         self._expanded_width = expanded_width
         self._maximized = False
         self._pre_maximize_sizes: list[int] | None = None
+        self._pre_maximize_widths: dict[int, tuple[int, int]] = {}
 
     @property
     def is_maximized(self) -> bool:
@@ -44,26 +59,25 @@ class PanelToggle:
         self._maximized = maximized
         if maximized:
             self._pre_maximize_sizes = self._splitter.sizes()
-            sizes = list(self._pre_maximize_sizes)
-            total = sum(sizes)
-            sibling_floor_total = 0
             for i in range(self._splitter.count()):
                 if i == self._index:
                     continue
                 sibling = self._splitter.widget(i)
-                # Real Qt behavior confirmed directly (not assumed): a
-                # composite widget's effective floor for setSizes() is
-                # the LARGER of its explicit minimumWidth() and its real
-                # minimumSizeHint().width() (driven by its own internal
-                # layout content) - using minimumWidth() alone under-
-                # counted this for SearchScreen (explicit 0, but a real
-                # ~627px minimumSizeHint from its own 3-pane layout),
-                # so "maximize" barely grew the target segment at all.
-                floor = max(sibling.minimumWidth(), sibling.minimumSizeHint().width())
-                sizes[i] = floor
-                sibling_floor_total += floor
-            sizes[self._index] = max(total - sibling_floor_total, self._expanded_width)
-            self._splitter.setSizes(sizes)
-        elif self._pre_maximize_sizes is not None:
-            self._splitter.setSizes(self._pre_maximize_sizes)
-            self._pre_maximize_sizes = None
+                self._pre_maximize_widths[i] = (sibling.minimumWidth(), sibling.maximumWidth())
+                sibling.setMinimumWidth(0)
+                sibling.setMaximumWidth(0)
+            self._splitter.setSizes(
+                [
+                    sum(self._pre_maximize_sizes) if i == self._index else 0
+                    for i in range(self._splitter.count())
+                ]
+            )
+        else:
+            for i, (min_width, max_width) in self._pre_maximize_widths.items():
+                sibling = self._splitter.widget(i)
+                sibling.setMinimumWidth(min_width)
+                sibling.setMaximumWidth(max_width)
+            self._pre_maximize_widths = {}
+            if self._pre_maximize_sizes is not None:
+                self._splitter.setSizes(self._pre_maximize_sizes)
+                self._pre_maximize_sizes = None

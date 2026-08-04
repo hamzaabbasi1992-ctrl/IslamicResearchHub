@@ -260,6 +260,19 @@ library; those capabilities aren't required to get v1.0's core value.
   Deferred on purpose: the Research/Reading Mode toggle (new
   functionality, not polish) and icon-only result buttons (lowest
   priority). Original queued notes kept below for reference.
+- **UI Polish Pass 3 - done** (see CHANGELOG). Taxonomy Browser and
+  Duplicate Manager empty/dead-space fixes, Home dashboard card height
+  consistency.
+- **Reader bug fixes - done** (see CHANGELOG). Three real bugs reported
+  directly against the running app, all fixed: maximize/minimize doing
+  nothing visible (siblings now fully hidden, not just shrunk to their
+  minimum), the AI panel effectively invisible on wide/maximized windows
+  (real stretch-factor fix, confirmed stable ~19.7% share at every window
+  size tested), and stray "tofu" glyphs in reader text (invisible Unicode
+  format characters now stripped at display time). Investigated but left
+  as-is per direct instruction: none of the 10 Urdu/Arabic reading fonts
+  offered in Settings are actually installed on the user's machine, so
+  the font picker currently has no visible effect for Urdu/Arabic text.
 - ~~UI Polish Pass 2 - queued, not started.~~ The deferred visual review
   above happened: the user had an outside architect-style review done
   against real screenshots of the running `WorkspaceScreen`, scored 8.5/10,

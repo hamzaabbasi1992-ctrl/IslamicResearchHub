@@ -56,9 +56,18 @@ class WorkspaceScreen(QWidget):
         # the window widens) on top of a real, larger starting share below -
         # a real external review flagged the reader reading as too narrow
         # relative to search/metadata.
-        self._splitter.setStretchFactor(0, 1)
-        self._splitter.setStretchFactor(1, 2)
-        self._splitter.setStretchFactor(2, 0)
+        #
+        # Real bug found and fixed: the AI panel's stretch factor was 0,
+        # meaning it never grew as the window widened - confirmed directly
+        # that on a large/maximized window its share of the total width
+        # actually *shrinks* (18.5% at 1180px down to 9.3% at 2560px),
+        # reading as "I can't see the AI panel" even though it was
+        # technically still visible. A real, smaller-than-reader stretch
+        # weight keeps it a secondary panel while still growing with the
+        # window instead of staying pinned to a near-fixed width.
+        self._splitter.setStretchFactor(0, 2)
+        self._splitter.setStretchFactor(1, 4)
+        self._splitter.setStretchFactor(2, 1)
         self._splitter.setCollapsible(0, False)
         self._splitter.setCollapsible(1, True)
         self._splitter.setCollapsible(2, True)
