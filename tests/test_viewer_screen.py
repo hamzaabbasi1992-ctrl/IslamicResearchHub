@@ -423,6 +423,59 @@ def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: P
     assert screen._content_label.text() == "Second page content"
 
 
+def test_page_content_strips_raw_structural_markup_before_display(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real bug reported directly against the running app: ~471,000 real
+    pages (mostly Maktaba Jibreel) carry raw markup like
+    '<urh1>...</urh1>' - already stripped for narration
+    (PageNarrationService) but never for the on-screen reader text itself
+    until now."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book with markup"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "<urh1>A real heading</urh1> Body text follows", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert "<" not in screen._content_label.text()
+    assert ">" not in screen._content_label.text()
+    assert "A real heading" in screen._content_label.text()
+    assert "Body text follows" in screen._content_label.text()
+
+
+def test_toolbar_controls_stay_a_real_size_when_the_reader_is_narrow(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real bug found via manual use: the toolbar's own natural width
+    (~1024px) exceeds the reader pane's real floor (320px) - controls
+    marked `Ignored` (font combo, Contents/Copy Citation buttons) used to
+    get squeezed toward 0px under that pressure, reading as "vanished"
+    rather than just scrolled out of view. Fixed by wrapping the toolbar
+    in its own horizontal-scrolling area and dropping the `Ignored`
+    policy - every control now keeps its real, non-zero size."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen.resize(320, 600)
+    screen.show()
+    qtbot.waitExposed(screen)
+
+    assert screen._font_family_combo.width() > 0
+    assert screen._contents_button.width() > 0
+    assert screen._copy_citation_button.width() > 0
+
+
 def test_context_menu_copy_puts_selected_text_on_the_clipboard(qtbot, tmp_path: Path) -> None:
     """`_handle_context_menu_action` is the directly-callable, test-friendly
     seam - a real QMenu popup has no place in a headless test, so these

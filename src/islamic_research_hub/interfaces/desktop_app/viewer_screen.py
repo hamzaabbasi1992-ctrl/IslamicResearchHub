@@ -51,6 +51,7 @@ from islamic_research_hub.research_notes.notes_dialog import (
     show_save_to_notes_dialog,
 )
 from islamic_research_hub.shared.citation_formatting import format_citation
+from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,13 +157,13 @@ class ViewerScreen(QWidget):
         # label (icon + tooltip only, the standard reader-toolbar pattern
         # in Acrobat/Zotero); the remaining wide controls get the same
         # Ignored size policy already proven safe elsewhere in this pass.
-        toolbar = QHBoxLayout()
+        toolbar_container = QWidget()
+        toolbar = QHBoxLayout(toolbar_container)
         toolbar.setContentsMargins(16, 4, 16, 8)
         self._contents_button = QPushButton("Contents")
         self._contents_button.setCheckable(True)
         self._contents_button.setChecked(True)
         self._contents_button.setToolTip("Show/hide this book's table of contents and bookmarks.")
-        self._contents_button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
         toolbar.addWidget(_toolbar_separator())
@@ -219,17 +220,11 @@ class ViewerScreen(QWidget):
         self._copy_citation_button.setToolTip(
             "Copy a citation for the current page to the clipboard."
         )
-        self._copy_citation_button.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
-        )
         self._copy_citation_button.clicked.connect(self.copy_citation)
         toolbar.addWidget(self._copy_citation_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
-        self._font_family_combo.setSizePolicy(
-            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
-        )
         for display_name, _font_stack in FONT_CHOICES:
             self._font_family_combo.addItem(display_name)
         initial_index = self._font_family_combo.findText(self._font_family)
@@ -247,7 +242,24 @@ class ViewerScreen(QWidget):
         larger_button.clicked.connect(lambda: self._change_font_size(FONT_STEP_PX))
         toolbar.addWidget(larger_button)
 
-        reader_layout.addLayout(toolbar)
+        # Real bug fixed here: this toolbar's own natural width (~1024px,
+        # see the comment above) already exceeds the reader pane's real
+        # floor (320px) - previously, widgets marked `Ignored` (the font
+        # combo, Contents/Copy Citation buttons) were squeezed toward
+        # zero width under real space pressure instead of just not
+        # dictating the container's minimum size, which read as those
+        # controls vanishing entirely, not shrinking. Wrapping the whole
+        # toolbar in its own horizontal-scrolling area means every
+        # control keeps its real, full, readable size - narrow windows
+        # get a scrollbar instead of missing controls.
+        toolbar_scroll = QScrollArea()
+        toolbar_scroll.setWidget(toolbar_container)
+        toolbar_scroll.setWidgetResizable(True)
+        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        toolbar_scroll.setFixedHeight(toolbar_container.sizeHint().height())
+        reader_layout.addWidget(toolbar_scroll)
 
         self._body_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._body_splitter.addWidget(self._build_nav_panel())
@@ -545,7 +557,14 @@ class ViewerScreen(QWidget):
         if not self._pages:
             return
         page = self._pages[self._current_index]
-        self._content_label.setText(page.content_f or "(no content)")
+        # Real bug reported directly against the running app: ~471,000
+        # real pages (mostly Maktaba Jibreel) carry raw structural markup
+        # (`<urh1>...</urh1>`) that was already being stripped for
+        # narration (PageNarrationService.narrate()) but never for the
+        # on-screen text itself - the same shared strip_html_to_text()
+        # applies here now, so headings render as plain text instead of
+        # literal tags.
+        self._content_label.setText(strip_html_to_text(page.content_f) or "(no content)")
         self._page_input.setText(str(self._current_index + 1))
         self._page_count_label.setText(f"/ {len(self._pages)}")
         self._prev_button.setEnabled(self._current_index > 0)

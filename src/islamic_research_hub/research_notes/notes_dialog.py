@@ -41,8 +41,9 @@ def show_save_to_notes_dialog(
     """Entry point for the reader's "Save to Research Notes" right-click
     action: gathers the real citation details (author, volume, chapter)
     itself, shows the document picker/creator, then appends the quotation
-    to whichever document was chosen - showing a friendly message instead
-    of crashing if that document is currently open in Word.
+    to whichever document was chosen - a real confirmation showing the
+    saved file's path on success, or a friendly message instead of
+    crashing if that document is currently open in Word.
     """
     metadata = browser.get_book_metadata(book_id)
     chapter_title = _find_current_chapter_title(browser.list_chapters(book_id), page_number)
@@ -65,6 +66,8 @@ def show_save_to_notes_dialog(
         manager.save_quotation(path, quotation)
     except NoteFileLockedError as error:
         QMessageBox.warning(parent, "Notes File Open", str(error))
+        return
+    QMessageBox.information(parent, "Saved to Research Notes", f"Saved to:\n{path}")
 
 
 def open_current_notes(parent: QWidget) -> None:

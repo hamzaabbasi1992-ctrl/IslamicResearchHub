@@ -1,5 +1,26 @@
 # Changelog
 
+## Three real bugs reported directly against the running app, fixed
+
+- **Reader toolbar controls "vanishing"**: the font-family combo and other
+  `Ignored`-size-policy controls were being squeezed toward 0px width
+  under real space pressure (the toolbar's ~1024px natural width vs. the
+  reader's 320px floor - a limitation already known but not fully solved).
+  Fixed properly: the toolbar is now wrapped in its own horizontal-
+  scrolling area and the `Ignored` policies removed, so every control
+  keeps its real size and narrow windows get a scrollbar instead of
+  missing controls. Verified directly by forcing the reader to 320px and
+  confirming every control's real width.
+- **Raw `<urh1>...</urh1>` markup showing literally in reader headings**:
+  `strip_html_to_text()` was already applied to narration (TTS Milestone
+  1) but never to the actual on-screen page text - fixed by applying the
+  same shared helper to `_render_current_page()`.
+- **Research Notes save gave no confirmation**: `show_save_to_notes_dialog`
+  now shows the saved file's real path on success (a gap already flagged
+  in `project_reviews/review_002.md`'s own remaining issues).
+
+3 new tests, 708/708 total pass.
+
 ## UI Polish Pass 2: reader width, collapsible detail panel, tighter results
 
 From the queued PROJECT.md (Phase 4) list, based on an external review of
