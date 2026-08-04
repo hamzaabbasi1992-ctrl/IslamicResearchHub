@@ -34,3 +34,21 @@ Before every milestone:
 - User approval is required.
 
 Otherwise continue working.
+
+## Switching AI tools, or stopping mid-task
+
+This project may be picked up by a different AI coding tool (a fresh
+Claude Code session, Codex, another IDE's agent, etc.) that shares no
+memory or conversation history with whatever tool was just working on
+it. `HANDOFF.md` is the single, plain-file bridge between them.
+
+Update `HANDOFF.md` (don't create a second file for this) when either:
+
+- The user says they're switching to a different AI tool.
+- The user says to stop or pause before a task is fully complete.
+
+Do not update it after every ordinary milestone - `CHANGELOG.md` and
+`project_reviews/review_00X.md` already cover "what was completed."
+`HANDOFF.md` only matters for genuine mid-task handoffs, and should be
+overwritten (not appended to) each time so it always reflects the
+current, real state - not a growing log.
