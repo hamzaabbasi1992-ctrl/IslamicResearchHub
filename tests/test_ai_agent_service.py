@@ -1,0 +1,130 @@
+"""Tests for AiAgentService's real tool-calling loop, against a scripted
+FakeLLMProvider - mirrors FakeTtsSpeaker/FakeVoiceTranscriber's shape:
+records what it was called with, returns fixed/scripted results."""
+
+import pytest
+
+from islamic_research_hub.application.agent_tools import AgentToolExecutor
+from islamic_research_hub.application.ai_agent_service import (
+    MAX_TOOL_LOOP_ITERATIONS,
+    AiAgentService,
+)
+from islamic_research_hub.application.book_search import BookSearchService
+from islamic_research_hub.application.llm_provider import LLMMessage, LLMTurn, ToolCall
+from islamic_research_hub.domain.models.search_result import SearchResult
+
+
+class FakeSearchIndex:
+    def search(self, query, limit, library=None, author=None, category=None, exact=False, scope="content"):
+        return (SearchResult(book_id=1, title="Book of Fiqh", author="Author One", page_number=5, excerpt="..."),)
+
+
+class FakeLLMProvider:
+    """Returns one scripted LLMTurn per call, in order - records every
+    call's messages for assertions."""
+
+    def __init__(self, scripted_turns: list[LLMTurn]) -> None:
+        self._scripted_turns = list(scripted_turns)
+        self.calls: list[tuple[str, tuple[LLMMessage, ...]]] = []
+
+    def complete(self, system_prompt, messages, tools=()) -> LLMTurn:
+        self.calls.append((system_prompt, messages))
+        return self._scripted_turns.pop(0)
+
+
+class AlwaysToolUseProvider:
+    """A provider that never stops calling tools - exercises the loop's
+    own safety cap."""
+
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def complete(self, system_prompt, messages, tools=()) -> LLMTurn:
+        self.call_count += 1
+        return LLMTurn(
+            text=None,
+            tool_calls=(ToolCall(id=f"call-{self.call_count}", name="search_books", input={"query": "x"}),),
+            stop_reason="tool_use",
+        )
+
+
+def _executor() -> AgentToolExecutor:
+    return AgentToolExecutor(BookSearchService(FakeSearchIndex()), None, browser=None)
+
+
+def test_converse_rejects_a_blank_question() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.converse("   ")
+
+
+def test_converse_returns_the_final_answer_with_no_tool_calls() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="A real answer, no tools needed.", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.converse("What is fiqh?")
+
+    assert result.answer == "A real answer, no tools needed."
+    assert result.tool_calls_made == ()
+    assert result.truncated is False
+
+
+def test_converse_executes_a_real_tool_call_then_returns_the_final_answer() -> None:
+    provider = FakeLLMProvider(
+        [
+            LLMTurn(
+                text=None,
+                tool_calls=(ToolCall(id="call-1", name="search_books", input={"query": "patience"}),),
+                stop_reason="tool_use",
+            ),
+            LLMTurn(text="Grounded in a real search result.", tool_calls=(), stop_reason="end_turn"),
+        ]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.converse("Find something about patience.")
+
+    assert result.answer == "Grounded in a real search result."
+    assert result.tool_calls_made == ("search_books",)
+    assert result.truncated is False
+    # Second complete() call was given the real tool result, not just the question.
+    _second_system_prompt, second_messages = provider.calls[1]
+    assert second_messages[-1].tool_results[0].tool_call_id == "call-1"
+    assert "Book of Fiqh" in second_messages[-1].tool_results[0].content
+
+
+def test_a_provider_that_never_stops_calling_tools_hits_the_real_cap() -> None:
+    provider = AlwaysToolUseProvider()
+    service = AiAgentService(provider, _executor())
+
+    result = service.converse("A question that never resolves.")
+
+    assert result.truncated is True
+    assert len(result.tool_calls_made) == MAX_TOOL_LOOP_ITERATIONS
+    assert provider.call_count == MAX_TOOL_LOOP_ITERATIONS
+
+
+def test_summarize_seeds_the_right_book_and_page_range() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="Summary text.", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.summarize(book_id=42, start_page=10, end_page=20)
+
+    assert result.answer == "Summary text."
+    _system_prompt, messages = provider.calls[0]
+    seed_text = messages[0].text
+    assert "42" in seed_text
+    assert "10" in seed_text
+    assert "20" in seed_text
+
+
+def test_summarize_rejects_a_backwards_page_range() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.summarize(book_id=1, start_page=20, end_page=10)

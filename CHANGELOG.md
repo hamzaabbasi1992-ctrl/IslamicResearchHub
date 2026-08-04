@@ -1,5 +1,63 @@
 # Changelog
 
+## AI Agent, Milestone 1: cloud-backed Q&A, natural-language search, summarization
+
+The AI Agent vision raised earlier this session (deferred until other
+in-flight work shipped) is now real: `AiAssistantPanel`'s question box
+answers real questions about the library, grounded in real page content
+with real citations - via an actual tool-calling loop (search the
+library, read real pages, answer only from what was retrieved), not a
+generic chatbot. Same capability set covers natural-language search
+shortcuts and on-demand book/chapter summarization - one loop, seeded
+differently per use.
+
+Follows this project's existing 4-part AI-feature shape exactly
+(`Protocol` port -> `*Service` -> concrete adapter -> lazy-build-behind-
+a-lock in the desktop UI, off the GUI thread): `LLMProvider`
+(`application/llm_provider.py`), `AgentToolExecutor`
+(`application/agent_tools.py`, wrapping the already-existing
+`BookSearchService`/`SemanticBookSearchService`/`BookBrowserRepository` -
+no new retrieval logic), `AiAgentService` (`application/ai_agent_service.py`,
+the real tool-calling loop, capped at 8 round trips), `AiAgentWorker`
+(mirrors `TtsWorker`/`VoiceSearchWorker`).
+
+**Multi-provider from day one** (Anthropic Claude, OpenAI ChatGPT, Google
+Gemini) - a Settings dropdown picks the provider, each with its own
+separately-stored API key so switching never loses a key already
+entered. Each adapter's real message/tool-call shape was confirmed
+directly against the installed SDK, not assumed from docs - two real,
+provider-specific differences found this way: OpenAI's tool-call
+arguments travel as a JSON string, not a dict; Gemini has no dedicated
+"model wants to call a tool" stop reason at all (`finish_reason` stays
+`"STOP"` even for a real function-call turn - detecting it means
+checking for an actual `function_call` part instead), and its
+`FunctionResponse` needs the tool's name, not just the call ID
+Anthropic/OpenAI key by alone (`ToolResult` gained a `tool_name` field
+specifically for this).
+
+Off by default (first feature making a paid external API call, same
+opt-in reasoning as TTS/voice search). API key resolution checks a
+provider-specific environment variable first, falls back to a password-
+masked Settings field with an explicit "stored locally, unencrypted"
+disclosure - no secure-storage dependency added for this milestone.
+
+**Real risk handled, not smoothed over**: summarization could otherwise
+pull an entire multi-hundred-page book into context in one shot -
+`get_book_pages` hard-caps at 20 pages per call with an explicit
+truncation message so the model paginates, and the tool-calling loop
+itself hard-caps at 8 iterations, both returning an honest partial
+result rather than looping forever or crashing.
+
+77 new tests (agent tools, the tool-calling loop against a scripted
+`FakeLLMProvider`, all three adapters' real translation logic, panel/
+settings wiring), 781/781 total pass. Manually verified graceful
+degradation (enabled, no API key set -> a real, non-crashing failure
+message) and that all three provider adapters construct successfully.
+Live end-to-end verification (a real question, a real citation, a real
+summary) needs a real API key from the user - not yet done.
+
+New dependencies, `agent` extra: `anthropic`, `openai`, `google-genai`.
+
 ## UI Polish Pass 3: dead space, empty states, card consistency
 
 From two independent UI reviews (one external, one my own real-screenshot

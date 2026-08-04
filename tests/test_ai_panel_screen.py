@@ -72,12 +72,23 @@ def test_collapsed_changed_signal_carries_the_new_state(qtbot, tmp_path: Path) -
     assert blocker.args == [True]
 
 
-def test_question_input_is_present_but_disabled(qtbot, tmp_path: Path) -> None:
-    """The chat-style input ships in the chrome but is honestly non-functional."""
+def test_question_input_is_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    """Off by default - the AI Agent is a real feature now, but making a
+    paid external API call is never silent (same opt-in reasoning as
+    TTS/voice search)."""
     panel = AiAssistantPanel(_isolated_settings(tmp_path))
     qtbot.addWidget(panel)
 
     assert not panel._question_edit.isEnabled()
+    assert not panel._ask_button.isEnabled()
+
+
+def test_question_input_is_enabled_when_ai_agent_is_on(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+
+    assert panel._question_edit.isEnabled()
+    assert panel._ask_button.isEnabled()
 
 
 def test_notes_and_references_are_honest_placeholders(qtbot, tmp_path: Path) -> None:
@@ -93,3 +104,128 @@ def test_notes_and_references_are_honest_placeholders(qtbot, tmp_path: Path) -> 
     assert "Notes" in labels
     assert "References" in labels
     assert any("coming soon" in text for text in labels)
+
+
+class _FakeAiAgentService:
+    """A real-shaped, controllable stand-in for AiAgentService."""
+
+    def __init__(self, answer: str = "A grounded answer.", tool_calls_made=("search_books",), fail: bool = False):
+        self.answer = answer
+        self.tool_calls_made = tool_calls_made
+        self.fail = fail
+        self.last_question: str | None = None
+
+    def converse(self, question: str):
+        from islamic_research_hub.application.ai_agent_service import AgentTurnResult
+
+        self.last_question = question
+        if self.fail:
+            raise RuntimeError("real failure")
+        return AgentTurnResult(answer=self.answer, tool_calls_made=self.tool_calls_made)
+
+
+def _install_fake_ai_agent(panel: AiAssistantPanel, **kwargs) -> _FakeAiAgentService:
+    """Inject a fake service in place of the real provider-backed one,
+    mirroring how test_search_screen.py/test_viewer_screen.py monkeypatch
+    their own `_build_real_*_service` seams."""
+    fake = _FakeAiAgentService(**kwargs)
+    panel._build_real_ai_agent_service = lambda: fake
+    return fake
+
+
+def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    fake = _install_fake_ai_agent(panel, answer="Real grounded answer.", tool_calls_made=("search_books", "get_book_pages"))
+    panel._question_edit.setText("What does this library say about patience?")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert fake.last_question == "What does this library say about patience?"
+    assert panel._answer_area.toPlainText() == "Real grounded answer."
+    assert panel._answer_area.isHidden() is False
+    assert "search_books" in panel._tool_calls_label.text()
+    assert "get_book_pages" in panel._tool_calls_label.text()
+    assert panel._ask_button.isEnabled()
+
+
+def test_asking_a_question_when_the_service_fails_shows_a_real_message(
+    qtbot, tmp_path: Path
+) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel, fail=True)
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert panel._answer_area.isHidden() is False
+    assert panel._answer_area.toPlainText()  # a real, non-empty failure message
+    assert panel._ask_button.isEnabled()
+
+
+def test_asking_with_no_service_available_shows_a_real_message(qtbot, tmp_path: Path) -> None:
+    """AI Agent enabled but no API key set (or the provider extra isn't
+    installed) - _build_real_ai_agent_service() returns None - must
+    degrade gracefully, never crash."""
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    panel._build_real_ai_agent_service = lambda: None
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert panel._answer_area.isHidden() is False
+    assert "unavailable" in panel._answer_area.toPlainText().lower()
+
+
+def test_ask_button_disabled_while_a_request_is_in_flight(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel)
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+
+    assert not panel._ask_button.isEnabled()
+    assert not panel._question_edit.isEnabled()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+
+
+def test_asking_a_blank_question_does_nothing(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel)
+
+    panel._on_ask_clicked()
+
+    assert panel._ai_agent_worker is None
+
+
+def test_build_llm_provider_returns_none_for_an_unknown_provider(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    qtbot.addWidget(panel)
+
+    assert panel._build_llm_provider("not-a-real-provider", "some-key") is None
+
+
+def test_lazy_ai_agent_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    qtbot.addWidget(panel)
+    build_calls = []
+    panel._build_real_ai_agent_service = lambda: (build_calls.append(1), None)[1]
+
+    result = panel._get_or_build_ai_agent_service()
+
+    assert result is None
+    assert build_calls == []

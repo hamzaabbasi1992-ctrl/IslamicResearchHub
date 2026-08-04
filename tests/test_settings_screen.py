@@ -14,9 +14,11 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (  # noqa: E402
+    AI_AGENT_API_KEY_ENV_VARS,
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
     SettingsScreen,
+    resolve_ai_agent_api_key,
 )
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FONT_PX  # noqa: E402
 
@@ -278,3 +280,83 @@ def test_about_block_shows_real_book_and_library_counts(qtbot, tmp_path: Path) -
     )
     assert str(database_path) in all_text
     assert "1 books" in all_text
+
+
+def test_ai_agent_is_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    """Off by default - this is the app's first feature making a paid
+    external API call, same opt-in reasoning as TTS/voice search."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    assert screen.ai_agent_enabled() is False
+    assert screen._ai_agent_enabled_checkbox.isChecked() is False
+
+
+def test_changing_ai_agent_enabled_persists_to_settings(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._ai_agent_enabled_checkbox.setChecked(True)
+
+    assert screen.ai_agent_enabled() is True
+
+
+def test_entering_an_api_key_persists_it_for_the_selected_provider(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._ai_agent_api_key_edit.setText("sk-ant-real-looking-key")
+    screen._ai_agent_api_key_edit.editingFinished.emit()
+
+    assert resolve_ai_agent_api_key(settings, "anthropic") == "sk-ant-real-looking-key"
+
+
+def test_switching_provider_keeps_each_providers_own_key_separate(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+    screen._ai_agent_api_key_edit.setText("anthropic-key")
+    screen._ai_agent_api_key_edit.editingFinished.emit()
+
+    openai_index = screen._ai_agent_provider_combo.findData("openai")
+    screen._ai_agent_provider_combo.setCurrentIndex(openai_index)
+    screen._ai_agent_api_key_edit.setText("openai-key")
+    screen._ai_agent_api_key_edit.editingFinished.emit()
+
+    assert resolve_ai_agent_api_key(settings, "anthropic") == "anthropic-key"
+    assert resolve_ai_agent_api_key(settings, "openai") == "openai-key"
+    # Switching back shows the real, still-separate stored key, not a stale mix.
+    anthropic_index = screen._ai_agent_provider_combo.findData("anthropic")
+    screen._ai_agent_provider_combo.setCurrentIndex(anthropic_index)
+    assert screen._ai_agent_api_key_edit.text() == "anthropic-key"
+
+
+def test_resolve_api_key_prefers_the_env_var_over_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _isolated_settings(tmp_path)
+    settings.setValue("ai_agent/api_key/anthropic", "from-settings")
+    monkeypatch.setenv(AI_AGENT_API_KEY_ENV_VARS["anthropic"], "from-env-var")
+
+    assert resolve_ai_agent_api_key(settings, "anthropic") == "from-env-var"
+
+
+def test_resolve_api_key_returns_none_when_nothing_is_set(tmp_path: Path) -> None:
+    settings = _isolated_settings(tmp_path)
+
+    assert resolve_ai_agent_api_key(settings, "anthropic") is None

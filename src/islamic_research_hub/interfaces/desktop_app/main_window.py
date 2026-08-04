@@ -47,6 +47,7 @@ from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickO
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+    AI_AGENT_ENABLED_KEY,
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
     TTS_ENABLED_KEY,
@@ -188,7 +189,17 @@ class MainWindow(QMainWindow):
             self._viewer_stack = QStackedWidget()
             self._viewer_stack.addWidget(self._viewer_screen)
             self._viewer_stack.addWidget(self._pdf_viewer_screen)
-            ai_panel = AiAssistantPanel(self._settings)
+            ai_panel = AiAssistantPanel(
+                self._settings,
+                database_path=database_path,
+                # Real tool-calling loop over a cloud LLM (Anthropic/OpenAI/
+                # Gemini, chosen in Settings) - the app's first feature
+                # making a paid external API call, so it defaults off like
+                # TTS/voice search's own opt-in model-download toggles.
+                enable_lazy_ai_agent=bool(
+                    self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool)
+                ),
+            )
             self._workspace_screen = WorkspaceScreen(
                 self._search_screen, self._viewer_stack, ai_panel
             )

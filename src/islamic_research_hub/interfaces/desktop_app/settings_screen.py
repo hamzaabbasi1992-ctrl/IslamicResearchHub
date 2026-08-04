@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -35,6 +36,24 @@ FONT_SIZE_KEY = "viewer/font_size"
 FONT_FAMILY_KEY = "viewer/font_family"
 TTS_ENABLED_KEY = "tts/enabled"
 VOICE_SEARCH_ENABLED_KEY = "voice_search/enabled"
+AI_AGENT_ENABLED_KEY = "ai_agent/enabled"
+AI_AGENT_PROVIDER_KEY = "ai_agent/provider"
+AI_AGENT_PROVIDERS: tuple[str, ...] = ("anthropic", "openai", "gemini")
+AI_AGENT_PROVIDER_LABELS: dict[str, str] = {
+    "anthropic": "Claude (Anthropic)",
+    "openai": "ChatGPT (OpenAI)",
+    "gemini": "Gemini (Google)",
+}
+AI_AGENT_API_KEY_ENV_VARS: dict[str, str] = {
+    "anthropic": "ISLAMIC_RESEARCH_HUB_ANTHROPIC_API_KEY",
+    "openai": "ISLAMIC_RESEARCH_HUB_OPENAI_API_KEY",
+    "gemini": "ISLAMIC_RESEARCH_HUB_GEMINI_API_KEY",
+}
+"""Checked first, before the QSettings-stored key for that same provider -
+lets a security-conscious user avoid ever having the key touch local
+settings storage. Each provider gets its own real key, both in QSettings
+and as an env var, so switching providers doesn't lose a key already
+entered for another one."""
 FONT_SIZE_CHOICES = (14, 16, 18, 20, 22, 24, 28)
 FONT_SCALE_CHOICES = (0.9, 1.0, 1.1, 1.25, 1.5)
 _THEME_NAME_KEYS = (("light", "theme-light"), ("dark", "theme-dark"), ("high_contrast", "theme-high-contrast"))
@@ -69,6 +88,7 @@ class SettingsScreen(QWidget):
         layout.addWidget(self._build_language_block())
         layout.addWidget(self._build_reading_block())
         layout.addWidget(self._build_appearance_block())
+        layout.addWidget(self._build_ai_agent_block())
         layout.addWidget(self._build_shortcuts_block())
         layout.addWidget(self._build_about_block())
         layout.addStretch(1)
@@ -92,6 +112,11 @@ class SettingsScreen(QWidget):
         self._density_label.setText(self._translator.tr("settings-density"))
         for row, (_theme_name, translation_key) in enumerate(_THEME_NAME_KEYS):
             self._theme_combo.setItemText(row, self._translator.tr(translation_key))
+        self._ai_agent_heading.setText(self._translator.tr("settings-ai-agent"))
+        self._ai_agent_enabled_checkbox.setText(self._translator.tr("settings-ai-agent-enabled"))
+        self._ai_agent_provider_label.setText(self._translator.tr("settings-ai-agent-provider"))
+        self._ai_agent_api_key_label.setText(self._translator.tr("settings-ai-agent-api-key"))
+        self._ai_agent_disclosure_label.setText(self._translator.tr("settings-ai-agent-disclosure"))
         self._shortcuts_heading.setText(self._translator.tr("settings-shortcuts"))
         self._about_heading.setText(self._translator.tr("settings-about"))
 
@@ -221,6 +246,58 @@ class SettingsScreen(QWidget):
         block_layout.addLayout(density_row)
         return block
 
+    def _build_ai_agent_block(self) -> QFrame:
+        block = _block()
+        block_layout = QVBoxLayout(block)
+        block_layout.setContentsMargins(14, 12, 14, 14)
+        block_layout.setSpacing(6)
+        self._ai_agent_heading = QLabel(self._translator.tr("settings-ai-agent"))
+        self._ai_agent_heading.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
+        block_layout.addWidget(self._ai_agent_heading)
+
+        self._ai_agent_enabled_checkbox = QCheckBox(
+            self._translator.tr("settings-ai-agent-enabled")
+        )
+        self._ai_agent_enabled_checkbox.setChecked(self.ai_agent_enabled())
+        self._ai_agent_enabled_checkbox.toggled.connect(self._on_ai_agent_enabled_changed)
+        block_layout.addWidget(self._ai_agent_enabled_checkbox)
+
+        provider_row = QHBoxLayout()
+        self._ai_agent_provider_label = QLabel(self._translator.tr("settings-ai-agent-provider"))
+        provider_row.addWidget(self._ai_agent_provider_label)
+        self._ai_agent_provider_combo = QComboBox()
+        for provider in AI_AGENT_PROVIDERS:
+            self._ai_agent_provider_combo.addItem(
+                AI_AGENT_PROVIDER_LABELS[provider], userData=provider
+            )
+        provider_index = self._ai_agent_provider_combo.findData(self.ai_agent_provider())
+        self._ai_agent_provider_combo.setCurrentIndex(max(provider_index, 0))
+        self._ai_agent_provider_combo.currentIndexChanged.connect(
+            self._on_ai_agent_provider_changed
+        )
+        provider_row.addWidget(self._ai_agent_provider_combo, stretch=1)
+        block_layout.addLayout(provider_row)
+
+        key_row = QHBoxLayout()
+        self._ai_agent_api_key_label = QLabel(self._translator.tr("settings-ai-agent-api-key"))
+        key_row.addWidget(self._ai_agent_api_key_label)
+        self._ai_agent_api_key_edit = QLineEdit()
+        self._ai_agent_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self._ai_agent_api_key_edit.setText(self._stored_api_key_for(self.ai_agent_provider()))
+        self._ai_agent_api_key_edit.editingFinished.connect(self._on_ai_agent_api_key_changed)
+        key_row.addWidget(self._ai_agent_api_key_edit, stretch=1)
+        block_layout.addLayout(key_row)
+
+        self._ai_agent_disclosure_label = QLabel(
+            self._translator.tr("settings-ai-agent-disclosure")
+        )
+        self._ai_agent_disclosure_label.setStyleSheet(
+            f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;"
+        )
+        self._ai_agent_disclosure_label.setWordWrap(True)
+        block_layout.addWidget(self._ai_agent_disclosure_label)
+        return block
+
     def _build_shortcuts_block(self) -> QFrame:
         block = _block()
         block_layout = QVBoxLayout(block)
@@ -280,6 +357,21 @@ class SettingsScreen(QWidget):
         download, not something to start silently)."""
         return bool(self._settings.value(VOICE_SEARCH_ENABLED_KEY, False, type=bool))
 
+    def ai_agent_enabled(self) -> bool:
+        """Return whether the user has turned on the AI Agent (off by
+        default - it's the app's first feature making a paid external API
+        call, not something to start silently)."""
+        return bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+
+    def ai_agent_provider(self) -> str:
+        """Return the currently selected AI Agent provider code."""
+        return str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+
+    def _stored_api_key_for(self, provider: str) -> str:
+        return str(self._settings.value(_ai_agent_api_key_settings_key(provider), "", type=str))
+
     def _on_language_changed(self, _index: int) -> None:
         code = self._language_combo.currentData()
         self._translator.set_language(code)
@@ -297,6 +389,23 @@ class SettingsScreen(QWidget):
     def _on_voice_search_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(VOICE_SEARCH_ENABLED_KEY, checked)
 
+    def _on_ai_agent_enabled_changed(self, checked: bool) -> None:
+        self._settings.setValue(AI_AGENT_ENABLED_KEY, checked)
+
+    def _on_ai_agent_provider_changed(self, _index: int) -> None:
+        provider = self._ai_agent_provider_combo.currentData()
+        self._settings.setValue(AI_AGENT_PROVIDER_KEY, provider)
+        # Show *that* provider's own stored key, not the previous one's -
+        # each provider keeps its own real key, switching never loses or
+        # overwrites another provider's already-entered key.
+        self._ai_agent_api_key_edit.setText(self._stored_api_key_for(provider))
+
+    def _on_ai_agent_api_key_changed(self) -> None:
+        provider = self._ai_agent_provider_combo.currentData()
+        self._settings.setValue(
+            _ai_agent_api_key_settings_key(provider), self._ai_agent_api_key_edit.text()
+        )
+
     def _on_theme_changed(self, _index: int) -> None:
         theme_name = self._theme_combo.currentData()
         self._theme_controller.set_theme(theme_name)
@@ -308,6 +417,31 @@ class SettingsScreen(QWidget):
     def _on_density_changed(self, _index: int) -> None:
         density = self._density_combo.currentData()
         self._theme_controller.set_density(density)
+
+
+def _ai_agent_api_key_settings_key(provider: str) -> str:
+    return f"ai_agent/api_key/{provider}"
+
+
+def resolve_ai_agent_api_key(settings: QSettings, provider: str) -> str | None:
+    """Return the real API key to use for `provider`, or None if none is
+    set anywhere.
+
+    Checks that provider's own env var first (lets a security-conscious
+    user avoid ever storing the key in QSettings), falls back to the
+    QSettings-stored value from the Settings screen.
+    """
+    import os
+
+    env_var = AI_AGENT_API_KEY_ENV_VARS.get(provider)
+    if env_var:
+        env_value = os.environ.get(env_var, "").strip()
+        if env_value:
+            return env_value
+    settings_value = str(
+        settings.value(_ai_agent_api_key_settings_key(provider), "", type=str)
+    ).strip()
+    return settings_value or None
 
 
 def _block() -> QFrame:

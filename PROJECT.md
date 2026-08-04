@@ -790,6 +790,14 @@ differentiator the way Phase 6/10's items are:
   discussion using the TTS item above. Real AI-generated *video* is a
   materially bigger, separate undertaking - see Phase 17, not assumed
   to be the same size as the rest of this phase.
+  - **The summarization piece: Milestone 1 done**, delivered as part of a
+    broader "AI Agent" capability (see CHANGELOG) - real, cloud-LLM-backed
+    Q&A grounded in real book content with real citations, natural-
+    language search shortcuts, and on-demand book/chapter summarization,
+    all via one real tool-calling loop over this library's own existing
+    search/retrieval. Multi-provider (Anthropic/OpenAI/Gemini) from day
+    one, off by default. Multi-voice audio-overview discussions and
+    visual reports remain not started.
 
 ### Phase 10 — Knowledge graph and encyclopedia builder: **scheduled after Phase 9, not started**
 
