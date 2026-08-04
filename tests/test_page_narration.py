@@ -86,3 +86,41 @@ def test_narrate_rejects_text_that_is_pure_markup() -> None:
     """Text with no real content once markup is stripped is still blank."""
     with pytest.raises(ValueError):
         PageNarrationService(FakeTtsSpeaker()).narrate("<urref>\n</urref>", "Urdu")
+
+
+def test_prepare_chunked_narration_resolves_language_and_splits_without_synthesizing() -> None:
+    """The whole point of the "prepare" step is that it's cheap - it must
+    never call the speaker itself."""
+    speaker = FakeTtsSpeaker()
+
+    plan = PageNarrationService(speaker).prepare_chunked_narration("hello world", "ur")
+
+    assert plan.language == "Urdu"
+    assert plan.chunk_texts == ("hello world",)
+    assert speaker.last_text is None
+
+
+def test_prepare_chunked_narration_rejects_blank_text() -> None:
+    with pytest.raises(ValueError):
+        PageNarrationService(FakeTtsSpeaker()).prepare_chunked_narration("   ", "English")
+
+
+def test_prepare_chunked_narration_aligns_chunks_to_real_line_structure() -> None:
+    speaker = FakeTtsSpeaker()
+
+    plan = PageNarrationService(speaker).prepare_chunked_narration(
+        "<span class='mb1'>مقدمہ</span><br>باقی متن", "Urdu"
+    )
+
+    assert plan.chunk_texts == ("مقدمہ", "باقی متن")
+
+
+def test_synthesize_chunk_is_a_pure_pass_through_to_the_speaker() -> None:
+    speaker = FakeTtsSpeaker()
+
+    samples, sample_rate = PageNarrationService(speaker).synthesize_chunk("a chunk", "English")
+
+    assert speaker.last_text == "a chunk"
+    assert speaker.last_language == "English"
+    assert samples == (0.1, 0.2, 0.1)
+    assert sample_rate == 16000

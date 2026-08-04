@@ -744,13 +744,20 @@ differentiator the way Phase 6/10's items are:
   have been read aloud literally, and a real Windows file-lock bug turning
   the page mid-playback (caught by the feature's own tests, not manual
   testing). See CHANGELOG.
+  - **Chunked/streaming synthesis: done** (see CHANGELOG). Page text now
+    splits into ~320-character chunks (real line/heading boundaries first,
+    then Arabic/Urdu/Latin sentence punctuation, then a word-boundary hard
+    cut), synthesized and played progressively - the real ~79s-of-silence
+    wait for a long page is now ~10-15s before sound starts, with
+    real auto-advance between chunks. A later chunk failing mid-page keeps
+    and plays the earlier successfully-produced chunks (log-only, no new
+    UI - a deliberate scope choice, worth revisiting if real users hit it
+    often).
   - **Deferred to a later milestone, not silently dropped**: multiple
     voices, adjustable speed, male/female options, separate pronunciation
     handling for classical Arabic recitation-style text vs. conversational
     Urdu/English, cloud TTS upgrade, `PdfViewerScreen` support (blocked on
-    OCR - PDF-only books have no extracted text at all), chunked/streaming
-    synthesis (the real ~79s-for-a-long-page wait is the direct motivation
-    for this becoming a real priority next, not hypothetical).
+    OCR - PDF-only books have no extracted text at all).
 - **English-language books**: not a technical feature - every library
   imported so far (Jibreel, Al-Maknoon, Islam, Shamila Urdu, Shamela) is
   Arabic/Urdu. This needs its own Phase-1-style source investigation

@@ -1,5 +1,42 @@
 # Changelog
 
+## Chunked/streaming TTS synthesis
+
+Reading a page aloud used to synthesize the *entire* page in one
+`VitsModel` forward pass before any sound played - a real, measured
+1,978-character Arabic page took ~79 seconds of silence first, explicitly
+flagged as an IOU when TTS shipped. `VitsModel` (Meta MMS-TTS) has no
+native streaming/incremental-decode API - a single non-autoregressive
+forward pass - so the fix splits page text into ~320-character chunks
+(new `application/tts_text_chunking.py::chunk_narration_text()`,
+preferring real line/heading boundaries first, then Arabic/Urdu/Latin
+sentence punctuation, then a word-boundary hard cut as the last resort)
+and synthesizes+plays them progressively: chunk 1 starts playing while
+later chunks synthesize in the background, instead of waiting for the
+whole page.
+
+`PageNarrationService` gained `prepare_chunked_narration()` (cheap text
+splitting + language resolution, no synthesis) and `synthesize_chunk()`
+(one chunk at a time) alongside the existing, unchanged `narrate()`.
+`TtsWorker` now emits `chunk_ready` per chunk instead of one
+`narration_ready` for the whole page, checking a real cancellation flag
+before each chunk's synthesis (the expensive, non-interruptible step) so
+turning the page mid-narration stops promptly instead of wasting CPU on
+now-discarded chunks. `ViewerScreen` gained a real auto-advance state
+machine (new `mediaStatusChanged` wiring - not connected to anything
+before this) that plays each chunk as it's ready, handles the race where
+playback catches up with synthesis (waits, then plays the instant the
+next chunk arrives), and resets the play/pause icon only once the true
+last chunk finishes. A later chunk failing (rare) keeps and plays the
+earlier successfully-produced chunks rather than discarding real spent
+CPU - logged, not surfaced as a new UI element, a deliberate scope choice
+for this milestone. One temp directory per narration request now (not
+one file), cleaned up on both natural completion and page-change/stop.
+
+21 new tests (`tests/test_tts_text_chunking.py`, extended
+`test_page_narration.py`, new `tests/test_tts_worker.py`, extended
+`test_viewer_screen.py`) - 806/806 total passing, zero regressions.
+
 ## Reader bug fixes: maximize, AI panel visibility, tofu glyphs
 
 Three real bugs reported directly against the running app, all found and

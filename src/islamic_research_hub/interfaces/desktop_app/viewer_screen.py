@@ -106,10 +106,21 @@ class ViewerScreen(QWidget):
         self._tts_narration_service: PageNarrationService | None = None
         self._tts_attempted = False
         self._tts_worker: TtsWorker | None = None
-        self._tts_wav_path: str | None = None
+        # Chunked playback state: chunks stream in one at a time
+        # (see TtsWorker), so the player must track which chunk is queued/
+        # playing and whether it's caught up with synthesis - not just
+        # "one file, one play()" like before.
+        self._tts_chunk_dir: Path | None = None
+        self._tts_chunk_paths: list[tuple[str, bool]] = []  # (wav_path, is_last), arrival order
+        self._tts_next_play_index = 0
+        self._tts_awaiting_next_chunk = False  # EndOfMedia reached, next chunk not arrived yet
+        self._tts_is_last_chunk_playing = False
+        self._tts_no_more_chunks_expected = False  # narration_finished has arrived
+        self._tts_paused_while_waiting = False  # user paused during the "awaiting" gap
         self._media_player = QMediaPlayer(self)
         self._tts_audio_output = QAudioOutput(self)
         self._media_player.setAudioOutput(self._tts_audio_output)
+        self._media_player.mediaStatusChanged.connect(self._on_media_status_changed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -658,6 +669,19 @@ class ViewerScreen(QWidget):
         return (self._current_book_id, self.current_page_number())
 
     def _on_play_pause_clicked(self) -> None:
+        if self._tts_awaiting_next_chunk:
+            # Between chunks: nothing is actually loaded in the player, so
+            # "pause"/"resume" here just controls whether the next arriving
+            # chunk auto-plays (see _on_chunk_ready).
+            self._tts_paused_while_waiting = not self._tts_paused_while_waiting
+            if self._tts_paused_while_waiting:
+                self._play_pause_button.setIcon(button_icon("play"))
+            else:
+                self._play_pause_button.setIcon(button_icon("pause"))
+                if self._tts_next_play_index < len(self._tts_chunk_paths):
+                    self._tts_awaiting_next_chunk = False
+                    self._play_next_chunk()
+            return
         state = self._media_player.playbackState()
         if state == QMediaPlayer.PlaybackState.PlayingState:
             self._media_player.pause()
@@ -678,6 +702,7 @@ class ViewerScreen(QWidget):
         page = self._pages[self._current_index]
         if not page.content_f:
             return
+        self._reset_narration_playback_state()
         self._play_pause_button.setEnabled(False)
         worker = TtsWorker(
             self._get_or_build_tts_narration_service,
@@ -686,8 +711,9 @@ class ViewerScreen(QWidget):
             self._current_narration_key(),
             self,
         )
-        worker.narration_ready.connect(self._on_narration_ready)
+        worker.chunk_ready.connect(self._on_chunk_ready)
         worker.narration_failed.connect(self._on_narration_failed)
+        worker.narration_finished.connect(self._on_narration_finished)
         self._tts_worker = worker
         worker.start()
 
@@ -721,16 +747,55 @@ class ViewerScreen(QWidget):
             LOGGER.exception("Text-to-speech unavailable.")
             return None
 
-    def _on_narration_ready(self, wav_path: str, request_key: object) -> None:
-        self._play_pause_button.setEnabled(True)
+    def _on_chunk_ready(self, wav_path: str, chunk_index: int, is_last: bool, request_key: object) -> None:
         if request_key != self._current_narration_key():
             Path(wav_path).unlink(missing_ok=True)  # stale - page changed while synthesizing
             return
-        self._cleanup_narration_file()
-        self._tts_wav_path = wav_path
+        if self._tts_chunk_dir is None:
+            self._tts_chunk_dir = Path(wav_path).parent
+        self._tts_chunk_paths.append((wav_path, is_last))
+        if chunk_index == 0:
+            # Real playback can start now, even while later chunks are
+            # still synthesizing in the background.
+            self._play_pause_button.setEnabled(True)
+            self._play_next_chunk()
+        elif self._tts_awaiting_next_chunk and not self._tts_paused_while_waiting:
+            self._tts_awaiting_next_chunk = False
+            self._play_next_chunk()
+
+    def _play_next_chunk(self) -> None:
+        wav_path, is_last = self._tts_chunk_paths[self._tts_next_play_index]
+        self._tts_next_play_index += 1
+        self._tts_is_last_chunk_playing = is_last
         self._media_player.setSource(QUrl.fromLocalFile(wav_path))
         self._media_player.play()
         self._play_pause_button.setIcon(button_icon("pause"))
+
+    def _on_media_status_changed(self, status: QMediaPlayer.MediaStatus) -> None:
+        if status != QMediaPlayer.MediaStatus.EndOfMedia:
+            return
+        if self._tts_next_play_index < len(self._tts_chunk_paths):
+            self._play_next_chunk()
+        elif self._tts_is_last_chunk_playing or self._tts_no_more_chunks_expected:
+            self._finish_narration_playback()
+        else:
+            # Playback caught up with synthesis - wait for the next chunk;
+            # _on_chunk_ready plays it immediately once it arrives.
+            self._tts_awaiting_next_chunk = True
+
+    def _finish_narration_playback(self) -> None:
+        self._play_pause_button.setIcon(button_icon("play"))
+        self._tts_is_last_chunk_playing = False
+
+    def _on_narration_finished(self, request_key: object, chunks_produced: int) -> None:
+        if request_key != self._current_narration_key():
+            return
+        self._tts_no_more_chunks_expected = True
+        if chunks_produced == 0:
+            return  # narration_failed already reset the button in this case
+        if self._tts_awaiting_next_chunk:
+            self._tts_awaiting_next_chunk = False
+            self._finish_narration_playback()
 
     def _on_narration_failed(self, request_key: object) -> None:
         self._play_pause_button.setEnabled(True)
@@ -740,6 +805,8 @@ class ViewerScreen(QWidget):
         self._play_pause_button.setToolTip("Text-to-speech unavailable")
 
     def _stop_narration(self) -> None:
+        if self._tts_worker is not None:
+            self._tts_worker.request_cancellation()
         self._media_player.stop()
         # Real bug found writing this feature's own tests: on Windows,
         # QMediaPlayer.stop() does not synchronously release its lock on the
@@ -748,19 +815,34 @@ class ViewerScreen(QWidget):
         # (_go_next/_go_previous both funnel through this). Clearing the
         # source explicitly is what actually releases the file handle.
         self._media_player.setSource(QUrl())
-        self._cleanup_narration_file()
+        self._reset_narration_playback_state()
         self._play_pause_button.setIcon(button_icon("play"))
 
-    def _cleanup_narration_file(self) -> None:
-        if self._tts_wav_path is not None:
-            path, self._tts_wav_path = self._tts_wav_path, None
+    def _reset_narration_playback_state(self) -> None:
+        self._cleanup_narration_files()
+        self._tts_next_play_index = 0
+        self._tts_awaiting_next_chunk = False
+        self._tts_is_last_chunk_playing = False
+        self._tts_no_more_chunks_expected = False
+        self._tts_paused_while_waiting = False
+
+    def _cleanup_narration_files(self) -> None:
+        chunk_dir, self._tts_chunk_dir = self._tts_chunk_dir, None
+        self._tts_chunk_paths = []
+        if chunk_dir is None:
+            return
+        for path in sorted(chunk_dir.glob("chunk_*.wav")):
             try:
-                Path(path).unlink(missing_ok=True)
+                path.unlink(missing_ok=True)
             except OSError:
                 # Still locked despite clearing the source (a delayed OS
                 # release) - a lingering temp file is a far better failure
                 # mode than crashing real page navigation over cleanup.
-                LOGGER.warning("Could not delete temporary narration file: %s", path)
+                LOGGER.warning("Could not delete temporary narration chunk file: %s", path)
+        try:
+            chunk_dir.rmdir()  # only succeeds once empty
+        except OSError:
+            pass
 
 
 def _toolbar_separator() -> QFrame:

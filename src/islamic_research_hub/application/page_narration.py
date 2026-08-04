@@ -1,7 +1,8 @@
 """Application service for local text-to-speech narration of page content."""
 
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
+from islamic_research_hub.application.tts_text_chunking import chunk_narration_text
 from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
 from islamic_research_hub.shared.language_names import (
     canonical_language_name,
@@ -14,6 +15,15 @@ class TtsSpeaker(Protocol):
 
     def synthesize(self, text: str, language: str) -> tuple[tuple[float, ...], int]:
         """Return (samples, sample_rate) for the given text, spoken in `language`."""
+
+
+class ChunkedNarrationPlan(NamedTuple):
+    """A page's narration text, split into TTS-sized chunks with the
+    resolved language - everything `TtsWorker` needs to synthesize and
+    play the page chunk by chunk."""
+
+    language: str
+    chunk_texts: tuple[str, ...]
 
 
 class PageNarrationService:
@@ -47,3 +57,28 @@ class PageNarrationService:
             normalized_text
         )
         return self._speaker.synthesize(normalized_text, resolved_language)
+
+    def prepare_chunked_narration(self, text: str, language: str | None) -> ChunkedNarrationPlan:
+        """Resolve language and split `text` into TTS-sized chunks, doing no synthesis.
+
+        Mirrors `narrate()`'s own text handling (HTML stripping, blank-text
+        rejection, language resolution) so the two paths never disagree
+        about what counts as this page's real content - it only diverges
+        by chunking instead of collapsing everything into one blob, and by
+        not calling the speaker itself. Synthesis is left to the caller
+        (`synthesize_chunk()`) so it can check for cancellation between
+        chunks - the expensive step.
+        """
+        plain_text = strip_html_to_text(text) or ""
+        chunk_texts = chunk_narration_text(plain_text)
+        if not chunk_texts:
+            raise ValueError("Narration text must not be empty.")
+        collapsed_text = " ".join(plain_text.split())
+        resolved_language = canonical_language_name(language) or detect_language_from_text(
+            collapsed_text
+        )
+        return ChunkedNarrationPlan(language=resolved_language, chunk_texts=chunk_texts)
+
+    def synthesize_chunk(self, text: str, language: str) -> tuple[tuple[float, ...], int]:
+        """Synthesize one already-chunked piece of text."""
+        return self._speaker.synthesize(text, language)

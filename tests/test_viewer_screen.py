@@ -13,6 +13,10 @@ from islamic_research_hub.domain.models.book import Book, Chapter, Page  # noqa:
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.icons import (  # noqa: E402
+    button_icon,
+    button_icon_size,
+)
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import (  # noqa: E402
     MAX_READING_COLUMN_WIDTH,
     ViewerScreen,
@@ -48,6 +52,14 @@ def _no_real_research_notes_lookup(monkeypatch, tmp_path: Path):
         "_build_research_notes_manager",
         lambda self: ResearchNotesManager(_NoOpNotesStorage(), isolated_settings),
     )
+
+
+def _icon_matches(button, name: str) -> bool:
+    """`button_icon()` builds a fresh QIcon/QPixmap every call (not cached),
+    so QIcon.cacheKey() is never equal across two logically-identical
+    icons - compare rendered pixel content instead."""
+    size = button_icon_size()
+    return button.icon().pixmap(size).toImage() == button_icon(name).pixmap(size).toImage()
 
 
 def _seed_database(database_path: Path) -> None:
@@ -404,15 +416,15 @@ def test_clicking_play_synthesizes_and_writes_a_real_wav_file(qtbot, tmp_path: P
     qtbot.wait(50)
 
     assert speaker.last_text == "First page content"
-    assert screen._tts_wav_path is not None
-    assert Path(screen._tts_wav_path).is_file()
+    assert screen._tts_chunk_paths
+    assert Path(screen._tts_chunk_paths[0][0]).is_file()
     assert screen._play_pause_button.isEnabled()
 
 
 def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Path) -> None:
     """Real bug this guards against: turning the page mid-playback used to
     have no cleanup path at all - the toolbar's page-change funnel
-    (_render_current_page) now stops playback and removes the temp WAV."""
+    (_render_current_page) now stops playback and removes the temp WAV(s)."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = ViewerScreen(database_path, enable_lazy_tts=True)
@@ -423,13 +435,17 @@ def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Pat
     with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
         pass
     qtbot.wait(50)
-    wav_path = Path(screen._tts_wav_path)
-    assert wav_path.is_file()
+    chunk_dir = screen._tts_chunk_dir
+    wav_paths = [Path(path) for path, _ in screen._tts_chunk_paths]
+    assert wav_paths
+    assert all(path.is_file() for path in wav_paths)
 
     screen._go_next()
 
-    assert screen._tts_wav_path is None
-    assert not wav_path.is_file()
+    assert screen._tts_chunk_dir is None
+    assert screen._tts_chunk_paths == []
+    assert all(not path.is_file() for path in wav_paths)
+    assert not chunk_dir.exists()
 
 
 def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: Path) -> None:
@@ -448,10 +464,165 @@ def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: P
     qtbot.wait(50)
 
     assert screen._play_pause_button.isEnabled()
-    assert screen._tts_wav_path is None
+    assert screen._tts_chunk_paths == []
     # The screen itself is still fully usable - real navigation still works.
     screen._go_next()
     assert screen._content_label.text() == "Second page content"
+
+
+def _seed_database_with_long_page(database_path: Path) -> None:
+    """One page with real sentence structure long enough (>320 chars, the
+    default chunk cap) to split into multiple real TTS chunks - needed to
+    exercise auto-advance/streaming playback at all."""
+    sentence = "This is a real sentence with several words in it."
+    long_page_text = " ".join([sentence] * 10)  # ~530 chars, several chunks at the default cap
+    book = Book(
+        information={"Name": "Book of Long Pages", "ANAME": "Author Two"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, long_page_text, "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+
+
+def test_multi_chunk_playback_auto_advances_and_resets_icon_on_completion(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real streaming behavior: chunk 1 plays while later chunks are still
+    synthesizing; EndOfMedia advances to the next chunk automatically; the
+    icon resets to "play" only once the true last chunk finishes."""
+    from PySide6.QtMultimedia import QMediaPlayer
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_long_page(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen)
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    total_chunks = len(screen._tts_chunk_paths)
+    assert total_chunks > 1
+    assert screen._tts_next_play_index == 1  # chunk 0 already playing
+
+    # Real playback duration can't practically be waited out headless -
+    # directly invoking the status-changed handler is the chosen technique
+    # to simulate each chunk finishing.
+    for _ in range(total_chunks - 1):
+        screen._on_media_status_changed(QMediaPlayer.MediaStatus.EndOfMedia)
+    assert screen._tts_next_play_index == total_chunks
+    assert _icon_matches(screen._play_pause_button, "pause")
+
+    screen._on_media_status_changed(QMediaPlayer.MediaStatus.EndOfMedia)  # final chunk ends
+
+    assert _icon_matches(screen._play_pause_button, "play")
+
+
+def test_late_arriving_chunk_plays_immediately_once_awaiting(qtbot, tmp_path: Path) -> None:
+    """Playback can catch up with synthesis (chunk N ends before chunk N+1
+    has finished synthesizing) - the next chunk must auto-play the instant
+    it arrives, with no extra user action required."""
+    from PySide6.QtMultimedia import QMediaPlayer
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_long_page(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen)
+
+    # Simulate "caught up": one chunk queued and already played, nothing
+    # else queued yet, more chunks still expected.
+    screen._reset_narration_playback_state()
+    screen._tts_chunk_paths = [("chunk0.wav", False)]
+    screen._tts_next_play_index = 1
+    screen._tts_is_last_chunk_playing = False
+    screen._on_media_status_changed(QMediaPlayer.MediaStatus.EndOfMedia)
+    assert screen._tts_awaiting_next_chunk is True
+
+    played_paths: list[str] = []
+    screen._media_player.setSource = lambda url: played_paths.append(url.toLocalFile())
+    screen._media_player.play = lambda: None
+    screen._on_chunk_ready("chunk1.wav", 1, True, screen._current_narration_key())
+
+    assert screen._tts_awaiting_next_chunk is False
+    assert played_paths == ["chunk1.wav"]
+
+
+def test_pausing_while_awaiting_next_chunk_does_not_start_a_new_narration(
+    qtbot, tmp_path: Path
+) -> None:
+    """Regression test: QMediaPlayer.playbackState() is StoppedState once
+    EndOfMedia fires, so the play/pause handler's ordinary fallback would
+    otherwise wrongly spin up a second, redundant TtsWorker while the
+    first is still producing chunks in the background."""
+    database_path = tmp_path / "books.db"
+    _seed_database_with_long_page(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen)
+    screen._tts_awaiting_next_chunk = True
+    start_calls = []
+    screen._start_narration = lambda: start_calls.append(1)
+
+    screen._on_play_pause_clicked()  # pause during the gap
+
+    assert screen._tts_paused_while_waiting is True
+    assert start_calls == []
+
+    screen._on_play_pause_clicked()  # resume
+
+    assert screen._tts_paused_while_waiting is False
+    assert start_calls == []
+
+
+def test_partial_chunk_failure_still_plays_earlier_chunks(qtbot, tmp_path: Path) -> None:
+    """A later chunk failing (e.g. the 2nd of several) must not discard the
+    real CPU already spent on earlier chunks - they still play, and the
+    button resets normally once the last available chunk finishes."""
+    from PySide6.QtMultimedia import QMediaPlayer
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_long_page(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    class _FailOnSecondCall:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def synthesize(self, text: str, language: str) -> tuple[tuple[float, ...], int]:
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("synthesis failed")
+            return (0.0, 0.1, 0.0, -0.1) * 50, 8000
+
+    from islamic_research_hub.application.page_narration import PageNarrationService
+
+    speaker = _FailOnSecondCall()
+    screen._build_real_tts_narration_service = lambda: PageNarrationService(speaker)
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert len(screen._tts_chunk_paths) == 1
+    # narration_failed is only emitted when chunk 0 itself fails - a later
+    # chunk failing must not trigger the "Text-to-speech unavailable" reset.
+    assert screen._play_pause_button.toolTip() != "Text-to-speech unavailable"
+
+    screen._on_media_status_changed(QMediaPlayer.MediaStatus.EndOfMedia)
+
+    assert _icon_matches(screen._play_pause_button, "play")
 
 
 def test_page_content_strips_raw_structural_markup_before_display(
