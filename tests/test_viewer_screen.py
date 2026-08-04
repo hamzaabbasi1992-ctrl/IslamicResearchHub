@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QSettings, Qt  # noqa: E402
 from PySide6.QtGui import QGuiApplication  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Chapter, Page  # noqa: E402
@@ -17,6 +17,37 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (  # noqa:
     MAX_READING_COLUMN_WIDTH,
     ViewerScreen,
 )
+from islamic_research_hub.research_notes.research_notes_manager import (  # noqa: E402
+    ResearchNotesManager,
+)
+
+
+class _NoOpNotesStorage:
+    """Finds nothing, real or fake - the default stand-in for every test
+    in this file (see `_no_real_research_notes_lookup` below)."""
+
+    def find_documents_mentioning(self, book_title: str) -> tuple:
+        return ()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_research_notes_lookup(monkeypatch, tmp_path: Path):
+    """`load_book()` always calls `_reload_research_notes_list()`, which
+    by default would construct a real `ResearchNotesManager` - touching
+    the real Documents folder and the real Windows-registry-backed
+    `QSettings` on every single test in this file. This project already
+    hit exactly that kind of real-registry pollution once before (a
+    stray `language=ur` value leaked into the real registry from tests -
+    see CHANGELOG) - autouse-patched here so no test in this file can
+    repeat it by accident. Tests that specifically want to exercise real
+    (fake-storage-backed) lookups override this patch again themselves.
+    """
+    isolated_settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    monkeypatch.setattr(
+        ViewerScreen,
+        "_build_research_notes_manager",
+        lambda self: ResearchNotesManager(_NoOpNotesStorage(), isolated_settings),
+    )
 
 
 def _seed_database(database_path: Path) -> None:
@@ -151,7 +182,7 @@ def test_bookmarking_a_page_adds_it_to_the_bookmarks_list(qtbot, tmp_path: Path)
     screen.toggle_bookmark()
 
     assert screen._bookmarks_list.count() == 1
-    assert screen._bookmarks_list.item(0).text() == "Page 1"
+    assert screen._bookmarks_list.item(0).text() == "Book of Fiqh, Page 1"
 
 
 def test_clicking_a_bookmark_jumps_to_its_page(qtbot, tmp_path: Path) -> None:
@@ -604,4 +635,126 @@ def test_bookmarking_a_page_replaces_the_bookmarks_empty_state(
     screen.toggle_bookmark()
 
     assert screen._bookmarks_list.count() == 1
-    assert screen._bookmarks_list.item(0).text() == "Page 1"
+    assert screen._bookmarks_list.item(0).text() == "Book of Fiqh, Page 1"
+
+
+def test_nav_panel_maximize_grows_it_and_shrinks_the_reader(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.resize(1000, 600)
+    screen.load_book(1)
+    initial_nav_width = screen._body_splitter.sizes()[0]
+
+    screen._on_nav_maximize_clicked()
+
+    assert screen._nav_panel_toggle.is_maximized is True
+    assert screen._body_splitter.sizes()[0] > initial_nav_width
+
+    screen._on_nav_maximize_clicked()
+
+    assert screen._nav_panel_toggle.is_maximized is False
+    assert screen._body_splitter.sizes()[0] == initial_nav_width
+
+
+def test_nav_panel_maximize_expands_it_first_if_collapsed(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.resize(1000, 600)
+    screen.load_book(1)
+    screen._contents_button.setChecked(False)
+    screen._nav_panel_animation.setCurrentTime(1000)
+    assert screen._body_splitter.sizes()[0] < 10
+
+    screen._on_nav_maximize_clicked()
+
+    assert screen._contents_button.isChecked() is True
+    assert screen._body_splitter.sizes()[0] > 100
+
+
+def test_bookmark_row_includes_volume_when_the_book_has_one(qtbot, tmp_path: Path) -> None:
+    """Real bug reported directly: bookmarks used to show only "Page N" -
+    now shows the full citation-style detail (book title, volume if
+    real, page)."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen._current_volume_number = 3  # a real multi-volume series' detected volume
+
+    screen.toggle_bookmark()
+
+    assert screen._bookmarks_list.item(0).text() == "Book of Fiqh, Volume 3, Page 1"
+
+
+def test_research_notes_list_shows_a_real_empty_state_by_default(
+    qtbot, tmp_path: Path
+) -> None:
+    """No research notes exist for a freshly-opened book - a real message,
+    not a blank box. Relies on this file's autouse no-op storage fixture,
+    same as every other test that calls load_book()."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    screen.load_book(1)
+
+    assert screen._research_notes_list.count() == 1
+    assert "No research notes" in screen._research_notes_list.item(0).text()
+
+
+def test_research_notes_list_shows_a_real_matching_document(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """A document with a quotation saved from this book shows up in the
+    reader's own Research Notes list."""
+    from PySide6.QtCore import QSettings
+
+    from islamic_research_hub.research_notes.research_notes_manager import ResearchNotesManager
+
+    class _FakeStorage:
+        def find_documents_mentioning(self, book_title: str) -> tuple:
+            return (Path("/fake/Fiqh Research.docx"),) if book_title == "Book of Fiqh" else ()
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    isolated_settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+    monkeypatch.setattr(
+        screen,
+        "_build_research_notes_manager",
+        lambda: ResearchNotesManager(_FakeStorage(), isolated_settings),
+    )
+
+    screen.load_book(1)
+
+    assert screen._research_notes_list.count() == 1
+    assert screen._research_notes_list.item(0).text() == "Fiqh Research"
+
+
+def test_clicking_a_research_notes_item_opens_it(qtbot, tmp_path: Path, monkeypatch) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    from PySide6.QtWidgets import QListWidgetItem
+
+    item = QListWidgetItem("Fiqh Research")
+    item.setData(Qt.ItemDataRole.UserRole, Path("/fake/Fiqh Research.docx"))
+    opened = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.viewer_screen.QDesktopServices.openUrl",
+        lambda url: opened.append(url.toLocalFile()),
+    )
+
+    screen._on_research_notes_item_clicked(item)
+
+    assert len(opened) == 1
+    assert Path(opened[0]) == Path("/fake/Fiqh Research.docx")

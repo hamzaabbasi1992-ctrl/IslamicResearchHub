@@ -917,6 +917,45 @@ def test_detail_panel_toggle_collapses_and_expands(qtbot, tmp_path: Path) -> Non
     assert screen._splitter.sizes()[2] >= expanded_width
 
 
+def test_detail_panel_maximize_grows_it_and_shrinks_the_siblings(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    screen.resize(1200, 700)
+    screen.show()
+    qtbot.waitExposed(screen)
+    initial_sizes = screen._splitter.sizes()
+
+    screen._on_detail_maximize_clicked()
+
+    assert screen._detail_panel_toggle.is_maximized is True
+
+    screen._on_detail_maximize_clicked()
+
+    assert screen._detail_panel_toggle.is_maximized is False
+    assert screen._splitter.sizes() == initial_sizes
+
+
+def test_detail_panel_maximize_expands_it_first_if_collapsed(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    qtbot.addWidget(screen)
+    screen.resize(1200, 700)
+    screen._detail_toggle_button.setChecked(False)
+    screen._detail_panel_animation.setCurrentTime(1000)
+
+    screen._on_detail_maximize_clicked()
+
+    assert screen._detail_toggle_button.isChecked() is True
+    assert screen._splitter.sizes()[2] > 100
+
+
 class _FakeVoiceTranscriber:
     """Transcriber returning a fixed transcript, recording what it was asked
     to transcribe - a real-shaped, controllable stand-in for

@@ -37,6 +37,10 @@ class AiAssistantPanel(QWidget):
     """Collapsible AI-assistant panel: real chrome, honest placeholder content."""
 
     collapsed_changed = Signal(bool)
+    maximize_clicked = Signal()
+    """Raw click event, no local state - `WorkspaceScreen` owns the real
+    `PanelToggle` (it owns the splitter this panel is a segment of) and
+    calls `set_maximize_icon` back to reflect the resulting state."""
 
     def __init__(self, settings: QSettings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -53,6 +57,13 @@ class AiAssistantPanel(QWidget):
         title.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
         header.addWidget(title)
         header.addStretch(1)
+        self._maximize_button = QPushButton()
+        self._maximize_button.setFlat(True)
+        self._maximize_button.setIcon(button_icon("maximize"))
+        self._maximize_button.setIconSize(button_icon_size())
+        self._maximize_button.setToolTip("Maximize this panel")
+        self._maximize_button.clicked.connect(self.maximize_clicked)
+        header.addWidget(self._maximize_button)
         self._collapse_button = QPushButton()
         self._collapse_button.setFlat(True)
         self._collapse_button.setIconSize(button_icon_size())
@@ -108,6 +119,12 @@ class AiAssistantPanel(QWidget):
         self._settings.setValue(COLLAPSED_KEY, collapsed)
         self._update_collapse_icon()
         self.collapsed_changed.emit(collapsed)
+
+    def set_maximize_icon(self, is_maximized: bool) -> None:
+        """Reflect the real maximize state (owned by `WorkspaceScreen`,
+        which owns the splitter this panel is a segment of) on the
+        button's icon."""
+        self._maximize_button.setIcon(button_icon("restore" if is_maximized else "maximize"))
 
     def _update_collapse_icon(self) -> None:
         # Reuses the existing prev/next chevrons rather than adding a

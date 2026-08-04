@@ -1,5 +1,36 @@
 # Changelog
 
+## Maximize for collapsible panels; bookmarks show full detail + linked Research Notes
+
+Three more user-requested items:
+
+- **Maximize, alongside every existing collapse toggle**: a new `PanelToggle`
+  helper (grows one splitter segment to take the space its siblings don't
+  strictly need, remembers exact pre-maximize sizes to restore) is now
+  wired into the AI panel, the reader's Contents panel, and the Search
+  screen's detail panel. Collapse behavior itself was left untouched
+  (each screen's own proven implementation) - only maximize is new.
+  Real bug found writing this: a sibling's effective minimum width for
+  `QSplitter.setSizes()` is the larger of its explicit `minimumWidth()`
+  and its real `minimumSizeHint()` - using `minimumWidth()` alone (0 for
+  a composite widget like `SearchScreen`) barely grew the target segment
+  at all, confirmed directly against real values.
+- **Bookmarks show full detail**: each row now reads "<Book>, Volume N,
+  Page P" instead of just "Page N".
+- **Bookmarks panel also lists Research Notes for the open book**: a new
+  "Research Notes" section shows every real `.docx` document with a
+  saved quotation from the currently open book (scanning each document's
+  own "Book:" paragraphs - no separate index/database, matching this
+  feature's original "no database" design), click to open it in Word.
+
+12 new tests, 726/726 total pass. One real test-isolation risk caught and
+fixed before it shipped: `load_book()` now always checks for Research
+Notes, which would have made every existing `ViewerScreen` test touch the
+real Documents folder and the real Windows-registry `QSettings` - an
+autouse fixture in `test_viewer_screen.py` now stands in a fake storage
+by default (this project already hit real-registry test pollution once
+before - see the `QSettings` fix a few entries below).
+
 ## Three real bugs reported directly against the running app, fixed
 
 - **Reader toolbar controls "vanishing"**: the font-family combo and other

@@ -4,8 +4,8 @@ The one concrete storage backend this feature ships with - implements
 the `NotesStorage` shape `ResearchNotesManager` depends on structurally
 (see `research_notes_manager.py`). A future cloud backend (Google Docs,
 Google Drive, OneDrive, Dropbox) would be a second class with the same
-three methods, swapped in wherever `LocalDocxStorage()` is constructed
-today, with no change to the manager or the dialog.
+methods, swapped in wherever `LocalDocxStorage()` is constructed today,
+with no change to the manager or the dialog.
 """
 
 import re
@@ -78,6 +78,32 @@ class LocalDocxStorage:
             raise NoteFileLockedError(
                 "This note file is currently open.\nPlease close it and try again."
             ) from error
+
+    def find_documents_mentioning(self, book_title: str) -> tuple[Path, ...]:
+        """Return every real note document with at least one quotation
+        saved from `book_title`.
+
+        No separate index/database - each document's own real "Book:"
+        paragraphs (written by `append_quotation`) are the source of
+        truth, matching this feature's original "no database" design.
+        Scanning every document on each call is a real, deliberate
+        tradeoff (simple, always correct, no index to keep in sync) -
+        fine for the realistic handful of note documents a real user
+        keeps, not built for hundreds.
+        """
+        matches: list[Path] = []
+        for path in self.list_documents():
+            try:
+                document = Document(path)
+            except PackageNotFoundError:
+                continue
+            paragraphs = [paragraph.text for paragraph in document.paragraphs]
+            for index, text in enumerate(paragraphs):
+                if text.strip() == "Book:" and index + 1 < len(paragraphs):
+                    if paragraphs[index + 1].strip() == book_title:
+                        matches.append(path)
+                        break
+        return tuple(matches)
 
 
 def _quotation_lines(quotation: Quotation) -> tuple[str, ...]:

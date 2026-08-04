@@ -49,6 +49,10 @@ class NotesStorage(Protocol):
         """Append one quotation to the end of an existing document - must
         never overwrite what's already there."""
 
+    def find_documents_mentioning(self, book_title: str) -> tuple[Path, ...]:
+        """Return every real document with at least one quotation saved
+        from `book_title`."""
+
 
 class ResearchNotesManager:
     """Coordinate listing/creating note documents and appending
@@ -73,6 +77,12 @@ class ResearchNotesManager:
         """Append a quotation to `path` and remember it as the current document."""
         self._storage.append_quotation(path, quotation)
         self._remember_current(path)
+
+    def find_documents_mentioning_book(self, book_title: str) -> tuple[Path, ...]:
+        """Return every real note document with a quotation saved from
+        `book_title` - powers the reader's "Research Notes for this book"
+        list."""
+        return self._storage.find_documents_mentioning(book_title)
 
     def current_document(self) -> Path | None:
         """Return the most recently used note document, or None if no

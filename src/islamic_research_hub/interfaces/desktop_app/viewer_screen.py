@@ -5,7 +5,7 @@ import threading
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QComboBox,
@@ -34,6 +34,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
+from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
     DEFAULT_FONT_CHOICE,
     FONT_CHOICES,
@@ -46,10 +47,12 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
     Type,
 )
 from islamic_research_hub.interfaces.desktop_app.tts_worker import TtsWorker
+from islamic_research_hub.research_notes.docx_writer import LocalDocxStorage
 from islamic_research_hub.research_notes.notes_dialog import (
     open_current_notes,
     show_save_to_notes_dialog,
 )
+from islamic_research_hub.research_notes.research_notes_manager import ResearchNotesManager
 from islamic_research_hub.shared.citation_formatting import format_citation
 from islamic_research_hub.shared.html_text_extraction import strip_html_to_text
 
@@ -166,6 +169,13 @@ class ViewerScreen(QWidget):
         self._contents_button.setToolTip("Show/hide this book's table of contents and bookmarks.")
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
+
+        self._nav_maximize_button = QPushButton()
+        self._nav_maximize_button.setIcon(button_icon("maximize"))
+        self._nav_maximize_button.setIconSize(button_icon_size())
+        self._nav_maximize_button.setToolTip("Maximize the contents/bookmarks panel")
+        self._nav_maximize_button.clicked.connect(self._on_nav_maximize_clicked)
+        toolbar.addWidget(self._nav_maximize_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._prev_button = QPushButton()
@@ -284,6 +294,7 @@ class ViewerScreen(QWidget):
         self._body_splitter.setCollapsible(1, False)
         self._body_splitter.setSizes([NAV_PANEL_WIDTH, 1])
         reader_layout.addWidget(self._body_splitter, stretch=1)
+        self._nav_panel_toggle = PanelToggle(self._body_splitter, index=0, expanded_width=NAV_PANEL_WIDTH)
 
         layout.addWidget(self._reader, stretch=1)
         self._apply_font_size()
@@ -315,11 +326,30 @@ class ViewerScreen(QWidget):
         self._bookmarks_list.itemClicked.connect(self._on_bookmark_item_clicked)
         layout.addWidget(self._bookmarks_list, stretch=1)
 
+        research_notes_label = QLabel("Research Notes")
+        research_notes_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(research_notes_label)
+        self._research_notes_list = QListWidget()
+        self._research_notes_list.setToolTip("Documents with a quotation saved from this book")
+        self._research_notes_list.itemClicked.connect(self._on_research_notes_item_clicked)
+        layout.addWidget(self._research_notes_list, stretch=1)
+
         return panel
 
     def _on_contents_toggled(self, checked: bool) -> None:
         target = NAV_PANEL_WIDTH if checked else 0
         self._nav_panel_animation = animate_splitter_size(self._body_splitter, index=0, end=target)
+
+    def _on_nav_maximize_clicked(self) -> None:
+        """Maximize/restore the contents/bookmarks panel - if it's
+        currently collapsed, expand it first so maximizing always shows
+        something real rather than a maximized-but-invisible panel."""
+        if not self._contents_button.isChecked():
+            self._contents_button.setChecked(True)
+        self._nav_panel_toggle.toggle_maximized()
+        self._nav_maximize_button.setIcon(
+            button_icon("restore" if self._nav_panel_toggle.is_maximized else "maximize")
+        )
 
     def _on_toc_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
         page_number = item.data(0, Qt.ItemDataRole.UserRole)
@@ -330,6 +360,11 @@ class ViewerScreen(QWidget):
         page_number = item.data(Qt.ItemDataRole.UserRole)
         if page_number is not None:
             self.jump_to_page_number(page_number)
+
+    def _on_research_notes_item_clicked(self, item: QListWidgetItem) -> None:
+        path = item.data(Qt.ItemDataRole.UserRole)
+        if path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def _reload_toc(self, book_id: int) -> None:
         self._toc_tree.clear()
@@ -352,10 +387,46 @@ class ViewerScreen(QWidget):
                 "No bookmarks yet - bookmark a page to see it here."
             )
             return
+        title = self._current_title or "(untitled)"
         for page_number in sorted(self._bookmarked_pages):
-            item = QListWidgetItem(f"Page {page_number}")
+            # Full details, not just "Page N" - the same title/volume
+            # every row shares today (bookmarks are per-currently-open-
+            # book), but real and complete rather than context-free.
+            if self._current_volume_number is not None:
+                text = f"{title}, Volume {self._current_volume_number}, Page {page_number}"
+            else:
+                text = f"{title}, Page {page_number}"
+            item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, page_number)
             self._bookmarks_list.addItem(item)
+
+    def _reload_research_notes_list(self) -> None:
+        """List every real Research Notes document with a quotation saved
+        from the currently open book - lets the reader jump straight to
+        prior notes on this book, not just bookmarks."""
+        self._research_notes_list.clear()
+        if self._current_title is None:
+            return
+        try:
+            documents = self._build_research_notes_manager().find_documents_mentioning_book(
+                self._current_title
+            )
+        except Exception:
+            LOGGER.exception("Could not check for Research Notes documents.")
+            return
+        if not documents:
+            self._research_notes_list.addItem("No research notes for this book yet.")
+            return
+        for path in documents:
+            item = QListWidgetItem(path.stem)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            self._research_notes_list.addItem(item)
+
+    def _build_research_notes_manager(self) -> ResearchNotesManager:
+        """Test-friendly seam - widget tests monkeypatch this instead of
+        touching the real Documents folder/registry (mirrors this
+        codebase's other `_build_real_*_service` seams)."""
+        return ResearchNotesManager(LocalDocxStorage())
 
     def copy_citation(self) -> None:
         """Copy a real citation for the current page to the clipboard.
@@ -458,6 +529,7 @@ class ViewerScreen(QWidget):
         self._pdf_fallback_banner.setVisible(False)
         self._reload_toc(book_id)
         self._reload_bookmarks_list()
+        self._reload_research_notes_list()
         self._render_current_page()
         return True
 

@@ -31,6 +31,13 @@ class _FakeNotesStorage:
     def append_quotation(self, path: Path, quotation: Quotation) -> None:
         self.appended.append((path, quotation))
 
+    def find_documents_mentioning(self, book_title: str) -> tuple[Path, ...]:
+        return tuple(
+            path
+            for path, quotation in self.appended
+            if quotation.book_title == book_title
+        )
+
 
 def _settings(tmp_path: Path) -> QSettings:
     return QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
@@ -117,6 +124,18 @@ def test_default_settings_use_the_app_wide_organization_and_application_name() -
 
     assert manager._settings.organizationName() == SETTINGS_ORGANIZATION
     assert manager._settings.applicationName() == SETTINGS_APPLICATION
+
+
+def test_find_documents_mentioning_book_delegates_to_storage(tmp_path: Path) -> None:
+    storage = _FakeNotesStorage()
+    real_path = tmp_path / "Notes.docx"
+    real_path.write_text("")
+    manager = ResearchNotesManager(storage, _settings(tmp_path))
+    manager.save_quotation(real_path, _quotation())
+
+    matches = manager.find_documents_mentioning_book("Book of Fiqh")
+
+    assert matches == (real_path,)
 
 
 def test_current_document_persists_across_manager_instances(tmp_path: Path) -> None:

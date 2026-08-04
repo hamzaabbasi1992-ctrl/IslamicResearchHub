@@ -160,3 +160,33 @@ def test_show_reader_without_animation_applies_instantly(qtbot, tmp_path: Path) 
     workspace.show_reader(placeholder, animated=False)
 
     assert workspace._splitter.sizes()[1] > 0
+
+
+def test_ai_panel_maximize_grows_it_and_restores_on_toggle_back(
+    qtbot, tmp_path: Path
+) -> None:
+    workspace, _reader_stack, _placeholder = _build_workspace(qtbot, tmp_path)
+    workspace.show()
+    qtbot.waitExposed(workspace)
+    initial_sizes = workspace._splitter.sizes()
+
+    workspace._ai_panel.maximize_clicked.emit()
+
+    assert workspace._ai_panel_toggle.is_maximized is True
+
+    workspace._ai_panel.maximize_clicked.emit()
+
+    assert workspace._ai_panel_toggle.is_maximized is False
+    assert workspace._splitter.sizes() == initial_sizes
+
+
+def test_ai_panel_maximize_expands_it_first_if_collapsed(qtbot, tmp_path: Path) -> None:
+    workspace, _reader_stack, _placeholder = _build_workspace(qtbot, tmp_path)
+    workspace._ai_panel.toggle_collapsed()
+    _finish(workspace._ai_panel_animation)
+    assert workspace._ai_panel.is_collapsed is True
+
+    workspace._ai_panel.maximize_clicked.emit()
+
+    assert workspace._ai_panel.is_collapsed is False
+    assert workspace._splitter.sizes()[2] > 100

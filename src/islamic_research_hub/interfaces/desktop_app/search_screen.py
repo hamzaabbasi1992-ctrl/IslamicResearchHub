@@ -58,6 +58,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
 )
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
+from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
 from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
@@ -169,6 +170,7 @@ class SearchScreen(QWidget):
         self._splitter.setStretchFactor(2, 0)
         self._splitter.setSizes([LEFT_PANE_WIDTH, 640, RIGHT_PANE_WIDTH])
         layout.addWidget(self._splitter)
+        self._detail_panel_toggle = PanelToggle(self._splitter, index=2, expanded_width=RIGHT_PANE_WIDTH)
         self._install_search_completer()
         self._query_edit.installEventFilter(self)
 
@@ -540,6 +542,14 @@ class SearchScreen(QWidget):
         self._detail_toggle_button.setIconSize(button_icon_size())
         self._detail_toggle_button.toggled.connect(self._on_detail_panel_toggled)
         filter_row_2.addWidget(self._detail_toggle_button)
+
+        self._detail_maximize_button = QPushButton()
+        self._detail_maximize_button.setFlat(True)
+        self._detail_maximize_button.setIcon(button_icon("maximize"))
+        self._detail_maximize_button.setIconSize(button_icon_size())
+        self._detail_maximize_button.setToolTip("Maximize the details panel")
+        self._detail_maximize_button.clicked.connect(self._on_detail_maximize_clicked)
+        filter_row_2.addWidget(self._detail_maximize_button)
         layout.addLayout(filter_row_2)
 
         self._status_label = QLabel("")
@@ -1190,6 +1200,17 @@ class SearchScreen(QWidget):
         self._detail_pane.setMinimumWidth(RIGHT_PANE_WIDTH if checked else 0)
         target = RIGHT_PANE_WIDTH if checked else 0
         self._detail_panel_animation = animate_splitter_size(self._splitter, index=2, end=target)
+
+    def _on_detail_maximize_clicked(self) -> None:
+        """Maximize/restore the details panel - if it's currently
+        collapsed, expand it first so maximizing always shows something
+        real rather than a maximized-but-invisible panel."""
+        if not self._detail_toggle_button.isChecked():
+            self._detail_toggle_button.setChecked(True)
+        self._detail_panel_toggle.toggle_maximized()
+        self._detail_maximize_button.setIcon(
+            button_icon("restore" if self._detail_panel_toggle.is_maximized else "maximize")
+        )
 
     def _show_detail_empty_state(self) -> None:
         """The detail pane before anything is selected - a real message,

@@ -20,6 +20,7 @@ from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import (
     AiAssistantPanel,
 )
 from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
+from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 
 _MIN_READER_WIDTH = 320
@@ -78,8 +79,10 @@ class WorkspaceScreen(QWidget):
         # are what actually give the reader a visibly larger, real share.
         self._splitter.setSizes([600, max(810, _MIN_READER_WIDTH), self._last_ai_panel_width])
         layout.addWidget(self._splitter)
+        self._ai_panel_toggle = PanelToggle(self._splitter, index=2, expanded_width=MIN_AI_PANEL_WIDTH)
 
         ai_panel.collapsed_changed.connect(self._on_ai_panel_collapsed_changed)
+        ai_panel.maximize_clicked.connect(self._on_ai_panel_maximize_clicked)
         self._apply_ai_panel_collapsed(ai_panel.is_collapsed, animated=False)
 
     def show_reader(self, widget: QWidget | None, animated: bool = True) -> None:
@@ -106,6 +109,15 @@ class WorkspaceScreen(QWidget):
 
     def _on_ai_panel_collapsed_changed(self, collapsed: bool) -> None:
         self._apply_ai_panel_collapsed(collapsed)
+
+    def _on_ai_panel_maximize_clicked(self) -> None:
+        """Maximize/restore the AI panel - if it's currently collapsed,
+        expand it first so maximizing always shows something real rather
+        than a maximized-but-invisible panel."""
+        if self._ai_panel.is_collapsed:
+            self._ai_panel.set_collapsed(False)
+        self._ai_panel_toggle.toggle_maximized()
+        self._ai_panel.set_maximize_icon(self._ai_panel_toggle.is_maximized)
 
     def _apply_ai_panel_collapsed(self, collapsed: bool, animated: bool = True) -> None:
         sizes = self._splitter.sizes()

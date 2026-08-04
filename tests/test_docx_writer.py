@@ -163,3 +163,43 @@ def test_append_quotation_translates_a_real_permission_error(
 
     with pytest.raises(NoteFileLockedError, match="currently open"):
         storage.append_quotation(path, _quotation())
+
+
+def test_find_documents_mentioning_finds_a_real_saved_quotation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    storage = _storage(tmp_path, monkeypatch)
+    path = storage.create_document("Notes")
+    storage.append_quotation(path, _quotation(book_title="Book of Fiqh"))
+
+    matches = storage.find_documents_mentioning("Book of Fiqh")
+
+    assert matches == (path,)
+
+
+def test_find_documents_mentioning_excludes_documents_about_other_books(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    storage = _storage(tmp_path, monkeypatch)
+    path = storage.create_document("Notes")
+    storage.append_quotation(path, _quotation(book_title="Book of Fiqh"))
+
+    matches = storage.find_documents_mentioning("A Completely Different Book")
+
+    assert matches == ()
+
+
+def test_find_documents_mentioning_checks_every_document(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    storage = _storage(tmp_path, monkeypatch)
+    thesis = storage.create_document("Thesis")
+    storage.append_quotation(thesis, _quotation(book_title="Book of Fiqh"))
+    fiqh_notes = storage.create_document("Fiqh Research")
+    storage.append_quotation(fiqh_notes, _quotation(book_title="Book of Fiqh"))
+    unrelated = storage.create_document("Unrelated")
+    storage.append_quotation(unrelated, _quotation(book_title="Some Other Book"))
+
+    matches = storage.find_documents_mentioning("Book of Fiqh")
+
+    assert set(matches) == {thesis, fiqh_notes}
