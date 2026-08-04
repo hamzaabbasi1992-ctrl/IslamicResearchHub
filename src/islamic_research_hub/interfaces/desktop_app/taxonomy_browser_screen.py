@@ -220,19 +220,20 @@ class TaxonomyBrowserScreen(QWidget):
         self._results_layout = QVBoxLayout(content)
         self._results_layout.setContentsMargins(16, 16, 16, 16)
         self._results_layout.setSpacing(10)
-        self._status_label = QLabel("Pick a term to see its books.")
-        self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
-        self._results_layout.addWidget(self._status_label)
-        self._results_layout.addStretch(1)
+        self._status_label = EmptyStateLabel("Pick a term to see its books.", centered=True)
+        self._results_layout.addWidget(self._status_label, stretch=1)
         scroll_area.setWidget(content)
         return scroll_area
 
     def _clear_results(self, status_text: str) -> None:
+        # Real UI fix: a plain top-anchored MUTED_LABEL_STYLE QLabel in an
+        # otherwise-empty pane read as "broken/blank," not "intentionally
+        # empty" - the centered EmptyStateLabel treatment already
+        # established elsewhere (the reader's "no book open" state, etc.)
+        # makes an empty results pane obviously deliberate.
         self._empty_results_layout()
-        self._status_label = QLabel(status_text)
-        self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
-        self._results_layout.addWidget(self._status_label)
-        self._results_layout.addStretch(1)
+        self._status_label = EmptyStateLabel(status_text, centered=True)
+        self._results_layout.addWidget(self._status_label, stretch=1)
 
     def _empty_results_layout(self) -> None:
         while self._results_layout.count():
@@ -245,9 +246,10 @@ class TaxonomyBrowserScreen(QWidget):
         book_ids = self._taxonomy.list_books_for_term(term_id)
         self._empty_results_layout()
         if not book_ids:
-            self._status_label = EmptyStateLabel(f'No books linked to "{term_label}".')
-            self._results_layout.addWidget(self._status_label)
-            self._results_layout.addStretch(1)
+            self._status_label = EmptyStateLabel(
+                f'No books linked to "{term_label}".', centered=True
+            )
+            self._results_layout.addWidget(self._status_label, stretch=1)
             return
         summaries = self._browser.list_books_by_ids(book_ids)
         self._status_label = QLabel(f'Books in "{term_label}" - {len(book_ids)} book(s)')

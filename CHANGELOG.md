@@ -1,5 +1,33 @@
 # Changelog
 
+## UI Polish Pass 3: dead space, empty states, card consistency
+
+From two independent UI reviews (one external, one my own real-screenshot
+pass against the running app) - the parts both agreed on and that were
+real, buildable polish (not a new feature, not a fabricated capability):
+
+- Taxonomy Browser's "pick a term"/"no books linked" messages now use
+  the app's own established centered `EmptyStateLabel` treatment instead
+  of a small top-anchored label - a genuinely empty pane now reads as
+  deliberate, not broken.
+- Duplicate Manager's table now claims its real available vertical
+  space instead of sitting at a short natural height above a large dead
+  gray area.
+- Home dashboard cards share a consistent minimum height, so the grid
+  lines up instead of jagged card heights driven by how much real
+  content each one happens to have.
+
+Explicitly not changed: the reader's background color - checked the
+real palette first, it's already a warm beige (`#ede6d6`), not the
+plain white both reviews assumed from screenshots that couldn't render
+real fonts. Also explicitly rejected from the external review: emoji as
+icons (this app already has a real SVG icon system), and several
+suggestions assuming AI/OCR/cover-art capabilities that don't exist
+anywhere in this codebase.
+
+No new tests needed - existing coverage for all three screens (33 tests)
+already passed unchanged. 726/726 total pass.
+
 ## Maximize for collapsible panels; bookmarks show full detail + linked Research Notes
 
 Three more user-requested items:

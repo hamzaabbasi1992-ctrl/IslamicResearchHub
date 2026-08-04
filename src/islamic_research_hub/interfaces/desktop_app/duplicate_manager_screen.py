@@ -100,9 +100,11 @@ class DuplicateManagerScreen(QWidget):
         )
         self._duplicate_table.verticalHeader().setVisible(False)
         self._duplicate_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self._duplicate_table)
-
-        layout.addStretch(1)
+        # Real UI fix: without a stretch factor, the table only claimed its
+        # own natural (short) height, leaving a large dead gray area below
+        # it on any real window - the table now claims the remaining
+        # vertical space instead.
+        layout.addWidget(self._duplicate_table, stretch=1)
         scroll_area.setWidget(content)
         outer.addWidget(scroll_area)
 

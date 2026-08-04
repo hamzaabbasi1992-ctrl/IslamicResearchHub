@@ -56,6 +56,9 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
 
 _MAX_LISTED_ITEMS = 5
 _GRID_COLUMNS = 3
+_CARD_MIN_HEIGHT = 180
+"""Tall enough for a heading + up to _MAX_LISTED_ITEMS real list rows -
+the tallest real card content on this screen."""
 
 _NO_RECENT_BOOKS_TEXT = "No books opened yet - search for one to get started."
 _NO_RECENT_SEARCHES_TEXT = "No searches yet."
@@ -241,6 +244,12 @@ class HomeScreen(QWidget):
     def _new_card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setObjectName("card")
+        # Real UI fix: cards had no shared height floor, so a card with
+        # up to 5 real list rows towered over a card with one short
+        # placeholder line - a visibly uneven, unfinished-looking grid.
+        # A consistent minimum height (tall enough for the tallest real
+        # card content) makes every row of the grid line up.
+        card.setMinimumHeight(_CARD_MIN_HEIGHT)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
         layout.setSpacing(Spacing.XS)
