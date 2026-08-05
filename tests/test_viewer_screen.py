@@ -384,6 +384,51 @@ def test_play_button_visible_when_tts_enabled(qtbot, tmp_path: Path) -> None:
     assert screen._play_pause_button.isHidden() is False
 
 
+def test_extract_events_button_hidden_when_ai_agent_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path)
+    qtbot.addWidget(screen)
+
+    assert screen._extract_events_button.isHidden() is True
+
+
+def test_extract_events_button_visible_when_ai_agent_enabled(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+
+    assert screen._extract_events_button.isHidden() is False
+
+
+def test_extract_events_button_emits_the_current_book_id(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    received = []
+    screen.extract_events_requested.connect(received.append)
+
+    screen._extract_events_button.click()
+
+    assert received == [1]
+
+
+def test_extract_events_button_does_nothing_with_no_book_loaded(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    received = []
+    screen.extract_events_requested.connect(received.append)
+
+    screen._on_extract_events_clicked()
+
+    assert received == []
+
+
 def test_lazy_tts_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
     """Without enable_lazy_tts, no real service is ever built - real model
     loading is opt-in, never a side effect of opening a book."""

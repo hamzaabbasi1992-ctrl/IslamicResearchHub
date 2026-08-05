@@ -869,6 +869,25 @@ not new data-collection problems of their own:
   reader/book-detail panel (real UI design work better done once real
   detection-quality data exists to design around), author-mention
   detection, general NER-based knowledge graph items below.
+- **Waqiat (event) extraction**: **Milestone 1 done** (see CHANGELOG) -
+  book-by-book, on-demand (never a corpus-wide sweep - real cost math
+  makes that tens of thousands of dollars for the whole library), a real
+  "Extract Events" button in the reader chunks the open book (chapter-
+  sized when real TOC structure exists), shows a real cost estimate
+  before spending anything, then extracts structured events (title,
+  dates, location, background, summary, key figures, a real verbatim
+  quoted excerpt, a real citation) via the existing AI Agent
+  infrastructure. Stored as 3-state (`pending`/`confirmed`/`dismissed`)
+  candidates - deliberately stronger review than citations/duplicates,
+  since an extracted event asserts real historical facts an LLM could
+  hallucinate. New `EventManagerScreen` for review. Also shipped: a
+  shared "AI unavailable, here's why and how to fix it" popup, used by
+  this button and retrofitted onto the already-shipped AI Agent Ask box.
+  Deferred, not silently dropped: cross-book event merging/deduplication
+  (the "Battle of Badr mentioned in 20 books becomes one master event"
+  step from the original Knowledge Extraction Engine discussion) - a
+  real, separate step once enough books have real extracted candidates
+  to merge.
 - **Structured narrator/isnad database - safe version**: extract and
   cross-reference narrator names as searchable structured data (which
   hadiths, which books mention them) **without the AI ever rendering an

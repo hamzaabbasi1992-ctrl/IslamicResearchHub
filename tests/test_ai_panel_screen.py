@@ -170,10 +170,16 @@ def test_asking_a_question_when_the_service_fails_shows_a_real_message(
     assert panel._ask_button.isEnabled()
 
 
-def test_asking_with_no_service_available_shows_a_real_message(qtbot, tmp_path: Path) -> None:
+def test_asking_with_no_service_available_shows_a_real_message(qtbot, tmp_path: Path, monkeypatch) -> None:
     """AI Agent enabled but no API key set (or the provider extra isn't
     installed) - _build_real_ai_agent_service() returns None - must
-    degrade gracefully, never crash."""
+    degrade gracefully, never crash. Also a real misconfiguration, so it
+    triggers the shared AI-unavailable popup, not just inline text."""
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
     panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     panel._build_real_ai_agent_service = lambda: None
@@ -186,6 +192,32 @@ def test_asking_with_no_service_available_shows_a_real_message(qtbot, tmp_path: 
 
     assert panel._answer_area.isHidden() is False
     assert "unavailable" in panel._answer_area.toPlainText().lower()
+    assert len(popup_calls) == 1
+    assert popup_calls[0][0] == "AI Agent"
+
+
+def test_a_genuine_runtime_failure_does_not_trigger_the_unavailable_popup(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """A mid-request exception (network/API error) is a different, often
+    transient case from "not configured" - inline text only, no popup."""
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel, fail=True)
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert panel._answer_area.isHidden() is False
+    assert popup_calls == []
 
 
 def test_ask_button_disabled_while_a_request_is_in_flight(qtbot, tmp_path: Path) -> None:
@@ -225,7 +257,7 @@ def test_lazy_ai_agent_is_not_attempted_by_default(qtbot, tmp_path: Path) -> Non
     build_calls = []
     panel._build_real_ai_agent_service = lambda: (build_calls.append(1), None)[1]
 
-    result = panel._get_or_build_ai_agent_service()
+    result = panel.get_or_build_ai_agent_service()
 
     assert result is None
     assert build_calls == []

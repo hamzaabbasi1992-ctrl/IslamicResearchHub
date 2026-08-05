@@ -76,6 +76,7 @@ class ViewerScreen(QWidget):
 
     bookmark_toggled = Signal(int, int, bool)  # book_id, page_number, is_now_bookmarked
     pdf_fallback_requested = Signal()
+    extract_events_requested = Signal(int)  # book_id
 
     def __init__(
         self,
@@ -84,10 +85,12 @@ class ViewerScreen(QWidget):
         initial_font_px: float | None = None,
         initial_font_family: str | None = None,
         enable_lazy_tts: bool = False,
+        enable_lazy_ai_agent: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._browser = browser or BookBrowserRepository(database_path)
+        self._enable_lazy_ai_agent = enable_lazy_ai_agent
         self._pages: tuple = ()
         self._current_index = 0
         self._font_px = initial_font_px or DEFAULT_FONT_PX
@@ -246,6 +249,20 @@ class ViewerScreen(QWidget):
         )
         self._copy_citation_button.clicked.connect(self.copy_citation)
         toolbar.addWidget(self._copy_citation_button)
+        toolbar.addWidget(_toolbar_separator())
+
+        self._extract_events_button = QPushButton("Extract Events")
+        self._extract_events_button.setToolTip(
+            "Extract real historical events from this book using AI - makes "
+            "real paid API calls; you'll see a cost estimate before anything runs."
+        )
+        # Same visible-only-when-enabled philosophy as the TTS button above -
+        # this makes real paid API calls, so it's opt-in via the same
+        # AI Agent Settings toggle, not a dead button for users who haven't
+        # configured it.
+        self._extract_events_button.setVisible(self._enable_lazy_ai_agent)
+        self._extract_events_button.clicked.connect(self._on_extract_events_clicked)
+        toolbar.addWidget(self._extract_events_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -630,6 +647,17 @@ class ViewerScreen(QWidget):
         self._update_bookmark_button()
         self._reload_bookmarks_list()
         self.bookmark_toggled.emit(self._current_book_id, page_number, now_bookmarked)
+
+    def _on_extract_events_clicked(self) -> None:
+        """Ask upstream (MainWindow) to run event extraction for the
+        current book - deliberately minimal here: chunk computation, cost
+        estimate, and the real AI Agent service all live upstream, since
+        `AiAssistantPanel` alone owns Settings-driven provider/key
+        resolution and the lazy-build lock, same reasoning as
+        `bookmark_toggled` being handled upstream instead of locally."""
+        if self._current_book_id is None:
+            return
+        self.extract_events_requested.emit(self._current_book_id)
 
     def _update_bookmark_button(self) -> None:
         page_number = self.current_page_number()

@@ -128,3 +128,55 @@ def test_summarize_rejects_a_backwards_page_range() -> None:
 
     with pytest.raises(ValueError):
         service.summarize(book_id=1, start_page=20, end_page=10)
+
+
+def test_extract_events_seeds_the_right_book_and_page_range() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="[]", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    result = service.extract_events(book_id=42, start_page=10, end_page=20)
+
+    assert result.answer == "[]"
+    _system_prompt, messages = provider.calls[0]
+    seed_text = messages[0].text
+    assert "42" in seed_text
+    assert "10" in seed_text
+    assert "20" in seed_text
+
+
+def test_extract_events_uses_its_own_system_prompt_not_converse_summarize_shared_one() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="[]", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.extract_events(book_id=1, start_page=1, end_page=5)
+
+    system_prompt, _messages = provider.calls[0]
+    assert "JSON" in system_prompt
+    assert "waqiat" in system_prompt.lower() or "events" in system_prompt.lower()
+
+
+def test_converse_and_summarize_still_use_the_original_shared_system_prompt() -> None:
+    """Regression guard: adding extract_events()'s own system prompt must
+    not change converse()/summarize()'s existing behavior."""
+    provider = FakeLLMProvider(
+        [
+            LLMTurn(text="answer", tool_calls=(), stop_reason="end_turn"),
+            LLMTurn(text="summary", tool_calls=(), stop_reason="end_turn"),
+        ]
+    )
+    service = AiAgentService(provider, _executor())
+
+    service.converse("A question.")
+    service.summarize(book_id=1, start_page=1, end_page=5)
+
+    converse_system_prompt, _ = provider.calls[0]
+    summarize_system_prompt, _ = provider.calls[1]
+    assert converse_system_prompt == summarize_system_prompt
+    assert "JSON" not in converse_system_prompt
+
+
+def test_extract_events_rejects_a_backwards_page_range() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.extract_events(book_id=1, start_page=20, end_page=10)

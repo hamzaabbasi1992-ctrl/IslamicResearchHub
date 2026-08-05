@@ -1,5 +1,56 @@
 # Changelog
 
+## Waqiat (event) extraction, book-by-book + shared AI-unavailable popup
+
+Book-by-book, on-demand historical-event extraction, not a corpus-wide
+sweep - real cost math worked out earlier (tens of thousands of dollars
+for the whole library) made that the wrong shape. A new "Extract Events"
+button in the reader (opt-in, same AI Agent Settings toggle as the Ask
+box) computes real chunk boundaries for the open book (chapter-sized
+when real TOC structure exists, fixed ~20-page chunks otherwise), shows
+a real cost estimate (~$0.05-$1.50 for a typical book, using approximate
+current provider pricing) in a confirm-before-spending dialog - the
+first `QMessageBox.question` in this app, deliberately, since this is
+the first per-click-metered-cost feature - then runs extraction in the
+background via a new `EventExtractionWorker`.
+
+Reuses the AI Agent infrastructure that already shipped rather than
+building new LLM plumbing: `AiAgentService` gained `extract_events()`
+(same shape as `summarize()`) with its own system prompt demanding
+strict JSON output (title, alternate names, subject, Hijri/Gregorian
+dates, location, background, summary, key figures, a real verbatim
+quoted excerpt, and a real citation via the existing `get_book_pages`
+tool) - `_run_loop()` now accepts an optional `system_prompt` override so
+`converse()`/`summarize()` keep their exact original behavior.
+
+New `EventCandidates` table, 3-state `Status` (`pending`/`confirmed`/
+`dismissed`) - a deliberate deviation from `CitationCandidates`/
+`DuplicateCandidates`'s 2-state pattern: those assert a link between two
+things this library already verifiably holds, while an extracted event
+asserts real historical facts an LLM could hallucinate, so it needs an
+explicit "yes, this is accurate" step, not just an absence of dismissal.
+New `EventManagerScreen` (mirrors the Citation Manager) with a real
+detail dialog showing every extracted field, Confirm/Dismiss actions.
+
+New shared `show_ai_unavailable_dialog()` - one real, actionable popup
+("here's why, here's how to fix it") for every AI-dependent control in
+the app, not a one-off. Retrofitted onto the already-shipped AI Agent
+Ask box (`AiAgentWorker` now distinguishes "not configured" from a
+transient mid-request runtime error - only the former gets the popup)
+as well as the new Extract Events button, per direct instruction to
+apply this consistently everywhere, not just to new features.
+
+Also fixed along the way: a real production crash found running the
+citation graph's full detection pass against the actual 168GB database
+(`Pages.PageNo` has no `NOT NULL` constraint - a page with no real page
+number crashed the final `CitationCandidates` insert only after all
+103,961 anchors had already processed) and a real test-timing bug in the
+chunked-TTS test suite (a ~30ms fake audio clip could actually finish
+playing during a `qtbot.wait(50)`, racing the assertion it was meant to
+protect).
+
+~65 new tests, 891/891 total passing.
+
 ## Phase 10, Milestone 1: citation graph between owned books
 
 First real Phase 10 milestone: detects when one book's text literally

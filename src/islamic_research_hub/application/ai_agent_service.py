@@ -43,6 +43,30 @@ _SUMMARIZE_PROMPT_TEMPLATE = (
     "alone."
 )
 
+_EXTRACT_EVENTS_SYSTEM_PROMPT = (
+    "You are extracting real historical events (waqiat) from a real "
+    "Islamic research library for a researcher to review before anything "
+    "is trusted. Call get_book_pages for the given range first (paginate "
+    "with further calls if truncated), then respond with ONLY a raw JSON "
+    "array - no prose, no markdown code fences - and nothing else. Each "
+    "element must have exactly these fields: title (string), "
+    "alternate_names (array of strings), subject (string, e.g. battle, "
+    "treaty, migration, revelation), date_hijri (string or null), "
+    "date_gregorian (string or null), location (string or null), "
+    "background (string), summary (string), key_figures (array of "
+    "strings), quoted_excerpt (a real, verbatim excerpt from the text you "
+    "read - never paraphrase this field), citation (use that page's own "
+    "\"citation\" field verbatim from get_book_pages - never invent one). "
+    "Only include events genuinely described in the real text you read - "
+    "never invent one to have something to report. If the range describes "
+    "no real events, return an empty array []."
+)
+
+_EXTRACT_EVENTS_PROMPT_TEMPLATE = (
+    "Extract real historical events from book_id={book_id}, pages "
+    "{start_page}-{end_page}."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTurnResult:
@@ -79,11 +103,28 @@ class AiAgentService:
         )
         return self._run_loop((LLMMessage(role="user", text=prompt),))
 
-    def _run_loop(self, messages: tuple[LLMMessage, ...]) -> AgentTurnResult:
+    def extract_events(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Extract real historical events from one real page range, as a
+        strict JSON array (possibly empty) - never prose. `AgentTurnResult.answer`
+        is the raw JSON text; parsing it into typed events is
+        `application/event_extraction.py::parse_extracted_events()`'s job,
+        not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _EXTRACT_EVENTS_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),), system_prompt=_EXTRACT_EVENTS_SYSTEM_PROMPT
+        )
+
+    def _run_loop(
+        self, messages: tuple[LLMMessage, ...], system_prompt: str = _SYSTEM_PROMPT
+    ) -> AgentTurnResult:
         tool_definitions = self._tools.tool_definitions()
         tool_calls_made: list[str] = []
         for _ in range(MAX_TOOL_LOOP_ITERATIONS):
-            turn = self._provider.complete(_SYSTEM_PROMPT, messages, tool_definitions)
+            turn = self._provider.complete(system_prompt, messages, tool_definitions)
             if turn.stop_reason != "tool_use":
                 return AgentTurnResult(
                     answer=turn.text or "", tool_calls_made=tuple(tool_calls_made)

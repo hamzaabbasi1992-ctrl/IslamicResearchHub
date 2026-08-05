@@ -1,5 +1,7 @@
 """Main window: a navigation rail plus a stacked set of screens."""
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QSize, Qt
@@ -8,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QToolButton,
@@ -15,12 +18,17 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.application.book_chunking import compute_extraction_chunks
+from islamic_research_hub.application.extraction_cost_estimate import estimate_extraction_cost
 from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
 from islamic_research_hub.infrastructure.persistence.bookmark_repository import (
     BookmarkRepository,
+)
+from islamic_research_hub.infrastructure.persistence.event_candidate_repository import (
+    EventCandidateRepository,
 )
 from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_repository import (
     PdfMatchCandidateRepository,
@@ -29,12 +37,19 @@ from islamic_research_hub.infrastructure.persistence.recent_book_repository impo
     RecentBookRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel
+from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
+    show_ai_unavailable_dialog,
+)
 from islamic_research_hub.interfaces.desktop_app.citation_manager_screen import (
     CitationManagerScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.duplicate_manager_screen import (
     DuplicateManagerScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.event_extraction_worker import (
+    EventExtractionWorker,
+)
+from islamic_research_hub.interfaces.desktop_app.event_manager_screen import EventManagerScreen
 from islamic_research_hub.interfaces.desktop_app.header_bar import HeaderBar
 from islamic_research_hub.interfaces.desktop_app.home_screen import HomeScreen
 from islamic_research_hub.interfaces.desktop_app.i18n import (
@@ -51,11 +66,15 @@ from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FO
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     AI_AGENT_ENABLED_KEY,
+    AI_AGENT_PROVIDER_KEY,
+    AI_AGENT_PROVIDER_LABELS,
+    AI_AGENT_PROVIDERS,
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
     TTS_ENABLED_KEY,
     VOICE_SEARCH_ENABLED_KEY,
     SettingsScreen,
+    resolve_ai_agent_api_key,
 )
 from islamic_research_hub.interfaces.desktop_app.shortcuts import install_shortcuts
 from islamic_research_hub.interfaces.desktop_app.taxonomy_browser_screen import (
@@ -79,6 +98,7 @@ _RAIL_KEYS = (
     "rail-duplicates",
     "rail-taxonomy",
     "rail-citations",
+    "rail-events",
     "rail-logs",
     "rail-settings",
 )
@@ -89,6 +109,7 @@ _RAIL_ICON_NAMES = (
     "duplicates",
     "taxonomy",
     "citations",
+    "events",
     "logs",
     "settings",
 )
@@ -99,6 +120,7 @@ _PLACEHOLDER_TITLES = (
     "Duplicates",
     "Taxonomy",
     "Citations",
+    "Events",
     "Logs",
     "Settings",
 )
@@ -144,7 +166,11 @@ class MainWindow(QMainWindow):
         self._import_screen: ImportScreen | None = None
         self._workspace_screen: WorkspaceScreen | None = None
         self._home_screen: HomeScreen | None = None
+        self._ai_panel: AiAssistantPanel | None = None
+        self._database_path: Path | None = None
+        self._event_extraction_worker: EventExtractionWorker | None = None
         if database_path.is_file():
+            self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
             self._bookmarks = BookmarkRepository(database_path)
             self._recent_books = RecentBookRepository(database_path)
@@ -195,15 +221,24 @@ class MainWindow(QMainWindow):
                 enable_lazy_tts=bool(
                     self._settings.value(TTS_ENABLED_KEY, False, type=bool)
                 ),
+                # Gates the reader's own "Extract Events" button - same
+                # Settings-driven opt-in as the AI Agent panel below, since
+                # both make real paid API calls through the same service.
+                enable_lazy_ai_agent=bool(
+                    self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool)
+                ),
             )
             self._viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_screen.pdf_fallback_requested.connect(self._on_pdf_fallback_requested)
+            self._viewer_screen.extract_events_requested.connect(
+                self._on_extract_events_requested
+            )
             self._pdf_viewer_screen = PdfViewerScreen()
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
             self._viewer_stack.addWidget(self._viewer_screen)
             self._viewer_stack.addWidget(self._pdf_viewer_screen)
-            ai_panel = AiAssistantPanel(
+            self._ai_panel = AiAssistantPanel(
                 self._settings,
                 database_path=database_path,
                 # Real tool-calling loop over a cloud LLM (Anthropic/OpenAI/
@@ -215,7 +250,7 @@ class MainWindow(QMainWindow):
                 ),
             )
             self._workspace_screen = WorkspaceScreen(
-                self._search_screen, self._viewer_stack, ai_panel
+                self._search_screen, self._viewer_stack, self._ai_panel
             )
 
             self._search_screen.open_in_viewer_requested.connect(self._open_in_viewer)
@@ -226,6 +261,7 @@ class MainWindow(QMainWindow):
             taxonomy_browser_screen = TaxonomyBrowserScreen(database_path, browser=self._browser)
             taxonomy_browser_screen.open_in_viewer_requested.connect(self._open_in_viewer)
             citation_manager_screen = CitationManagerScreen(database_path, browser=self._browser)
+            event_manager_screen = EventManagerScreen(database_path, browser=self._browser)
             self._home_screen = HomeScreen(
                 database_path,
                 browser=self._browser,
@@ -239,6 +275,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(duplicate_manager_screen)
             self._stack.addWidget(taxonomy_browser_screen)
             self._stack.addWidget(citation_manager_screen)
+            self._stack.addWidget(event_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
@@ -440,6 +477,78 @@ class MainWindow(QMainWindow):
     def _on_bookmark_toggled(self, book_id: int, page_number: int, is_bookmarked: bool) -> None:
         if self._bookmarks is not None:
             self._bookmarks.set_bookmark(book_id, page_number, is_bookmarked)
+
+    def _on_extract_events_requested(self, book_id: int) -> None:
+        """Extract real events from one book: pre-flight check (enabled +
+        a real key), a real chunk count/cost estimate the user confirms
+        before anything runs, then a background worker. Reuses
+        `AiAssistantPanel`'s one real lazy-build path (`self._ai_panel`)
+        rather than duplicating Settings-driven provider/key resolution.
+        """
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Extract Events", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Extract Events", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Extract Events", "This book has no real page content to extract from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Extract Events",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        repository = EventCandidateRepository(self._database_path)
+        worker = EventExtractionWorker(
+            self._ai_panel.get_or_build_ai_agent_service, repository, book_id, chunks, self
+        )
+        worker.extraction_finished.connect(self._on_extraction_finished)
+        worker.extraction_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Extract Events", reason)
+        )
+        self._event_extraction_worker = worker
+        worker.start()
+
+    def _on_extraction_finished(self, count: int) -> None:
+        QMessageBox.information(
+            self, "Extract Events", f"{count} event(s) found - review them in the Events screen."
+        )
 
     def _on_language_changed(self, _language: str) -> None:
         """Update rail labels and mirror the whole app's layout for the new language."""

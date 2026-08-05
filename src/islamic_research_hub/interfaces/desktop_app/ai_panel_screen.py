@@ -30,6 +30,9 @@ from PySide6.QtWidgets import (
 
 from islamic_research_hub.application.ai_agent_service import AiAgentService
 from islamic_research_hub.interfaces.desktop_app.ai_agent_worker import AiAgentWorker
+from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
+    show_ai_unavailable_dialog,
+)
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, Type
@@ -188,9 +191,10 @@ class AiAssistantPanel(QWidget):
         if not question:
             return
         self._set_busy(True)
-        worker = AiAgentWorker(self._get_or_build_ai_agent_service, question, self)
+        worker = AiAgentWorker(self.get_or_build_ai_agent_service, question, self)
         worker.answer_ready.connect(self._on_answer_ready)
         worker.answer_failed.connect(self._on_answer_failed)
+        worker.answer_unavailable.connect(self._on_answer_unavailable)
         self._ai_agent_worker = worker
         worker.start()
 
@@ -216,12 +220,18 @@ class AiAssistantPanel(QWidget):
         self._answer_area.setVisible(True)
         self._tool_calls_label.setVisible(False)
 
-    def _get_or_build_ai_agent_service(self) -> AiAgentService | None:
+    def _on_answer_unavailable(self, reason: str) -> None:
+        show_ai_unavailable_dialog(self, "AI Agent", reason)
+
+    def get_or_build_ai_agent_service(self) -> AiAgentService | None:
         """Return the cached AI Agent service, building it at most once.
 
-        Runs on the worker thread - guarded by a lock so two overlapping
-        questions can't both attempt the build at once. Mirrors
-        `ViewerScreen._get_or_build_tts_narration_service`.
+        Public so other AI-dependent controls elsewhere in the app (e.g.
+        the reader's Extract Events button) reuse this one real
+        lazy-build path instead of duplicating Settings-driven provider/
+        key resolution. Runs on the worker thread - guarded by a lock so
+        two overlapping requests can't both attempt the build at once.
+        Mirrors `ViewerScreen._get_or_build_tts_narration_service`.
         """
         with self._ai_agent_lock:
             if self._ai_agent_service is None and self._enable_lazy_ai_agent:

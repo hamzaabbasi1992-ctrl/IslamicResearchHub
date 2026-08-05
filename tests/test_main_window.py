@@ -130,7 +130,7 @@ def test_settings_screen_is_real_and_shows_real_app_info(qtbot, tmp_path: Path) 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
 
-    settings_screen = window._stack.widget(7)
+    settings_screen = window._stack.widget(8)
     assert settings_screen._language_combo.count() == 3
     assert settings_screen.default_font_size() > 0
 
@@ -149,7 +149,7 @@ def test_changing_language_updates_rail_labels_and_layout_direction(
 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
-    settings_screen = window._stack.widget(7)
+    settings_screen = window._stack.widget(8)
 
     try:
         ur_index = settings_screen._language_combo.findData("ur")
@@ -294,3 +294,52 @@ def test_missing_database_shows_a_clear_message_not_a_broken_search_screen(
     assert any("Database not found" in text for text in labels)
     assert any(str(missing_path) in text for text in labels)
     assert not missing_path.exists()  # never silently created
+
+
+def test_extract_events_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """The pre-flight check (enabled + a real key) must catch a
+    misconfiguration before any real API call is attempted."""
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._on_extract_events_requested(1)
+
+    assert len(popup_calls) == 1
+    assert popup_calls[0][0] == "Extract Events"
+    assert "not enabled" in popup_calls[0][1].lower()
+    assert window._event_extraction_worker is None  # no worker/API call attempted
+
+
+def test_extract_events_with_no_api_key_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_ENABLED_KEY,
+    )
+
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
+    qtbot.addWidget(window)
+
+    window._on_extract_events_requested(1)
+
+    assert len(popup_calls) == 1
+    assert "No API key is set" in popup_calls[0][1]
+    assert window._event_extraction_worker is None
