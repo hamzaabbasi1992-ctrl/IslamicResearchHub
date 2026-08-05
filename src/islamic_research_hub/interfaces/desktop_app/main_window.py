@@ -217,6 +217,7 @@ class MainWindow(QMainWindow):
             )
             self._viewer_screen = ViewerScreen(
                 database_path,
+                self._translator,
                 initial_font_px=initial_font_px,
                 initial_font_family=initial_font_family,
                 # Runs local MMS-TTS synthesis on a background QThread (see

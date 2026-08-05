@@ -13,6 +13,7 @@ from islamic_research_hub.domain.models.book import Book, Chapter, Page  # noqa:
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.icons import (  # noqa: E402
     button_icon,
     button_icon_size,
@@ -24,6 +25,10 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (  # noqa:
 from islamic_research_hub.research_notes.research_notes_manager import (  # noqa: E402
     ResearchNotesManager,
 )
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 class _NoOpNotesStorage:
@@ -83,7 +88,7 @@ def test_load_book_shows_title_author_and_first_page(qtbot, tmp_path: Path) -> N
     """Loading a real book shows its metadata and starts on page one."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     loaded = screen.load_book(1)
@@ -104,7 +109,7 @@ def test_reading_content_is_capped_to_a_real_column_width(qtbot, tmp_path: Path)
     Zotero, instead of unconstrained full-bleed text."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._content_label.maximumWidth() == MAX_READING_COLUMN_WIDTH
@@ -126,7 +131,7 @@ def test_load_book_populates_the_real_table_of_contents(qtbot, tmp_path: Path) -
     MasterBookRepository().import_books(
         database_path, (book,), (database_path.parent / "one.mjbz",)
     )
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -150,7 +155,7 @@ def test_toc_tree_uses_rtl_layout_for_real_chapter_titles(qtbot, tmp_path: Path)
     MasterBookRepository().import_books(
         database_path, (book,), (database_path.parent / "one.mjbz",)
     )
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -172,7 +177,7 @@ def test_clicking_a_toc_item_jumps_to_its_page(qtbot, tmp_path: Path) -> None:
     MasterBookRepository().import_books(
         database_path, (book,), (database_path.parent / "one.mjbz",)
     )
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -187,7 +192,7 @@ def test_bookmarking_a_page_adds_it_to_the_bookmarks_list(qtbot, tmp_path: Path)
     per-page toggle - reflects live as pages are bookmarked."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -201,7 +206,7 @@ def test_clicking_a_bookmark_jumps_to_its_page(qtbot, tmp_path: Path) -> None:
     """A real click on a bookmark entry navigates to that page."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1, bookmarked_pages={3})
 
@@ -216,7 +221,7 @@ def test_copy_citation_puts_a_real_citation_on_the_clipboard(qtbot, tmp_path: Pa
     loaded data (title, current page) - no new backend needed."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     screen.jump_to_page_number(2)
@@ -230,7 +235,7 @@ def test_load_book_returns_false_for_unknown_book(qtbot, tmp_path: Path) -> None
     """Requesting a nonexistent book id returns False instead of raising."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen.load_book(9999) is False
@@ -240,7 +245,7 @@ def test_next_and_previous_navigate_between_real_pages(qtbot, tmp_path: Path) ->
     """Prev/Next move through the real page content in order."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -260,7 +265,7 @@ def test_jump_to_page_number_finds_the_matching_page(qtbot, tmp_path: Path) -> N
     """Jumping to a specific real page number shows that page's content."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -274,7 +279,7 @@ def test_font_size_controls_change_the_stylesheet(qtbot, tmp_path: Path) -> None
     """A+ and A- change the applied font size within its bounds."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -289,7 +294,7 @@ def test_font_family_choice_defaults_to_jameel_noori_nastaleeq(qtbot, tmp_path: 
     the widely-installed real redistribution, not the rarer "Noori Nastaleeq" name."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen.selected_font_family() == "Jameel Noori Nastaleeq"
@@ -307,7 +312,7 @@ def test_font_family_dropdown_changes_the_applied_font(qtbot, tmp_path: Path) ->
     """
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -321,7 +326,7 @@ def test_initial_font_family_is_honored(qtbot, tmp_path: Path) -> None:
     """A persisted default reading font is applied from construction, not just the built-in default."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, initial_font_family="Scheherazade New")
+    screen = ViewerScreen(database_path, _translator(tmp_path), initial_font_family="Scheherazade New")
     qtbot.addWidget(screen)
 
     assert screen.selected_font_family() == "Scheherazade New"
@@ -367,7 +372,7 @@ def test_play_button_hidden_when_tts_disabled_by_default(qtbot, tmp_path: Path) 
     """
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._play_pause_button.isHidden() is True
@@ -378,7 +383,7 @@ def test_play_button_visible_when_tts_enabled(qtbot, tmp_path: Path) -> None:
     button shows."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
 
     assert screen._play_pause_button.isHidden() is False
@@ -387,7 +392,7 @@ def test_play_button_visible_when_tts_enabled(qtbot, tmp_path: Path) -> None:
 def test_extract_events_button_hidden_when_ai_agent_disabled_by_default(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._extract_events_button.isHidden() is True
@@ -396,7 +401,7 @@ def test_extract_events_button_hidden_when_ai_agent_disabled_by_default(qtbot, t
 def test_extract_events_button_visible_when_ai_agent_enabled(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(screen)
 
     assert screen._extract_events_button.isHidden() is False
@@ -405,7 +410,7 @@ def test_extract_events_button_visible_when_ai_agent_enabled(qtbot, tmp_path: Pa
 def test_extract_events_button_emits_the_current_book_id(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     received = []
@@ -419,7 +424,7 @@ def test_extract_events_button_emits_the_current_book_id(qtbot, tmp_path: Path) 
 def test_extract_events_button_does_nothing_with_no_book_loaded(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_ai_agent=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(screen)
     received = []
     screen.extract_events_requested.connect(received.append)
@@ -434,7 +439,7 @@ def test_lazy_tts_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
     loading is opt-in, never a side effect of opening a book."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     build_calls = []
@@ -450,7 +455,7 @@ def test_clicking_play_synthesizes_and_writes_a_real_wav_file(qtbot, tmp_path: P
     model, reaches a real playable WAV file and flips the icon to pause."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     speaker = _install_fake_tts(screen)
@@ -472,7 +477,7 @@ def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Pat
     (_render_current_page) now stops playback and removes the temp WAV(s)."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     _install_fake_tts(screen)
@@ -498,7 +503,7 @@ def test_narration_failure_resets_the_button_without_crashing(qtbot, tmp_path: P
     degrade gracefully - reading/navigation keeps working unaffected."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     _install_fake_tts(screen, fail=True)
@@ -542,7 +547,7 @@ def test_multi_chunk_playback_auto_advances_and_resets_icon_on_completion(
 
     database_path = tmp_path / "books.db"
     _seed_database_with_long_page(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     _install_fake_tts(screen)
@@ -582,7 +587,7 @@ def test_late_arriving_chunk_plays_immediately_once_awaiting(qtbot, tmp_path: Pa
 
     database_path = tmp_path / "books.db"
     _seed_database_with_long_page(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     _install_fake_tts(screen)
@@ -614,7 +619,7 @@ def test_pausing_while_awaiting_next_chunk_does_not_start_a_new_narration(
     first is still producing chunks in the background."""
     database_path = tmp_path / "books.db"
     _seed_database_with_long_page(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
     _install_fake_tts(screen)
@@ -641,7 +646,7 @@ def test_partial_chunk_failure_still_plays_earlier_chunks(qtbot, tmp_path: Path)
 
     database_path = tmp_path / "books.db"
     _seed_database_with_long_page(database_path)
-    screen = ViewerScreen(database_path, enable_lazy_tts=True)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -693,7 +698,7 @@ def test_page_content_strips_raw_structural_markup_before_display(
     MasterBookRepository().import_books(
         database_path, (book,), (database_path.parent / "source.mjbz",)
     )
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -716,7 +721,7 @@ def test_toolbar_controls_stay_a_real_size_when_the_reader_is_narrow(
     policy - every control now keeps its real, non-zero size."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     screen.resize(320, 600)
@@ -735,7 +740,7 @@ def test_context_menu_copy_puts_selected_text_on_the_clipboard(qtbot, tmp_path: 
     right-click menu."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -749,7 +754,7 @@ def test_context_menu_copy_with_citation_includes_the_real_citation(
 ) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     screen.jump_to_page_number(2)
@@ -771,7 +776,7 @@ def test_context_menu_save_notes_opens_the_dialog_with_real_context(
 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     screen.jump_to_page_number(2)
@@ -801,7 +806,7 @@ def test_context_menu_open_notes_calls_the_real_entry_point(
 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     calls = []
@@ -821,7 +826,7 @@ def test_toc_shows_a_real_empty_state_when_the_book_has_no_chapters(
     a real message instead of a blank white box."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -835,7 +840,7 @@ def test_bookmarks_panel_shows_a_real_empty_state_when_there_are_none(
 ) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -849,7 +854,7 @@ def test_bookmarking_a_page_replaces_the_bookmarks_empty_state(
 ) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
 
@@ -862,7 +867,7 @@ def test_bookmarking_a_page_replaces_the_bookmarks_empty_state(
 def test_nav_panel_maximize_grows_it_and_shrinks_the_reader(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.resize(1000, 600)
     screen.load_book(1)
@@ -882,7 +887,7 @@ def test_nav_panel_maximize_grows_it_and_shrinks_the_reader(qtbot, tmp_path: Pat
 def test_nav_panel_maximize_expands_it_first_if_collapsed(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.resize(1000, 600)
     screen.load_book(1)
@@ -902,7 +907,7 @@ def test_bookmark_row_includes_volume_when_the_book_has_one(qtbot, tmp_path: Pat
     real, page)."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     screen._current_volume_number = 3  # a real multi-volume series' detected volume
@@ -920,7 +925,7 @@ def test_research_notes_list_shows_a_real_empty_state_by_default(
     same as every other test that calls load_book()."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen.load_book(1)
@@ -944,7 +949,7 @@ def test_research_notes_list_shows_a_real_matching_document(
 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     isolated_settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     monkeypatch.setattr(
@@ -962,7 +967,7 @@ def test_research_notes_list_shows_a_real_matching_document(
 def test_clicking_a_research_notes_item_opens_it(qtbot, tmp_path: Path, monkeypatch) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ViewerScreen(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.load_book(1)
     from PySide6.QtWidgets import QListWidgetItem
@@ -979,3 +984,27 @@ def test_clicking_a_research_notes_item_opens_it(qtbot, tmp_path: Path, monkeypa
 
     assert len(opened) == 1
     assert Path(opened[0]) == Path("/fake/Fiqh Research.docx")
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    """Toolbar, nav-panel headings, bookmarks list, and the current page's
+    own empty-content placeholder all re-render in the new language."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    translator = _translator(tmp_path)
+    screen = ViewerScreen(database_path, translator)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    screen.toggle_bookmark()
+    assert screen._contents_button.text() == "Contents"
+    assert screen._copy_citation_button.text() == "Copy citation"
+    assert screen._bookmark_button.text() == "★ Bookmarked"
+
+    translator.set_language("ur")
+
+    assert screen._contents_button.text() == "مشمولات"
+    assert screen._copy_citation_button.text() == "حوالہ کاپی کریں"
+    assert screen._bookmarks_heading_label.text() == "نشانیاں"
+    assert screen._research_notes_heading_label.text() == "ریسرچ نوٹس"
+    assert screen._bookmark_button.text() == "★ نشان زد شدہ"
+    assert "صفحہ" in screen._bookmarks_list.item(0).text()

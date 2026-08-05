@@ -33,6 +33,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 )
 from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
@@ -81,6 +82,7 @@ class ViewerScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         browser: BookBrowserRepository | None = None,
         initial_font_px: float | None = None,
         initial_font_family: str | None = None,
@@ -89,8 +91,12 @@ class ViewerScreen(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._enable_lazy_ai_agent = enable_lazy_ai_agent
+        self._toc_placeholder_shown = False
+        self._research_notes_placeholder_shown = False
+        self._tts_tooltip_unavailable = False
         self._pages: tuple = ()
         self._current_index = 0
         self._font_px = initial_font_px or DEFAULT_FONT_PX
@@ -129,9 +135,7 @@ class ViewerScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._empty_label = EmptyStateLabel(
-            "Open a book from Search to read it here.", centered=True
-        )
+        self._empty_label = EmptyStateLabel(self._translator.tr("viewer-empty"), centered=True)
         layout.addWidget(self._empty_label)
 
         self._reader = QWidget()
@@ -156,17 +160,15 @@ class ViewerScreen(QWidget):
         self._pdf_fallback_banner.setVisible(False)
         banner_layout = QHBoxLayout(self._pdf_fallback_banner)
         banner_layout.setContentsMargins(16, 0, 16, 8)
-        banner_label = QLabel(
-            "This book's digitized text may be limited to headings - a scanned PDF is available."
-        )
-        banner_label.setStyleSheet(MUTED_LABEL_STYLE)
-        banner_label.setWordWrap(True)
-        banner_layout.addWidget(banner_label, stretch=1)
-        pdf_fallback_button = QPushButton("Open scanned PDF")
-        pdf_fallback_button.setIcon(button_icon("open-pdf"))
-        pdf_fallback_button.setIconSize(button_icon_size())
-        pdf_fallback_button.clicked.connect(self.pdf_fallback_requested)
-        banner_layout.addWidget(pdf_fallback_button)
+        self._pdf_fallback_label = QLabel(self._translator.tr("viewer-pdf-fallback-banner"))
+        self._pdf_fallback_label.setStyleSheet(MUTED_LABEL_STYLE)
+        self._pdf_fallback_label.setWordWrap(True)
+        banner_layout.addWidget(self._pdf_fallback_label, stretch=1)
+        self._pdf_fallback_button = QPushButton(self._translator.tr("viewer-open-scanned-pdf"))
+        self._pdf_fallback_button.setIcon(button_icon("open-pdf"))
+        self._pdf_fallback_button.setIconSize(button_icon_size())
+        self._pdf_fallback_button.clicked.connect(self.pdf_fallback_requested)
+        banner_layout.addWidget(self._pdf_fallback_button)
         reader_layout.addWidget(self._pdf_fallback_banner)
 
         # Real fix: this toolbar's widgets measured a real ~1024px combined
@@ -180,17 +182,17 @@ class ViewerScreen(QWidget):
         toolbar_container = QWidget()
         toolbar = QHBoxLayout(toolbar_container)
         toolbar.setContentsMargins(16, 4, 16, 8)
-        self._contents_button = QPushButton("Contents")
+        self._contents_button = QPushButton(self._translator.tr("viewer-contents"))
         self._contents_button.setCheckable(True)
         self._contents_button.setChecked(True)
-        self._contents_button.setToolTip("Show/hide this book's table of contents and bookmarks.")
+        self._contents_button.setToolTip(self._translator.tr("viewer-contents-tooltip"))
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
 
         self._nav_maximize_button = QPushButton()
         self._nav_maximize_button.setIcon(button_icon("maximize"))
         self._nav_maximize_button.setIconSize(button_icon_size())
-        self._nav_maximize_button.setToolTip("Maximize the contents/bookmarks panel")
+        self._nav_maximize_button.setToolTip(self._translator.tr("viewer-nav-maximize-tooltip"))
         self._nav_maximize_button.clicked.connect(self._on_nav_maximize_clicked)
         toolbar.addWidget(self._nav_maximize_button)
         toolbar.addWidget(_toolbar_separator())
@@ -198,7 +200,7 @@ class ViewerScreen(QWidget):
         self._prev_button = QPushButton()
         self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
-        self._prev_button.setToolTip("Previous page")
+        self._prev_button.setToolTip(self._translator.tr("viewer-prev-tooltip"))
         self._prev_button.clicked.connect(self._go_previous)
         toolbar.addWidget(self._prev_button)
 
@@ -214,7 +216,7 @@ class ViewerScreen(QWidget):
         self._next_button = QPushButton()
         self._next_button.setIcon(button_icon("next"))
         self._next_button.setIconSize(button_icon_size())
-        self._next_button.setToolTip("Next page")
+        self._next_button.setToolTip(self._translator.tr("viewer-next-tooltip"))
         self._next_button.clicked.connect(self._go_next)
         toolbar.addWidget(self._next_button)
 
@@ -223,14 +225,14 @@ class ViewerScreen(QWidget):
         self._bookmark_button = QPushButton()
         self._bookmark_button.setIcon(button_icon("bookmark"))
         self._bookmark_button.setIconSize(button_icon_size())
-        self._bookmark_button.setToolTip("Bookmark this page")
+        self._bookmark_button.setToolTip(self._translator.tr("common-bookmark-this-page"))
         self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
 
         self._play_pause_button = QPushButton()
         self._play_pause_button.setIcon(button_icon("play"))
         self._play_pause_button.setIconSize(button_icon_size())
-        self._play_pause_button.setToolTip("Read this page aloud")
+        self._play_pause_button.setToolTip(self._translator.tr("viewer-play-tooltip"))
         # Visible only when TTS is actually enabled (Settings toggle, wired
         # via MainWindow) - a dead button offering a feature the user turned
         # off (or a test double never enabled) is worse than no button.
@@ -243,19 +245,14 @@ class ViewerScreen(QWidget):
         toolbar.addWidget(self._play_pause_button)
         toolbar.addWidget(_toolbar_separator())
 
-        self._copy_citation_button = QPushButton("Copy citation")
-        self._copy_citation_button.setToolTip(
-            "Copy a citation for the current page to the clipboard."
-        )
+        self._copy_citation_button = QPushButton(self._translator.tr("viewer-copy-citation"))
+        self._copy_citation_button.setToolTip(self._translator.tr("viewer-copy-citation-tooltip"))
         self._copy_citation_button.clicked.connect(self.copy_citation)
         toolbar.addWidget(self._copy_citation_button)
         toolbar.addWidget(_toolbar_separator())
 
-        self._extract_events_button = QPushButton("Extract Events")
-        self._extract_events_button.setToolTip(
-            "Extract real historical events from this book using AI - makes "
-            "real paid API calls; you'll see a cost estimate before anything runs."
-        )
+        self._extract_events_button = QPushButton(self._translator.tr("viewer-extract-events"))
+        self._extract_events_button.setToolTip(self._translator.tr("viewer-extract-events-tooltip"))
         # Same visible-only-when-enabled philosophy as the TTS button above -
         # this makes real paid API calls, so it's opt-in via the same
         # AI Agent Settings toggle, not a dead button for users who haven't
@@ -330,6 +327,41 @@ class ViewerScreen(QWidget):
         layout.addWidget(self._reader, stretch=1)
         self._apply_font_size()
 
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        self._empty_label.setText(self._translator.tr("viewer-empty"))
+        self._pdf_fallback_label.setText(self._translator.tr("viewer-pdf-fallback-banner"))
+        self._pdf_fallback_button.setText(self._translator.tr("viewer-open-scanned-pdf"))
+        self._contents_button.setText(self._translator.tr("viewer-contents"))
+        self._contents_button.setToolTip(self._translator.tr("viewer-contents-tooltip"))
+        self._nav_maximize_button.setToolTip(self._translator.tr("viewer-nav-maximize-tooltip"))
+        self._prev_button.setToolTip(self._translator.tr("viewer-prev-tooltip"))
+        self._next_button.setToolTip(self._translator.tr("viewer-next-tooltip"))
+        self._bookmark_button.setToolTip(self._translator.tr("common-bookmark-this-page"))
+        self._play_pause_button.setToolTip(
+            self._translator.tr("viewer-tts-unavailable-tooltip")
+            if self._tts_tooltip_unavailable
+            else self._translator.tr("viewer-play-tooltip")
+        )
+        self._copy_citation_button.setText(self._translator.tr("viewer-copy-citation"))
+        self._copy_citation_button.setToolTip(self._translator.tr("viewer-copy-citation-tooltip"))
+        self._extract_events_button.setText(self._translator.tr("viewer-extract-events"))
+        self._extract_events_button.setToolTip(self._translator.tr("viewer-extract-events-tooltip"))
+        self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
+        self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
+        self._research_notes_heading_label.setText(self._translator.tr("viewer-research-notes-heading"))
+        self._research_notes_list.setToolTip(self._translator.tr("viewer-research-notes-tooltip"))
+        if self._toc_placeholder_shown:
+            self._toc_tree.topLevelItem(0).setText(0, self._translator.tr("viewer-no-toc"))
+        if self._research_notes_placeholder_shown:
+            self._research_notes_list.clear()
+            self._research_notes_list.addItem(self._translator.tr("viewer-no-research-notes"))
+        self._reload_bookmarks_list()
+        self._update_bookmark_button()
+        if self._pages:
+            self._content_label.setText(self._current_page_display_text())
+
     def _build_nav_panel(self) -> QWidget:
         panel = QWidget()
         panel.setObjectName("searchLeftPane")
@@ -339,9 +371,9 @@ class ViewerScreen(QWidget):
         layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
         layout.setSpacing(Spacing.XS)
 
-        contents_label = QLabel("Contents")
-        contents_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(contents_label)
+        self._contents_heading_label = QLabel(self._translator.tr("viewer-contents"))
+        self._contents_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(self._contents_heading_label)
         self._toc_tree = QTreeWidget()
         self._toc_tree.setHeaderHidden(True)
         # Typography fix: real Arabic/Urdu chapter titles need RTL layout
@@ -350,18 +382,18 @@ class ViewerScreen(QWidget):
         self._toc_tree.itemClicked.connect(self._on_toc_item_clicked)
         layout.addWidget(self._toc_tree, stretch=2)
 
-        bookmarks_label = QLabel("Bookmarks")
-        bookmarks_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(bookmarks_label)
+        self._bookmarks_heading_label = QLabel(self._translator.tr("home-card-bookmarks"))
+        self._bookmarks_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(self._bookmarks_heading_label)
         self._bookmarks_list = QListWidget()
         self._bookmarks_list.itemClicked.connect(self._on_bookmark_item_clicked)
         layout.addWidget(self._bookmarks_list, stretch=1)
 
-        research_notes_label = QLabel("Research Notes")
-        research_notes_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(research_notes_label)
+        self._research_notes_heading_label = QLabel(self._translator.tr("viewer-research-notes-heading"))
+        self._research_notes_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
+        layout.addWidget(self._research_notes_heading_label)
         self._research_notes_list = QListWidget()
-        self._research_notes_list.setToolTip("Documents with a quotation saved from this book")
+        self._research_notes_list.setToolTip(self._translator.tr("viewer-research-notes-tooltip"))
         self._research_notes_list.itemClicked.connect(self._on_research_notes_item_clicked)
         layout.addWidget(self._research_notes_list, stretch=1)
 
@@ -405,28 +437,33 @@ class ViewerScreen(QWidget):
             # no digitized table of contents is a real, common case, not
             # an error.
             self._toc_tree.addTopLevelItem(
-                QTreeWidgetItem(["No table of contents available."])
+                QTreeWidgetItem([self._translator.tr("viewer-no-toc")])
             )
+            self._toc_placeholder_shown = True
             return
+        self._toc_placeholder_shown = False
+        untitled_text = self._translator.tr("common-untitled")
         for chapter in chapters:
-            self._toc_tree.addTopLevelItem(_chapter_tree_item(chapter))
+            self._toc_tree.addTopLevelItem(_chapter_tree_item(chapter, untitled_text))
 
     def _reload_bookmarks_list(self) -> None:
         self._bookmarks_list.clear()
         if not self._bookmarked_pages:
-            self._bookmarks_list.addItem(
-                "No bookmarks yet - bookmark a page to see it here."
-            )
+            self._bookmarks_list.addItem(self._translator.tr("viewer-no-bookmarks"))
             return
-        title = self._current_title or "(untitled)"
+        title = self._current_title or self._translator.tr("common-untitled")
         for page_number in sorted(self._bookmarked_pages):
             # Full details, not just "Page N" - the same title/volume
             # every row shares today (bookmarks are per-currently-open-
             # book), but real and complete rather than context-free.
             if self._current_volume_number is not None:
-                text = f"{title}, Volume {self._current_volume_number}, Page {page_number}"
+                text = self._translator.tr("viewer-bookmark-line-with-volume").format(
+                    title=title, volume=self._current_volume_number, page=page_number
+                )
             else:
-                text = f"{title}, Page {page_number}"
+                text = self._translator.tr("viewer-bookmark-line").format(
+                    title=title, page=page_number
+                )
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, page_number)
             self._bookmarks_list.addItem(item)
@@ -436,6 +473,7 @@ class ViewerScreen(QWidget):
         from the currently open book - lets the reader jump straight to
         prior notes on this book, not just bookmarks."""
         self._research_notes_list.clear()
+        self._research_notes_placeholder_shown = False
         if self._current_title is None:
             return
         try:
@@ -446,7 +484,8 @@ class ViewerScreen(QWidget):
             LOGGER.exception("Could not check for Research Notes documents.")
             return
         if not documents:
-            self._research_notes_list.addItem("No research notes for this book yet.")
+            self._research_notes_list.addItem(self._translator.tr("viewer-no-research-notes"))
+            self._research_notes_placeholder_shown = True
             return
         for path in documents:
             item = QListWidgetItem(path.stem)
@@ -485,14 +524,14 @@ class ViewerScreen(QWidget):
         selected_text = self._content_label.selectedText()
         menu = QMenu(self)
         actions = {
-            "copy": menu.addAction("Copy"),
-            "copy_citation": menu.addAction("Copy with Citation"),
-            "save_notes": menu.addAction("Save to Research Notes"),
+            "copy": menu.addAction(self._translator.tr("common-copy")),
+            "copy_citation": menu.addAction(self._translator.tr("viewer-copy-with-citation")),
+            "save_notes": menu.addAction(self._translator.tr("viewer-save-to-notes")),
         }
         for action in actions.values():
             action.setEnabled(bool(selected_text))
         menu.addSeparator()
-        actions["open_notes"] = menu.addAction("Open Current Notes")
+        actions["open_notes"] = menu.addAction(self._translator.tr("viewer-open-notes"))
 
         chosen = menu.exec(self._content_label.mapToGlobal(position))
         for name, action in actions.items():
@@ -553,8 +592,8 @@ class ViewerScreen(QWidget):
         self._current_volume_number = metadata.volume_number if metadata else None
         self._current_language = metadata.language if metadata else None
         self._bookmarked_pages = set(bookmarked_pages or ())
-        self._title_label.setText(title or "(untitled)")
-        self._author_label.setText(author or "Unknown author")
+        self._title_label.setText(title or self._translator.tr("common-untitled"))
+        self._author_label.setText(author or self._translator.tr("common-unknown-author"))
         self._empty_label.setVisible(False)
         self._reader.setVisible(True)
         self._pdf_fallback_banner.setVisible(False)
@@ -663,13 +702,12 @@ class ViewerScreen(QWidget):
         page_number = self.current_page_number()
         is_bookmarked = page_number is not None and page_number in self._bookmarked_pages
         self._bookmark_button.setText(
-            "★ Bookmarked" if is_bookmarked else "Bookmark this page"
+            self._translator.tr("common-bookmarked")
+            if is_bookmarked
+            else self._translator.tr("common-bookmark-this-page")
         )
 
-    def _render_current_page(self) -> None:
-        self._stop_narration()
-        if not self._pages:
-            return
+    def _current_page_display_text(self) -> str:
         page = self._pages[self._current_index]
         # Real bug reported directly against the running app: ~471,000
         # real pages (mostly Maktaba Jibreel) carry raw structural markup
@@ -686,7 +724,13 @@ class ViewerScreen(QWidget):
         # can't actually render as invisible. Stripped here, at display
         # time only - the underlying stored/searchable text is untouched.
         text = strip_invisible_format_characters(strip_html_to_text(page.content_f))
-        self._content_label.setText(text or "(no content)")
+        return text or self._translator.tr("viewer-no-content")
+
+    def _render_current_page(self) -> None:
+        self._stop_narration()
+        if not self._pages:
+            return
+        self._content_label.setText(self._current_page_display_text())
         self._page_input.setText(str(self._current_index + 1))
         self._page_count_label.setText(f"/ {len(self._pages)}")
         self._prev_button.setEnabled(self._current_index > 0)
@@ -830,7 +874,8 @@ class ViewerScreen(QWidget):
         if request_key != self._current_narration_key():
             return
         self._play_pause_button.setIcon(button_icon("play"))
-        self._play_pause_button.setToolTip("Text-to-speech unavailable")
+        self._tts_tooltip_unavailable = True
+        self._play_pause_button.setToolTip(self._translator.tr("viewer-tts-unavailable-tooltip"))
 
     def _stop_narration(self) -> None:
         if self._tts_worker is not None:
@@ -891,9 +936,9 @@ def _font_stack_for(display_name: str) -> str:
     return FONT_CHOICES[0][1]
 
 
-def _chapter_tree_item(chapter: Chapter) -> QTreeWidgetItem:
-    item = QTreeWidgetItem([chapter.title or "(untitled)"])
+def _chapter_tree_item(chapter: Chapter, untitled_text: str) -> QTreeWidgetItem:
+    item = QTreeWidgetItem([chapter.title or untitled_text])
     item.setData(0, Qt.ItemDataRole.UserRole, chapter.page_number)
     for child in chapter.children:
-        item.addChild(_chapter_tree_item(child))
+        item.addChild(_chapter_tree_item(child, untitled_text))
     return item
