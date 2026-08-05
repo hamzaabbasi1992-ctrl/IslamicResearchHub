@@ -1005,10 +1005,25 @@ not new data-collection problems of their own:
   able to surface relevant Arabic-only results (and vice versa) - a
   real gap distinct from Phase 12's paragraph translation, since this
   is about *search* finding conceptually related content across
-  languages, not translating found content afterward. Real dependency:
-  needs Phase 7's semantic embeddings to be genuinely cross-lingual
-  (the multilingual model already in use should support this, but it
-  needs a real check before being presented as working, not assumed).
+  languages, not translating found content afterward.
+  **Checked for real, not assumed - confirmed broken as currently
+  deployed** (2026-08-06): ran real Arabic queries against the live
+  production index (1,695,366 embedded pages: ur 1,031,696 + "Urdu"
+  282,641 + ar 175,727 + unlabeled 205,301 - Arabic is a real 10%+ of
+  the index, not negligible). A real Arabic query about divorce
+  jurisprudence (أحكام الطلاق في الفقه الإسلامي) returned **zero**
+  Arabic-language results in the top 50; a fasting query (فضل الصيام)
+  returned exactly 1 of 50, ranked #35. `paraphrase-multilingual-MiniLM-L12-v2`
+  (the model already in production use for same-language semantic
+  search) does not provide usable cross-lingual retrieval here as
+  currently wired - Urdu content systematically dominates results
+  regardless of query language, likely the model's imperfect
+  cross-lingual alignment compounded by the corpus's real ~6:1
+  Urdu:Arabic embedded-page imbalance. Real follow-up work needed
+  before this is buildable: language-aware re-ranking/boosting, a
+  fairness-weighted merge across per-language result pools, or
+  evaluating a different multilingual model - not attempted this pass,
+  scope not yet sized.
 
 ### Phase 11 — AI research assistant: **scheduled after Phase 10, not started**
 

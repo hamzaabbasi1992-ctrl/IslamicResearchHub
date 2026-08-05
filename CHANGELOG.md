@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 10: cross-language conceptual search checked for real - confirmed broken
+
+The roadmap explicitly flagged this item as needing "a real check
+before being presented as working, not assumed." Ran real Arabic
+queries against the live production embedding index (1,695,366 real
+embedded pages - Arabic a genuine 175,727 of them, ~10%, not
+negligible) using the multilingual model already in production for
+same-language semantic search
+(`paraphrase-multilingual-MiniLM-L12-v2`). Result: a real Arabic query
+about divorce jurisprudence returned zero Arabic-language results in
+the top 50; a fasting-related query returned exactly 1 of 50, ranked
+#35. Cross-lingual retrieval does not work as currently deployed -
+Urdu content systematically dominates regardless of query language.
+No code changed; this closes out the "needs a real check" action item
+with a real, negative, documented finding instead of an untested
+assumption. See PROJECT.md for the real numbers and possible follow-up
+directions (language-aware re-ranking, fairness-weighted per-language
+merge, or a different model) - none attempted this pass, scope not
+yet sized.
+
 ## Phase 8.5: removed 304 more real duplicates (page-count-corroborated)
 
 Investigating the two leftover duplicate-analysis files
