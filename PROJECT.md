@@ -819,7 +819,7 @@ differentiator the way Phase 6/10's items are:
     one, off by default. Multi-voice audio-overview discussions and
     visual reports remain not started.
 
-### Phase 10 — Knowledge graph and encyclopedia builder: **scheduled after Phase 9, not started**
+### Phase 10 — Knowledge graph and encyclopedia builder: **in progress**
 
 **Real foundational step already done, ahead of the rest of this phase**:
 permanent paragraph-level citation IDs - migration 13 (`Paragraphs` +
@@ -855,13 +855,20 @@ from a follow-up "unique advantages" discussion, each confirmed to
 build on infrastructure this phase or an earlier one already produces,
 not new data-collection problems of their own:
 
-- **Citation graph between owned books**: fiqh books cite hadith
-  collections; if both the citing and the cited book are already in
-  this corpus, that link is real and verifiable, not an AI guess. A
-  generic tool can't do this - it doesn't hold the target text to link
-  to. Real prerequisite: detecting when one book's text names another
-  book/author already in the corpus (a scoped, pattern-matching-first
-  problem before it needs full NER).
+- **Citation graph between owned books**: **Milestone 1 done** (see
+  CHANGELOG) - detects when one book's text literally names another
+  book's title that's also in this corpus, exact-literal-phrase matching
+  only (no author-mention detection yet, no general NER). Real measured
+  yield against the full 104,797-book production database: 103,961 real
+  anchors, ~60 minutes for a full scan (found via a real `--sample`
+  measurement, not assumed), a real pathological case caught by a new
+  `MAX_HITS_PER_ANCHOR` cap (one title that's also a generic phrase hit
+  25,806 pages). New `CitationManagerScreen` (mirrors the Duplicate
+  Manager screen) for reviewing/dismissing detected candidates.
+  Deferred, not silently dropped: surfacing confirmed links inside the
+  reader/book-detail panel (real UI design work better done once real
+  detection-quality data exists to design around), author-mention
+  detection, general NER-based knowledge graph items below.
 - **Structured narrator/isnad database - safe version**: extract and
   cross-reference narrator names as searchable structured data (which
   hadiths, which books mention them) **without the AI ever rendering an

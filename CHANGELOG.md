@@ -1,5 +1,62 @@
 # Changelog
 
+## Phase 10, Milestone 1: citation graph between owned books
+
+First real Phase 10 milestone: detects when one book's text literally
+names another book's title that's *also* already in this library, and
+records it as a reviewable candidate link - not an AI guess, since both
+sides of the citation are real text this library already holds.
+Deliberately scoped to exact-literal-phrase title matching (no author-
+mention detection, no general NER) - "a scoped, pattern-matching-first
+problem before it needs full NER" per this project's own roadmap.
+
+Measured directly against the real 104,797-book production database
+before writing any detection code: 93,623 distinct normalized titles,
+103,961 real anchors clear the distinctiveness filter, sampling 500 real
+anchors found the actual full-corpus run costs ~60 minutes (not the
+hours-long worst case first feared) and a real, previously-unknown
+pathological case - one title ("صلاة الجماعة") that's also a generic
+phrase hit 25,806 pages, correctly caught and skipped by a new
+`MAX_HITS_PER_ANCHOR = 200` cap (mirrors `PdfMatchCandidateRepository`'s
+own `MAX_BLOCKING_DOC_FREQUENCY` "too common to be useful" pattern).
+
+New `application/citation_detection.py` (pure, Qt/DB-free logic):
+groups book titles by normalized text, collapsing same-`SeriesID`
+volumes into one identity (they legitimately share a title) and
+classifying groups as `unique_title` or `ambiguous_title`; a
+`MIN_ANCHOR_TITLE_LENGTH = 8` character-length filter (not word-count -
+"صحيح البخاري" is only 2 words but a real, highly-cited canonical title);
+tokenized contiguous-sublist matching to resolve a phrase hit back to a
+specific `Paragraphs` row, since FTS5 phrase matching is token-sequence-
+based and can disagree with a naive substring check on punctuation the
+tokenizer itself ignores.
+
+New `CitationCandidates` table (ad-hoc `_create_schema()`, matching
+`DuplicateCandidates`/`PdfMatchCandidates`' own precedent - the same
+kind of auto-detected, dismissible table, not the versioned-migration
+path `Paragraphs` uses) and `CitationCandidateRepository`
+(`detect_and_store()`, `list_candidates()`, `dismiss()`, `dismiss_pair()`
+for bulk-dismissing a heavily-citing book pair, `time_sample()` for
+real per-machine timing estimation). `DuplicateCandidateRepository._delete_book()`
+gained a two-sided `CitationCandidates` cleanup (it has two book-reference
+columns, so it couldn't join the existing single-`BookID`-column loop).
+
+New `citation_candidate_detection_cli.py` (`--sample N` for real timing
+measurement before a full run, matching this project's "measure, don't
+assume" discipline) and desktop UI: `CitationManagerScreen` (mirrors
+`duplicate_manager_screen.py` exactly - table, bulk hydration via
+`list_books_by_ids()`, Dismiss/Dismiss-all-from-this-book), backed by a
+new `CitationDetectionWorker` QThread so the real ~60-minute-plus
+detection run never blocks the GUI. New "Citations" rail entry (icons.py,
+i18n.py in all 3 languages, main_window.py).
+
+Explicitly deferred, not silently dropped: surfacing confirmed citation
+links inside the reader/book-detail panel - real UI design work better
+done once real detection-quality data exists to design the surfacing
+around.
+
+34 new tests, 840/840 total passing.
+
 ## Chunked/streaming TTS synthesis
 
 Reading a page aloud used to synthesize the *entire* page in one

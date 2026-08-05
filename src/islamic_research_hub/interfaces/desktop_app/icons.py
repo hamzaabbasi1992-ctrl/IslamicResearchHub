@@ -98,6 +98,10 @@ _SVG_PATHS: dict[str, str] = {
         '<path d="M12 6.5v4a2 2 0 0 1-2 2H7a2 2 0 0 0-2 2v3"/>'
         '<path d="M12 10.5a2 2 0 0 0 2 2h3a2 2 0 0 1 2 2v3"/>'
     ),
+    "citations": (
+        '<path d="M7 8.5c-1.5 0-2.5 1.2-2.5 3s1 3 2.5 3c.3 2-1 3.5-2.5 4"/>'
+        '<path d="M15 8.5c-1.5 0-2.5 1.2-2.5 3s1 3 2.5 3c.3 2-1 3.5-2.5 4"/>'
+    ),
     "maximize": (
         '<polyline points="15 3 21 3 21 9"/>'
         '<polyline points="9 21 3 21 3 15"/>'

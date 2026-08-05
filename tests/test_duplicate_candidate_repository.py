@@ -334,6 +334,45 @@ def test_remove_book_also_clears_any_duplicate_candidate_rows_referencing_it(
     assert duplicate_repository.list_candidates(include_dismissed=True) == ()
 
 
+def test_remove_book_also_clears_any_citation_candidate_rows_referencing_it(
+    tmp_path: Path,
+) -> None:
+    """A removed book shouldn't leave a dangling CitationCandidates row on
+    either the citing or the cited side - that table has two book-reference
+    columns, unlike DuplicateCandidates' single BookID, so it needs its own
+    explicit check in _delete_book()."""
+    from islamic_research_hub.infrastructure.persistence.citation_candidate_repository import (
+        CitationCandidateRepository,
+    )
+    from islamic_research_hub.infrastructure.persistence.migration_runner import MigrationRunner
+
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    title = "A Real Distinctive Citation Target Title"
+    repository.import_books(
+        database_path,
+        (
+            Book(information={"Name": title}, categories=(), table_of_contents=(), pages=(Page(1, 1, "front matter", None),)),
+            Book(
+                information={"Name": "A Citing Book"},
+                categories=(),
+                table_of_contents=(),
+                pages=(Page(1, 1, f"as mentioned in {title} earlier", None),),
+            ),
+        ),
+        (tmp_path / "a.mjbz", tmp_path / "b.mjbz"),
+        library_name="Library A",
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    citation_repository = CitationCandidateRepository(database_path)
+    assert citation_repository.detect_and_store() == 1
+
+    DuplicateCandidateRepository(database_path).remove_book(1)  # the cited book
+
+    assert citation_repository.list_candidates(include_dismissed=True) == ()
+
+
 def test_resolve_empty_stub_duplicates_removes_the_contentless_side(tmp_path: Path) -> None:
     """When one side has no content, only the empty side is removed."""
     database_path = tmp_path / "books.db"

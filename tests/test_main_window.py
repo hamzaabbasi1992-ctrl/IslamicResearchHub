@@ -130,7 +130,7 @@ def test_settings_screen_is_real_and_shows_real_app_info(qtbot, tmp_path: Path) 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
 
-    settings_screen = window._stack.widget(6)
+    settings_screen = window._stack.widget(7)
     assert settings_screen._language_combo.count() == 3
     assert settings_screen.default_font_size() > 0
 
@@ -149,7 +149,7 @@ def test_changing_language_updates_rail_labels_and_layout_direction(
 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
-    settings_screen = window._stack.widget(6)
+    settings_screen = window._stack.widget(7)
 
     try:
         ur_index = settings_screen._language_combo.findData("ur")

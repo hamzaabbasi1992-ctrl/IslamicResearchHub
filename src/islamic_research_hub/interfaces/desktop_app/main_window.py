@@ -29,6 +29,9 @@ from islamic_research_hub.infrastructure.persistence.recent_book_repository impo
     RecentBookRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel
+from islamic_research_hub.interfaces.desktop_app.citation_manager_screen import (
+    CitationManagerScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.duplicate_manager_screen import (
     DuplicateManagerScreen,
 )
@@ -75,16 +78,27 @@ _RAIL_KEYS = (
     "rail-libraries",
     "rail-duplicates",
     "rail-taxonomy",
+    "rail-citations",
     "rail-logs",
     "rail-settings",
 )
-_RAIL_ICON_NAMES = ("home", "search", "import", "duplicates", "taxonomy", "logs", "settings")
+_RAIL_ICON_NAMES = (
+    "home",
+    "search",
+    "import",
+    "duplicates",
+    "taxonomy",
+    "citations",
+    "logs",
+    "settings",
+)
 _PLACEHOLDER_TITLES = (
     "Database not found",
     "Search",
     "Libraries",
     "Duplicates",
     "Taxonomy",
+    "Citations",
     "Logs",
     "Settings",
 )
@@ -211,6 +225,7 @@ class MainWindow(QMainWindow):
             duplicate_manager_screen.duplicates_resolved.connect(self._on_duplicates_resolved)
             taxonomy_browser_screen = TaxonomyBrowserScreen(database_path, browser=self._browser)
             taxonomy_browser_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            citation_manager_screen = CitationManagerScreen(database_path, browser=self._browser)
             self._home_screen = HomeScreen(
                 database_path,
                 browser=self._browser,
@@ -223,6 +238,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(self._import_screen)
             self._stack.addWidget(duplicate_manager_screen)
             self._stack.addWidget(taxonomy_browser_screen)
+            self._stack.addWidget(citation_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)

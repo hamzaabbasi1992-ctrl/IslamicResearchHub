@@ -279,6 +279,12 @@ class DuplicateCandidateRepository:
         connection.execute("DELETE FROM DuplicateCandidates WHERE BookID = ?", (book_id,))
         connection.execute("DELETE FROM DuplicateCandidates WHERE DuplicateOfBookID = ?", (book_id,))
         existing_tables = cls._existing_tables(connection)
+        if "CitationCandidates" in existing_tables:
+            # CitationCandidates has two book-reference columns (CitingBookID,
+            # CitedBookID), so it can't join the generic single-BookID-column
+            # loop below - same two-sided treatment as DuplicateCandidates above.
+            connection.execute("DELETE FROM CitationCandidates WHERE CitingBookID = ?", (book_id,))
+            connection.execute("DELETE FROM CitationCandidates WHERE CitedBookID = ?", (book_id,))
         for table in _BOOK_REFERENCING_TABLES:
             if table in existing_tables:
                 connection.execute(f"DELETE FROM {table} WHERE BookID = ?", (book_id,))
