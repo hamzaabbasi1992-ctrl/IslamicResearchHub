@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.library_import_worker import (
     FORMAT_AUTO,
     FORMAT_MAKNOON,
@@ -37,10 +38,10 @@ from islamic_research_hub.interfaces.desktop_app.library_import_worker import (
 from islamic_research_hub.interfaces.desktop_app.theme import INK, MUTED_LABEL_STYLE
 
 _FORMAT_CHOICES = (
-    (FORMAT_AUTO, "Auto-detect"),
-    (FORMAT_MJBZ, ".mjbz (Jibreel Mobile)"),
-    (FORMAT_MAKNOON, "Pre-extracted text"),
-    (FORMAT_PDF, "PDF (metadata only)"),
+    (FORMAT_AUTO, "import-format-auto"),
+    (FORMAT_MJBZ, "import-format-mjbz"),
+    (FORMAT_MAKNOON, "import-format-maknoon"),
+    (FORMAT_PDF, "import-format-pdf"),
 )
 
 
@@ -52,14 +53,18 @@ class ImportScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         browser: BookBrowserRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._database_path = database_path
+        self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._worker: LibraryImportWorker | None = None
         self._pending_library_name: str = ""
+        self._status_kind = "default"
+        self._status_args: dict = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -72,9 +77,10 @@ class ImportScreen(QWidget):
         layout.setSpacing(10)
 
         header_row = QHBoxLayout()
-        header_row.addWidget(_heading("Library sources"))
+        self._heading_label = _heading(self._translator.tr("library-sources"))
+        header_row.addWidget(self._heading_label)
         header_row.addStretch(1)
-        self._add_library_toggle = QPushButton("+ Add new library")
+        self._add_library_toggle = QPushButton(f"+ {self._translator.tr('add-library')}")
         self._add_library_toggle.setObjectName("primaryButton")
         self._add_library_toggle.clicked.connect(self._toggle_add_library_form)
         header_row.addWidget(self._add_library_toggle)
@@ -85,7 +91,7 @@ class ImportScreen(QWidget):
         layout.addWidget(self._add_library_form)
 
         self._library_table = QTableWidget(0, 2)
-        self._library_table.setHorizontalHeaderLabels(["Library", "Books"])
+        self._library_table.setHorizontalHeaderLabels(self._table_header_labels())
         self._library_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
         )
@@ -98,6 +104,23 @@ class ImportScreen(QWidget):
         outer.addWidget(scroll_area)
 
         self.refresh()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _table_header_labels(self) -> list[str]:
+        return [self._translator.tr("import-col-library"), self._translator.tr("import-col-books")]
+
+    def _retranslate(self, _language: str) -> None:
+        self._heading_label.setText(self._translator.tr("library-sources"))
+        self._add_library_toggle.setText(f"+ {self._translator.tr('add-library')}")
+        self._browse_button.setText(self._translator.tr("browse"))
+        self._folder_edit.setPlaceholderText(self._translator.tr("folder-to-scan"))
+        self._format_combo.setToolTip(self._translator.tr("format"))
+        for index, (_key, label_key) in enumerate(_FORMAT_CHOICES):
+            self._format_combo.setItemText(index, self._translator.tr(label_key))
+        self._library_name_edit.setPlaceholderText(self._translator.tr("library-name"))
+        self._scan_import_button.setText(self._translator.tr("scan-import"))
+        self._library_table.setHorizontalHeaderLabels(self._table_header_labels())
+        self._render_status()
 
     def _build_add_library_form(self) -> QFrame:
         form = QFrame()
@@ -107,34 +130,32 @@ class ImportScreen(QWidget):
         form_layout.setSpacing(8)
 
         folder_row = QHBoxLayout()
-        browse_button = QPushButton("Browse...")
-        browse_button.clicked.connect(self._pick_folder)
-        folder_row.addWidget(browse_button)
+        self._browse_button = QPushButton(self._translator.tr("browse"))
+        self._browse_button.clicked.connect(self._pick_folder)
+        folder_row.addWidget(self._browse_button)
         self._folder_edit = QLineEdit()
         self._folder_edit.setReadOnly(True)
-        self._folder_edit.setPlaceholderText("Folder to scan")
+        self._folder_edit.setPlaceholderText(self._translator.tr("folder-to-scan"))
         folder_row.addWidget(self._folder_edit, stretch=1)
         form_layout.addLayout(folder_row)
 
         options_row = QHBoxLayout()
         self._format_combo = QComboBox()
-        for key, label in _FORMAT_CHOICES:
-            self._format_combo.addItem(label, userData=key)
+        for key, label_key in _FORMAT_CHOICES:
+            self._format_combo.addItem(self._translator.tr(label_key), userData=key)
+        self._format_combo.setToolTip(self._translator.tr("format"))
         options_row.addWidget(self._format_combo)
         self._library_name_edit = QLineEdit()
-        self._library_name_edit.setPlaceholderText("Library name (e.g. Maktaba Ashrafia)")
+        self._library_name_edit.setPlaceholderText(self._translator.tr("library-name"))
         options_row.addWidget(self._library_name_edit, stretch=1)
         form_layout.addLayout(options_row)
 
         action_row = QHBoxLayout()
-        self._scan_import_button = QPushButton("Scan && import")
+        self._scan_import_button = QPushButton(self._translator.tr("scan-import"))
         self._scan_import_button.setObjectName("primaryButton")
         self._scan_import_button.clicked.connect(self._run_import)
         action_row.addWidget(self._scan_import_button)
-        self._import_status_label = QLabel(
-            "Runs the matching importer automatically, skips already-imported "
-            "books, never touches the source folder."
-        )
+        self._import_status_label = QLabel(self._translator.tr("import-status-default"))
         self._import_status_label.setStyleSheet(MUTED_LABEL_STYLE)
         self._import_status_label.setWordWrap(True)
         action_row.addWidget(self._import_status_label, stretch=1)
@@ -142,11 +163,33 @@ class ImportScreen(QWidget):
 
         return form
 
+    def _set_status(self, kind: str, **args: object) -> None:
+        self._status_kind = kind
+        self._status_args = args
+        self._render_status()
+
+    def _render_status(self) -> None:
+        kind = self._status_kind
+        args = self._status_args
+        if kind == "missing_fields":
+            text = self._translator.tr("import-missing-fields")
+        elif kind == "scanning":
+            text = self._translator.tr("duplicate-manager-scanning")
+        elif kind == "progress":
+            text = self._translator.tr("import-scanning-progress").format(**args)
+        elif kind == "finished":
+            text = self._translator.tr("import-finished-summary").format(**args)
+        elif kind == "failed":
+            text = self._translator.tr("import-failed-prefix").format(**args)
+        else:
+            text = self._translator.tr("import-status-default")
+        self._import_status_label.setText(text)
+
     def _toggle_add_library_form(self) -> None:
         self._add_library_form.setVisible(not self._add_library_form.isVisible())
 
     def _pick_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Folder to scan")
+        folder = QFileDialog.getExistingDirectory(self, self._translator.tr("folder-to-scan"))
         if folder:
             self._folder_edit.setText(folder)
 
@@ -154,11 +197,11 @@ class ImportScreen(QWidget):
         folder_text = self._folder_edit.text().strip()
         library_name = self._library_name_edit.text().strip()
         if not folder_text or not library_name:
-            self._import_status_label.setText("Choose a folder and enter a library name first.")
+            self._set_status("missing_fields")
             return
 
         self._scan_import_button.setEnabled(False)
-        self._import_status_label.setText("Scanning...")
+        self._set_status("scanning")
         self._pending_library_name = library_name
         format_key = self._format_combo.currentData()
         self._worker = LibraryImportWorker(
@@ -170,19 +213,17 @@ class ImportScreen(QWidget):
         self._worker.start()
 
     def _on_import_progress(self, completed: int, total: int) -> None:
-        self._import_status_label.setText(f"Scanning... {completed}/{total}")
+        self._set_status("progress", completed=completed, total=total)
 
     def _on_import_finished(self, imported: int, skipped: int, failed: int) -> None:
-        self._import_status_label.setText(
-            f"Imported {imported}, skipped {skipped} already-imported, {failed} failed."
-        )
+        self._set_status("finished", imported=imported, skipped=skipped, failed=failed)
         self._scan_import_button.setEnabled(True)
         self._reload_libraries()
         if imported > 0:
             self.library_imported.emit(self._pending_library_name)
 
     def _on_import_failed(self, message: str) -> None:
-        self._import_status_label.setText(f"Import failed: {message}")
+        self._set_status("failed", message=message)
         self._scan_import_button.setEnabled(True)
 
     def refresh(self) -> None:

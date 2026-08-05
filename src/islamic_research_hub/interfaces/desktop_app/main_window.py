@@ -267,7 +267,7 @@ class MainWindow(QMainWindow):
             )
 
             self._search_screen.open_in_viewer_requested.connect(self._open_in_viewer)
-            self._import_screen = ImportScreen(database_path)
+            self._import_screen = ImportScreen(database_path, self._translator)
             self._import_screen.library_imported.connect(self._on_library_imported)
             duplicate_manager_screen = DuplicateManagerScreen(database_path, self._translator)
             duplicate_manager_screen.duplicates_resolved.connect(self._on_duplicates_resolved)

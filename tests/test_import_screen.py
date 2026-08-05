@@ -10,11 +10,18 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtCore import QSettings  # noqa: E402
+
 from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen  # noqa: E402
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 def _seed_database(database_path: Path) -> None:
@@ -43,7 +50,7 @@ def test_shows_real_library_sources_with_counts(qtbot, tmp_path: Path) -> None:
     """The library table reflects the real database, not hardcoded data."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ImportScreen(database_path)
+    screen = ImportScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     rows = {
@@ -58,7 +65,7 @@ def test_refresh_reloads_after_an_external_change(qtbot, tmp_path: Path) -> None
     """Calling refresh() picks up a change made after the screen was built."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = ImportScreen(database_path)
+    screen = ImportScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     rows_before = screen._library_table.rowCount()
 
@@ -75,3 +82,19 @@ def test_refresh_reloads_after_an_external_change(qtbot, tmp_path: Path) -> None
     screen.refresh()
 
     assert screen._library_table.rowCount() == rows_before + 1
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    translator = _translator(tmp_path)
+    screen = ImportScreen(database_path, translator)
+    qtbot.addWidget(screen)
+    assert screen._heading_label.text() == "Library sources"
+    assert screen._scan_import_button.text() == "Scan && import"
+
+    translator.set_language("ar")
+
+    assert screen._heading_label.text() == "مصادر المكتبة"
+    assert screen._scan_import_button.text() == "فحص واستيراد"
+    assert screen._browse_button.text() == "استعراض..."
