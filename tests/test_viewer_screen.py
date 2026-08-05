@@ -505,7 +505,6 @@ def test_multi_chunk_playback_auto_advances_and_resets_icon_on_completion(
     screen._on_play_pause_clicked()
     with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
         pass
-    qtbot.wait(50)
 
     total_chunks = len(screen._tts_chunk_paths)
     assert total_chunks > 1
@@ -513,7 +512,13 @@ def test_multi_chunk_playback_auto_advances_and_resets_icon_on_completion(
 
     # Real playback duration can't practically be waited out headless -
     # directly invoking the status-changed handler is the chosen technique
-    # to simulate each chunk finishing.
+    # to simulate each chunk finishing. No qtbot.wait() here on purpose:
+    # a real bug found running this suite under system load - the fake
+    # chunk's audio is only ~30ms long, and even a 50ms wait gave it
+    # enough real wall-clock time to actually finish playing and
+    # auto-advance for real, racing this assertion. queued Qt signals
+    # emitted before worker.finished are already delivered by the time
+    # waitSignal(finished) returns, so no extra wait is needed.
     for _ in range(total_chunks - 1):
         screen._on_media_status_changed(QMediaPlayer.MediaStatus.EndOfMedia)
     assert screen._tts_next_play_index == total_chunks

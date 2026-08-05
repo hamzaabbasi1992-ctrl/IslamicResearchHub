@@ -187,6 +187,14 @@ class CitationCandidateRepository:
             if page_row is None:
                 continue
             citing_book_id, citing_page_no = page_row
+            if citing_page_no is None:
+                # Real, if rare, data quality gap: Pages.PageNo has no
+                # NOT NULL constraint - a page with no real page number
+                # can't be a meaningfully citable location. Confirmed via
+                # a real production crash: CitationCandidates.CitingPageNo
+                # IS NOT NULL rejected the row at the final write step,
+                # after all other anchors had already processed.
+                continue
             if citing_book_id == anchor.cited_book_id:
                 continue
             if (

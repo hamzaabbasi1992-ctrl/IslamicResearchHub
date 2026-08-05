@@ -313,6 +313,29 @@ def test_detect_and_store_is_idempotent(tmp_path: Path) -> None:
     assert first_count == second_count == 1
 
 
+def test_a_page_with_no_real_page_number_does_not_crash_detection(tmp_path: Path) -> None:
+    """Real production bug found running the full corpus: Pages.PageNo has
+    no NOT NULL constraint - a page with page_number=None matching an
+    anchor's phrase used to crash the final INSERT (CitationCandidates.
+    CitingPageNo IS NOT NULL) only after every other anchor had already
+    processed. Such a hit must be skipped, not stored."""
+    database_path = tmp_path / "books.db"
+    _seed(
+        database_path,
+        (
+            _book(_DISTINCTIVE_TITLE, pages=(_page(1, "front matter"),)),
+            _book(
+                "A Citing Book With No Real Page Number",
+                pages=(Page(1, None, f"as mentioned in {_DISTINCTIVE_TITLE} earlier", None),),
+            ),
+        ),
+    )
+
+    count = CitationCandidateRepository(database_path).detect_and_store()
+
+    assert count == 0
+
+
 def test_returns_zero_without_crashing_when_unmigrated(tmp_path: Path) -> None:
     """An unmigrated database (no PagesFTSNormalized) degrades gracefully."""
     database_path = tmp_path / "books.db"
