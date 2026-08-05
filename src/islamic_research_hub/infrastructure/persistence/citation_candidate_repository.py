@@ -226,17 +226,35 @@ class CitationCandidateRepository:
             )
         return results
 
-    def list_candidates(self, *, include_dismissed: bool = False) -> tuple[CitationCandidate, ...]:
-        """Return stored citation candidates, excluding dismissed ones by default."""
+    def list_candidates(
+        self,
+        *,
+        include_dismissed: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[CitationCandidate, ...]:
+        """Return stored citation candidates, excluding dismissed ones by default.
+
+        `limit`/`offset` page through real, large result sets - real
+        production scale (329,202+ real candidates against the full
+        corpus) makes loading everything at once impractical for a
+        review screen. `limit=None` (the default) returns everything,
+        unchanged from this method's original behavior.
+        """
         with closing(sqlite3.connect(self._database_path)) as connection:
             self._create_schema(connection)
             query = (
                 "SELECT CitingBookID, CitingPageNo, CitingParagraphID, CitedBookID, "
                 "MatchedTitleText, MatchType, Status FROM CitationCandidates"
             )
+            params: list[object] = []
             if not include_dismissed:
                 query += " WHERE Status != 'dismissed'"
-            rows = connection.execute(query).fetchall()
+            query += " ORDER BY CitingBookID, CitingPageNo, CitedBookID"
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+            rows = connection.execute(query, params).fetchall()
         return tuple(
             CitationCandidate(
                 citing_book_id=row[0],
@@ -249,6 +267,15 @@ class CitationCandidateRepository:
             )
             for row in rows
         )
+
+    def count_candidates(self, *, include_dismissed: bool = False) -> int:
+        """Real total candidate count, for a review screen's pagination controls."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            self._create_schema(connection)
+            query = "SELECT COUNT(*) FROM CitationCandidates"
+            if not include_dismissed:
+                query += " WHERE Status != 'dismissed'"
+            return connection.execute(query).fetchone()[0]
 
     def dismiss(self, citing_book_id: int, citing_page_no: int, cited_book_id: int) -> None:
         """Mark one candidate as reviewed and confirmed not a real citation.

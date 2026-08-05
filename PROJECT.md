@@ -855,16 +855,20 @@ from a follow-up "unique advantages" discussion, each confirmed to
 build on infrastructure this phase or an earlier one already produces,
 not new data-collection problems of their own:
 
-- **Citation graph between owned books**: **Milestone 1 done** (see
-  CHANGELOG) - detects when one book's text literally names another
-  book's title that's also in this corpus, exact-literal-phrase matching
-  only (no author-mention detection yet, no general NER). Real measured
-  yield against the full 104,797-book production database: 103,961 real
-  anchors, ~60 minutes for a full scan (found via a real `--sample`
-  measurement, not assumed), a real pathological case caught by a new
-  `MAX_HITS_PER_ANCHOR` cap (one title that's also a generic phrase hit
-  25,806 pages). New `CitationManagerScreen` (mirrors the Duplicate
-  Manager screen) for reviewing/dismissing detected candidates.
+- **Citation graph between owned books**: **Milestone 1 done, real full
+  scan completed** (see CHANGELOG) - detects when one book's text
+  literally names another book's title that's also in this corpus,
+  exact-literal-phrase matching only (no author-mention detection yet,
+  no general NER). Real yield from the actual completed scan against the
+  full 104,797-book production database: **329,202 candidates**, 44,310
+  citing books, 13,586 cited books - far more than the `--sample`-based
+  estimate predicted. Running the real scan surfaced and fixed two real
+  bugs the sample run never hit: a `Pages.PageNo IS NULL` crash at the
+  final write step, and an app-crashing `sqlite3.OperationalError: too
+  many SQL variables` in `list_books_by_ids()` at this real candidate
+  count (now batched). `CitationManagerScreen` (mirrors the Duplicate
+  Manager screen) now pages through results 100 at a time - loading all
+  329,202 rows into one table was itself unusable, confirmed directly.
   Deferred, not silently dropped: surfacing confirmed links inside the
   reader/book-detail panel (real UI design work better done once real
   detection-quality data exists to design around), author-mention

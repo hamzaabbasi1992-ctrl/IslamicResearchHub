@@ -646,3 +646,22 @@ def test_list_books_by_ids_returns_empty_for_an_empty_request(tmp_path: Path) ->
     _seed_database(database_path)
 
     assert BookBrowserRepository(database_path).list_books_by_ids(()) == {}
+
+
+def test_list_books_by_ids_handles_more_ids_than_sqlites_real_parameter_limit(
+    tmp_path: Path,
+) -> None:
+    """Real crash found running this against the production citation graph:
+    a single IN (...) query with 44,310 placeholders raised
+    sqlite3.OperationalError: too many SQL variables. A large id set
+    (here, mostly non-existent ids, to exercise the batching path
+    without needing thousands of real seeded books) must still work,
+    batched, and still find the real ones among them."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    many_ids = tuple(range(3, 3000)) + (1, 2)  # 2,997 fake ids + 2 real ones
+
+    summaries = BookBrowserRepository(database_path).list_books_by_ids(many_ids)
+
+    assert set(summaries.keys()) == {1, 2}
+    assert summaries[1].title == "Book of Fiqh"

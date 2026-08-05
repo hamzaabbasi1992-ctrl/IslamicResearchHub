@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from collections.abc import Iterable
 from contextlib import closing
 from pathlib import Path
 
@@ -17,6 +18,14 @@ from islamic_research_hub.shared.arabic_text_normalization import (
 
 MAX_BROWSE_RESULTS = 200
 """Cap on books returned per browse call, so a large library/category stays usable."""
+
+_MAX_IDS_PER_QUERY = 500
+"""Real SQLite builds cap bound parameters well below what a large
+candidate table can produce (confirmed: 44,310 distinct book ids in one
+`list_books_by_ids()` call raised `sqlite3.OperationalError: too many
+SQL variables`) - 500 stays comfortably under any real SQLite build's
+limit (900-32766 depending on build) while keeping each batch a real,
+sizable query, not one-row-at-a-time."""
 
 LOGGER = logging.getLogger(__name__)
 
@@ -278,7 +287,7 @@ class BookBrowserRepository:
 
     def list_books_by_ids(self, book_ids: tuple[int, ...]) -> dict[int, BookSummary]:
         """Return real book summaries (title/author/library) for a batch of
-        book IDs, keyed by BookID, in a single query.
+        book IDs, keyed by BookID.
 
         The efficient alternative to calling `get_book_source()`/
         `get_book_detail()` once per book in a loop - `get_book_detail()`
@@ -286,21 +295,31 @@ class BookBrowserRepository:
         wasteful when only the title is needed (confirmed as a real
         25-second startup cost in `DuplicateManagerScreen`, which was
         doing exactly that for every duplicate-candidate pair).
+
+        Real crash found running this against the production citation
+        graph (44,310 distinct citing books in one call):
+        `sqlite3.OperationalError: too many SQL variables` - one `IN (...)`
+        query with a placeholder per id blows past SQLite's real bound-
+        parameter limit at that scale. Batched in chunks well under any
+        real SQLite build's limit instead of one unbounded query.
         """
         if not book_ids:
             return {}
-        placeholders = ", ".join("?" for _ in book_ids)
+        summaries: dict[int, BookSummary] = {}
         with closing(sqlite3.connect(self._database_path)) as connection:
-            rows = connection.execute(
-                f"""
-                SELECT b.BookID, b.Title, b.Author, l.Name
-                FROM Books b
-                LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
-                WHERE b.BookID IN ({placeholders})
-                """,
-                book_ids,
-            ).fetchall()
-        return {row[0]: BookSummary(*row) for row in rows}
+            for batch in _chunked(book_ids, _MAX_IDS_PER_QUERY):
+                placeholders = ", ".join("?" for _ in batch)
+                rows = connection.execute(
+                    f"""
+                    SELECT b.BookID, b.Title, b.Author, l.Name
+                    FROM Books b
+                    LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                    WHERE b.BookID IN ({placeholders})
+                    """,
+                    batch,
+                ).fetchall()
+                summaries.update((row[0], BookSummary(*row)) for row in rows)
+        return summaries
 
     def list_books_by_filters(
         self,
@@ -634,3 +653,8 @@ def _build_chapter_tree(flat: tuple[Chapter, ...]) -> tuple[Chapter, ...]:
         )
 
     return build(None)
+
+
+def _chunked(items: tuple[int, ...], size: int) -> Iterable[tuple[int, ...]]:
+    for start in range(0, len(items), size):
+        yield items[start : start + size]

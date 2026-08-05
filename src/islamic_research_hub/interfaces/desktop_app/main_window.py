@@ -143,7 +143,19 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.setWindowTitle("Islamic Research Hub")
-        self.resize(1180, 760)
+        # Real bug found and fixed: 1180px used to comfortably fit the real
+        # workspace content, but adding the reader's "Extract Events" text
+        # button (waqiat milestone) pushed WorkspaceScreen's real
+        # minimumSizeHint width to 1196px - 16px past the old default,
+        # confirmed via direct measurement. Below its own real minimum,
+        # Qt abandons the outer splitter's intended stretch ratios (search:
+        # reader:AI = 2:4:1) and falls back to near-equal thirds instead -
+        # this is what made maximize/restore look like they barely did
+        # anything and the whole layout feel cramped from first launch.
+        # 1260px gives real margin above the current 1196px minimum so a
+        # future small toolbar addition doesn't immediately regress this
+        # again.
+        self.resize(1260, 760)
 
         self._settings = settings or QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         self._translator = Translator(self._settings)

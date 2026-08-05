@@ -1,5 +1,49 @@
 # Changelog
 
+## Real-scale fixes: app crash, unusable review table, maximize/window sizing
+
+Running the citation graph's full detection pass against the real
+104,797-book production database (see the previous entry) surfaced real
+bugs no test at ordinary scale could have caught:
+
+- **The app crashed on startup.** `BookBrowserRepository.list_books_by_ids()`
+  built one `IN (...)` query with a placeholder per requested id - with
+  329,202 real citation candidates spanning 44,310 distinct citing
+  books, that single query needed more bound parameters than SQLite
+  allows (`sqlite3.OperationalError: too many SQL variables`). Now
+  batched in chunks of 500 - a shared fix across every screen that uses
+  this method (Citation/Duplicate/Event/Taxonomy managers all call it).
+- **`CitationManagerScreen` was unusable at real scale.** Loading
+  329,202 rows into one `QTableWidget` with no pagination made the
+  screen take a very long time just to populate on open. New
+  `CitationCandidateRepository.list_candidates(limit=, offset=)` +
+  `count_candidates()`, and the screen now pages through results 100 at
+  a time with real Previous/Next controls, instead of loading everything
+  at once.
+- **Maximize/restore looked broken.** Real measurement found
+  `WorkspaceScreen`'s actual minimum content width had grown to 1196px
+  (the reader's new "Extract Events" text button pushed it past the
+  old 1180px default), so the app launched *below* its own real minimum
+  size on every start. Below that minimum, Qt abandons the outer
+  splitter's intended stretch ratios and falls back to near-equal
+  thirds - which is what made maximizing a panel look like it barely
+  did anything, and made restoring it look identically unchanged.
+  `MainWindow`'s default size is now 1260x760, with real margin above
+  the measured minimum. Confirmed via direct measurement: maximizing the
+  reader's contents panel now goes from `[240, 76]` to a real `[316, 0]`
+  (was previously a barely-different swap within an already-squeezed
+  layout), and correctly restores back to `[240, 76]`.
+
+Real yield from the full citation scan, now that it completes and the
+review screen can actually show it: **329,202 candidates**, 44,310
+citing books, 13,586 cited books (202,419 `unique_title`, 126,783
+`ambiguous_title`) - far more than the `--sample`-based estimate
+predicted, and a real, useful signal that classical Islamic texts cite
+each other by exact title far more often than the sample happened to
+show.
+
+4 new tests, 895/895 total passing.
+
 ## Waqiat (event) extraction, book-by-book + shared AI-unavailable popup
 
 Book-by-book, on-demand historical-event extraction, not a corpus-wide

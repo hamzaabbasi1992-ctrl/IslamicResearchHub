@@ -34,6 +34,12 @@ from islamic_research_hub.interfaces.desktop_app.citation_detection_worker impor
 from islamic_research_hub.interfaces.desktop_app.import_screen import _heading, _readonly_item
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
 
+PAGE_SIZE = 100
+"""Real production scale (329,202+ real candidates found scanning the
+full corpus) makes loading everything into one QTableWidget impractical
+- confirmed directly, the app took a very long time just to populate the
+table on startup. Paged like any real review list at this scale."""
+
 
 class CitationManagerScreen(QWidget):
     """Review real, literal-phrase citation candidates between owned books."""
@@ -50,6 +56,7 @@ class CitationManagerScreen(QWidget):
         self._browser = browser or BookBrowserRepository(database_path)
         self._citations = citations or CitationCandidateRepository(database_path)
         self._scan_worker: CitationDetectionWorker | None = None
+        self._page_index = 0
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -87,6 +94,20 @@ class CitationManagerScreen(QWidget):
         self._citation_table.verticalHeader().setVisible(False)
         self._citation_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(self._citation_table, stretch=1)
+
+        pagination_row = QHBoxLayout()
+        self._previous_page_button = QPushButton("Previous")
+        self._previous_page_button.clicked.connect(self._go_to_previous_page)
+        pagination_row.addWidget(self._previous_page_button)
+        self._page_label = QLabel()
+        self._page_label.setStyleSheet(MUTED_LABEL_STYLE)
+        pagination_row.addWidget(self._page_label)
+        self._next_page_button = QPushButton("Next")
+        self._next_page_button.clicked.connect(self._go_to_next_page)
+        pagination_row.addWidget(self._next_page_button)
+        pagination_row.addStretch(1)
+        layout.addLayout(pagination_row)
+
         scroll_area.setWidget(content)
         outer.addWidget(scroll_area)
 
@@ -96,9 +117,28 @@ class CitationManagerScreen(QWidget):
         """Reload the citation-candidates table from the real database."""
         self._reload_candidates()
 
+    def _go_to_previous_page(self) -> None:
+        if self._page_index > 0:
+            self._page_index -= 1
+            self._reload_candidates()
+
+    def _go_to_next_page(self) -> None:
+        self._page_index += 1
+        self._reload_candidates()
+
     def _reload_candidates(self) -> None:
-        candidates = list(self._citations.list_candidates())
-        self._status_label.setText(f"{len(candidates)} candidate(s) awaiting review")
+        total = self._citations.count_candidates()
+        page_count = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+        self._page_index = min(self._page_index, page_count - 1)
+        candidates = list(
+            self._citations.list_candidates(limit=PAGE_SIZE, offset=self._page_index * PAGE_SIZE)
+        )
+        self._status_label.setText(f"{total} candidate(s) awaiting review")
+        start = self._page_index * PAGE_SIZE + 1 if candidates else 0
+        end = self._page_index * PAGE_SIZE + len(candidates)
+        self._page_label.setText(f"{start}-{end} of {total}")
+        self._previous_page_button.setEnabled(self._page_index > 0)
+        self._next_page_button.setEnabled(end < total)
         self._citation_table.setRowCount(len(candidates))
 
         # One bulk lookup for every book involved, matching

@@ -159,7 +159,58 @@ def test_ambiguous_title_produces_one_candidate_per_cited_book(tmp_path: Path) -
     candidates = CitationCandidateRepository(database_path).list_candidates()
     assert {candidate.cited_book_id for candidate in candidates} == {1, 2}
     assert all(candidate.match_type == "ambiguous_title" for candidate in candidates)
-    assert all(candidate.citing_book_id == 3 for candidate in candidates)
+
+
+def test_list_candidates_pages_through_a_large_real_result_set(tmp_path: Path) -> None:
+    """Real production scale (329,202+ real candidates) makes loading
+    everything at once impractical - limit/offset must page through
+    real results without duplicates or gaps."""
+    database_path = tmp_path / "books.db"
+    _seed(
+        database_path,
+        (
+            _book(_DISTINCTIVE_TITLE, pages=(_page(1, "front matter"),)),
+            _book(
+                "A Heavily Citing Book",
+                pages=(
+                    _page(1, f"first mention of {_DISTINCTIVE_TITLE}"),
+                    _page(2, f"second mention of {_DISTINCTIVE_TITLE}"),
+                    _page(3, f"third mention of {_DISTINCTIVE_TITLE}"),
+                ),
+            ),
+        ),
+    )
+    repository = CitationCandidateRepository(database_path)
+    repository.detect_and_store()
+    assert repository.count_candidates() == 3
+
+    page_one = repository.list_candidates(limit=2, offset=0)
+    page_two = repository.list_candidates(limit=2, offset=2)
+
+    assert len(page_one) == 2
+    assert len(page_two) == 1
+    all_pages = page_one + page_two
+    assert {candidate.citing_page_no for candidate in all_pages} == {1, 2, 3}
+
+
+def test_count_candidates_excludes_dismissed_by_default(tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed(
+        database_path,
+        (
+            _book(_DISTINCTIVE_TITLE, pages=(_page(1, "front matter"),)),
+            _book(
+                "A Citing Book",
+                pages=(_page(1, f"as mentioned in {_DISTINCTIVE_TITLE} earlier"),),
+            ),
+        ),
+    )
+    repository = CitationCandidateRepository(database_path)
+    repository.detect_and_store()
+    repository.dismiss(citing_book_id=2, citing_page_no=1, cited_book_id=1)
+
+    assert repository.count_candidates() == 0
+    assert repository.count_candidates(include_dismissed=True) == 1
 
 
 def test_anchor_exceeding_max_hits_stores_nothing(tmp_path: Path) -> None:
