@@ -34,6 +34,7 @@ from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
     show_ai_unavailable_dialog,
 )
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, Type
 
@@ -41,12 +42,6 @@ LOGGER = logging.getLogger(__name__)
 
 COLLAPSED_KEY = "appearance/ai_panel_collapsed"
 MIN_AI_PANEL_WIDTH = 220
-
-_PLACEHOLDER_BODY_TEXT = "Suggestions related to the book you're reading will appear here."
-_NOTES_PLACEHOLDER_TEXT = "Notes - coming soon."
-_REFERENCES_PLACEHOLDER_TEXT = "References - coming soon."
-_ASK_PLACEHOLDER_TEXT = "Ask a question about your library..."
-_ASK_DISABLED_PLACEHOLDER_TEXT = "Enable AI Agent in Settings to ask a question"
 
 
 class AiAssistantPanel(QWidget):
@@ -61,6 +56,7 @@ class AiAssistantPanel(QWidget):
     def __init__(
         self,
         settings: QSettings,
+        translator: Translator,
         database_path: Path | None = None,
         enable_lazy_ai_agent: bool = False,
         parent: QWidget | None = None,
@@ -68,6 +64,7 @@ class AiAssistantPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("aiPanel")
         self._settings = settings
+        self._translator = translator
         self._database_path = database_path
         self._enable_lazy_ai_agent = enable_lazy_ai_agent
         self._collapsed = bool(settings.value(COLLAPSED_KEY, False, type=bool))
@@ -85,15 +82,15 @@ class AiAssistantPanel(QWidget):
         layout.setSpacing(8)
 
         header = QHBoxLayout()
-        title = QLabel("Assistant")
-        title.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
-        header.addWidget(title)
+        self._title_label = QLabel(self._translator.tr("ai-panel-title"))
+        self._title_label.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
+        header.addWidget(self._title_label)
         header.addStretch(1)
         self._maximize_button = QPushButton()
         self._maximize_button.setFlat(True)
         self._maximize_button.setIcon(button_icon("maximize"))
         self._maximize_button.setIconSize(button_icon_size())
-        self._maximize_button.setToolTip("Maximize this panel")
+        self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
         self._maximize_button.clicked.connect(self.maximize_clicked)
         header.addWidget(self._maximize_button)
         self._collapse_button = QPushButton()
@@ -103,14 +100,14 @@ class AiAssistantPanel(QWidget):
         header.addWidget(self._collapse_button)
         layout.addLayout(header)
 
-        self._body_label = EmptyStateLabel(_PLACEHOLDER_BODY_TEXT)
+        self._body_label = EmptyStateLabel(self._translator.tr("ai-panel-placeholder-body"))
         layout.addWidget(self._body_label)
 
         ask_row = QHBoxLayout()
         self._question_edit = QLineEdit()
         self._question_edit.returnPressed.connect(self._on_ask_clicked)
         ask_row.addWidget(self._question_edit, stretch=1)
-        self._ask_button = QPushButton("Ask")
+        self._ask_button = QPushButton(self._translator.tr("ai-panel-ask"))
         self._ask_button.clicked.connect(self._on_ask_clicked)
         ask_row.addWidget(self._ask_button)
         layout.addLayout(ask_row)
@@ -129,23 +126,40 @@ class AiAssistantPanel(QWidget):
         # the panel's future shape is visible now, disabled/labeled
         # "coming soon" rather than faked - no Notes/References backend
         # exists anywhere in this project yet.
-        notes_heading = QLabel("Notes")
-        notes_heading.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_SM}px; margin-top: 8px;")
-        layout.addWidget(notes_heading)
-        notes_body = EmptyStateLabel(_NOTES_PLACEHOLDER_TEXT)
-        layout.addWidget(notes_body)
-
-        references_heading = QLabel("References")
-        references_heading.setStyleSheet(
+        self._notes_heading = QLabel(self._translator.tr("ai-panel-notes-heading"))
+        self._notes_heading.setStyleSheet(
             f"font-weight: 700; font-size: {Type.BODY_SM}px; margin-top: 8px;"
         )
-        layout.addWidget(references_heading)
-        references_body = EmptyStateLabel(_REFERENCES_PLACEHOLDER_TEXT)
-        layout.addWidget(references_body)
+        layout.addWidget(self._notes_heading)
+        self._notes_body = EmptyStateLabel(self._translator.tr("ai-panel-notes-placeholder"))
+        layout.addWidget(self._notes_body)
+
+        self._references_heading = QLabel(self._translator.tr("ai-panel-references-heading"))
+        self._references_heading.setStyleSheet(
+            f"font-weight: 700; font-size: {Type.BODY_SM}px; margin-top: 8px;"
+        )
+        layout.addWidget(self._references_heading)
+        self._references_body = EmptyStateLabel(
+            self._translator.tr("ai-panel-references-placeholder")
+        )
+        layout.addWidget(self._references_body)
 
         layout.addStretch(1)
 
         self._update_collapse_icon()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        """Update this panel's own labels after the app language changes."""
+        self._title_label.setText(self._translator.tr("ai-panel-title"))
+        self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
+        self._body_label.setText(self._translator.tr("ai-panel-placeholder-body"))
+        self._ask_button.setText(self._translator.tr("ai-panel-ask"))
+        self._notes_heading.setText(self._translator.tr("ai-panel-notes-heading"))
+        self._notes_body.setText(self._translator.tr("ai-panel-notes-placeholder"))
+        self._references_heading.setText(self._translator.tr("ai-panel-references-heading"))
+        self._references_body.setText(self._translator.tr("ai-panel-references-placeholder"))
+        self._apply_ai_agent_enabled_state()
 
     @property
     def is_collapsed(self) -> bool:
@@ -181,9 +195,9 @@ class AiAssistantPanel(QWidget):
         self._question_edit.setEnabled(self._enable_lazy_ai_agent)
         self._ask_button.setEnabled(self._enable_lazy_ai_agent)
         self._question_edit.setPlaceholderText(
-            _ASK_PLACEHOLDER_TEXT
+            self._translator.tr("ai-panel-ask-placeholder")
             if self._enable_lazy_ai_agent
-            else _ASK_DISABLED_PLACEHOLDER_TEXT
+            else self._translator.tr("ai-panel-ask-placeholder-disabled")
         )
 
     def _on_ask_clicked(self) -> None:
@@ -209,7 +223,9 @@ class AiAssistantPanel(QWidget):
         self._answer_area.setVisible(True)
         calls = tuple(tool_calls_made) if tool_calls_made else ()
         if calls:
-            self._tool_calls_label.setText("Searched: " + ", ".join(calls))
+            self._tool_calls_label.setText(
+                self._translator.tr("ai-panel-searched-prefix") + ", ".join(calls)
+            )
             self._tool_calls_label.setVisible(True)
         else:
             self._tool_calls_label.setVisible(False)

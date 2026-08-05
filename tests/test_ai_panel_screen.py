@@ -12,15 +12,20 @@ from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import (  # noq
     COLLAPSED_KEY,
     AiAssistantPanel,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 
 
 def _isolated_settings(tmp_path: Path) -> QSettings:
     return QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
 
 
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(_isolated_settings(tmp_path))
+
+
 def test_defaults_to_expanded_when_nothing_is_stored(qtbot, tmp_path: Path) -> None:
     """With no stored preference, the panel starts expanded."""
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
 
     assert panel.is_collapsed is False
@@ -29,7 +34,7 @@ def test_defaults_to_expanded_when_nothing_is_stored(qtbot, tmp_path: Path) -> N
 def test_toggle_collapsed_flips_state_and_persists(qtbot, tmp_path: Path) -> None:
     """Toggling collapses the panel and remembers it for next time."""
     settings = _isolated_settings(tmp_path)
-    panel = AiAssistantPanel(settings)
+    panel = AiAssistantPanel(settings, _translator(tmp_path))
     qtbot.addWidget(panel)
 
     panel.toggle_collapsed()
@@ -41,9 +46,9 @@ def test_toggle_collapsed_flips_state_and_persists(qtbot, tmp_path: Path) -> Non
 def test_a_second_panel_picks_up_the_persisted_collapsed_state(qtbot, tmp_path: Path) -> None:
     """A fresh panel instance reads back a prior panel's persisted choice."""
     settings = _isolated_settings(tmp_path)
-    AiAssistantPanel(settings).set_collapsed(True)
+    AiAssistantPanel(settings, _translator(tmp_path)).set_collapsed(True)
 
-    reloaded = AiAssistantPanel(_isolated_settings(tmp_path))
+    reloaded = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(reloaded)
 
     assert reloaded.is_collapsed is True
@@ -51,7 +56,7 @@ def test_a_second_panel_picks_up_the_persisted_collapsed_state(qtbot, tmp_path: 
 
 def test_setting_the_same_state_again_does_not_emit(qtbot, tmp_path: Path) -> None:
     """No redundant signal when the collapsed state doesn't actually change."""
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
     received = []
     panel.collapsed_changed.connect(received.append)
@@ -63,7 +68,7 @@ def test_setting_the_same_state_again_does_not_emit(qtbot, tmp_path: Path) -> No
 
 def test_collapsed_changed_signal_carries_the_new_state(qtbot, tmp_path: Path) -> None:
     """The signal argument matches the panel's new collapsed state."""
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
 
     with qtbot.waitSignal(panel.collapsed_changed, timeout=1000) as blocker:
@@ -76,7 +81,7 @@ def test_question_input_is_disabled_by_default(qtbot, tmp_path: Path) -> None:
     """Off by default - the AI Agent is a real feature now, but making a
     paid external API call is never silent (same opt-in reasoning as
     TTS/voice search)."""
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
 
     assert not panel._question_edit.isEnabled()
@@ -84,7 +89,7 @@ def test_question_input_is_disabled_by_default(qtbot, tmp_path: Path) -> None:
 
 
 def test_question_input_is_enabled_when_ai_agent_is_on(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
 
     assert panel._question_edit.isEnabled()
@@ -97,7 +102,7 @@ def test_notes_and_references_are_honest_placeholders(qtbot, tmp_path: Path) -> 
     either, so nothing here is faked as functional."""
     from PySide6.QtWidgets import QLabel
 
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
 
     labels = {label.text() for label in panel.findChildren(QLabel)}
@@ -134,7 +139,7 @@ def _install_fake_ai_agent(panel: AiAssistantPanel, **kwargs) -> _FakeAiAgentSer
 
 
 def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     fake = _install_fake_ai_agent(panel, answer="Real grounded answer.", tool_calls_made=("search_books", "get_book_pages"))
     panel._question_edit.setText("What does this library say about patience?")
@@ -155,7 +160,7 @@ def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path:
 def test_asking_a_question_when_the_service_fails_shows_a_real_message(
     qtbot, tmp_path: Path
 ) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     _install_fake_ai_agent(panel, fail=True)
     panel._question_edit.setText("A question")
@@ -180,7 +185,7 @@ def test_asking_with_no_service_available_shows_a_real_message(qtbot, tmp_path: 
         "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.show_ai_unavailable_dialog",
         lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
     )
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     panel._build_real_ai_agent_service = lambda: None
     panel._question_edit.setText("A question")
@@ -206,7 +211,7 @@ def test_a_genuine_runtime_failure_does_not_trigger_the_unavailable_popup(
         "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.show_ai_unavailable_dialog",
         lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
     )
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     _install_fake_ai_agent(panel, fail=True)
     panel._question_edit.setText("A question")
@@ -221,7 +226,7 @@ def test_a_genuine_runtime_failure_does_not_trigger_the_unavailable_popup(
 
 
 def test_ask_button_disabled_while_a_request_is_in_flight(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     _install_fake_ai_agent(panel)
     panel._question_edit.setText("A question")
@@ -235,7 +240,7 @@ def test_ask_button_disabled_while_a_request_is_in_flight(qtbot, tmp_path: Path)
 
 
 def test_asking_a_blank_question_does_nothing(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path), enable_lazy_ai_agent=True)
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
     qtbot.addWidget(panel)
     _install_fake_ai_agent(panel)
 
@@ -245,14 +250,14 @@ def test_asking_a_blank_question_does_nothing(qtbot, tmp_path: Path) -> None:
 
 
 def test_build_llm_provider_returns_none_for_an_unknown_provider(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
 
     assert panel._build_llm_provider("not-a-real-provider", "some-key") is None
 
 
 def test_lazy_ai_agent_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
-    panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)
     build_calls = []
     panel._build_real_ai_agent_service = lambda: (build_calls.append(1), None)[1]
@@ -261,3 +266,18 @@ def test_lazy_ai_agent_is_not_attempted_by_default(qtbot, tmp_path: Path) -> Non
 
     assert result is None
     assert build_calls == []
+
+
+def test_switching_language_retranslates_the_panel(qtbot, tmp_path: Path) -> None:
+    settings = _isolated_settings(tmp_path)
+    translator = Translator(settings)
+    panel = AiAssistantPanel(settings, translator)
+    qtbot.addWidget(panel)
+    assert panel._title_label.text() == "Assistant"
+    assert panel._ask_button.text() == "Ask"
+
+    translator.set_language("ur")
+
+    assert panel._title_label.text() == "اسسٹنٹ"
+    assert panel._ask_button.text() == "پوچھیں"
+    assert panel._notes_heading.text() == "نوٹس"

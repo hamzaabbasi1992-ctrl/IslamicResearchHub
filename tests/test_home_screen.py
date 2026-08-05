@@ -24,6 +24,7 @@ from islamic_research_hub.infrastructure.persistence.recent_book_repository impo
     RecentBookRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.home_screen import HomeScreen  # noqa: E402
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore  # noqa: E402
 
 
@@ -53,7 +54,9 @@ def _migrated_and_seeded(tmp_path: Path) -> Path:
 
 def _new_screen(tmp_path: Path, database_path: Path) -> HomeScreen:
     return HomeScreen(
-        database_path, recent_search_store=RecentSearchStore(_isolated_settings(tmp_path))
+        database_path,
+        Translator(_isolated_settings(tmp_path)),
+        recent_search_store=RecentSearchStore(_isolated_settings(tmp_path)),
     )
 
 
@@ -135,7 +138,9 @@ def test_recent_searches_shows_a_real_stored_query(qtbot, tmp_path: Path) -> Non
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     RecentSearchStore(settings).record("hadith of intentions")
-    screen = HomeScreen(database_path, recent_search_store=RecentSearchStore(settings))
+    screen = HomeScreen(
+        database_path, Translator(settings), recent_search_store=RecentSearchStore(settings)
+    )
     qtbot.addWidget(screen)
 
     assert "hadith of intentions" in screen._recent_searches_body.text()
@@ -229,3 +234,25 @@ def test_recently_imported_is_honest_when_nothing_was_imported_this_session(
     qtbot.addWidget(screen)
 
     assert "no libraries imported this session" in screen._recently_imported_body.text().lower()
+
+
+def test_switching_language_retranslates_the_whole_screen(qtbot, tmp_path: Path) -> None:
+    """Real bug this guards against: only Settings/header used to retranslate
+    on a language change - every other screen, including this one, silently
+    stayed in English. Heading, card titles, and placeholders must all
+    update for real when the app language changes."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    translator = Translator(settings)
+    screen = HomeScreen(
+        database_path, translator, recent_search_store=RecentSearchStore(settings)
+    )
+    qtbot.addWidget(screen)
+    assert screen._heading.text() == "Home"
+
+    translator.set_language("ur")
+
+    assert screen._heading.text() == "ہوم"
+    assert screen._card_headings["home-card-bookmarks"].text() == "نشانیاں"
+    assert screen._pinned_books_body.text() == "کتابیں پن کرنا ابھی دستیاب نہیں۔"

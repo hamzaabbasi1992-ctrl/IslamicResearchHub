@@ -16,21 +16,24 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE
 from islamic_research_hub.shared.logging_config import get_friendly_log_handler
 
 LOG_FILE_NAME = "islamic_research_hub.log"
 MAX_LINES_SHOWN = 500
-_NO_ACTIVITY_TEXT = "No recent activity."
 
 
 class LogsScreen(QWidget):
     """Friendly recent-activity view by default; the raw log file is one
     "Advanced" click away, unchanged, for troubleshooting."""
 
-    def __init__(self, log_directory: Path, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, log_directory: Path, translator: Translator, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self._log_path = log_directory / LOG_FILE_NAME
+        self._translator = translator
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -45,14 +48,14 @@ class LogsScreen(QWidget):
         self._status_label.setWordWrap(True)
         header_row.addWidget(self._status_label)
         header_row.addStretch(1)
-        self._advanced_toggle = QPushButton("Advanced")
+        self._advanced_toggle = QPushButton(self._translator.tr("logs-advanced"))
         self._advanced_toggle.setCheckable(True)
         self._advanced_toggle.setObjectName("navTab")
         self._advanced_toggle.toggled.connect(self._on_advanced_toggled)
         header_row.addWidget(self._advanced_toggle)
-        refresh_button = QPushButton("Refresh")
-        refresh_button.clicked.connect(self.refresh)
-        header_row.addWidget(refresh_button)
+        self._refresh_button = QPushButton(self._translator.tr("logs-refresh"))
+        self._refresh_button.clicked.connect(self.refresh)
+        header_row.addWidget(self._refresh_button)
         layout.addLayout(header_row)
 
         self._view_stack = QStackedWidget()
@@ -71,6 +74,13 @@ class LogsScreen(QWidget):
         layout.addWidget(self._view_stack, stretch=1)
 
         self.refresh()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        """Update this screen's own labels after the app language changes."""
+        self._advanced_toggle.setText(self._translator.tr("logs-advanced"))
+        self._refresh_button.setText(self._translator.tr("logs-refresh"))
+        self.refresh()
 
     def _on_advanced_toggled(self, checked: bool) -> None:
         self._view_stack.setCurrentIndex(1 if checked else 0)
@@ -83,11 +93,15 @@ class LogsScreen(QWidget):
     def _refresh_friendly_view(self) -> None:
         handler = get_friendly_log_handler()
         messages = handler.messages() if handler is not None else []
-        self._friendly_area.setPlainText("\n".join(messages) if messages else _NO_ACTIVITY_TEXT)
+        self._friendly_area.setPlainText(
+            "\n".join(messages) if messages else self._translator.tr("logs-no-activity")
+        )
 
     def _refresh_raw_view(self) -> None:
         if not self._log_path.is_file():
-            self._status_label.setText(f"No log file yet at {self._log_path}")
+            self._status_label.setText(
+                self._translator.tr("logs-no-log-file").format(path=self._log_path)
+            )
             self._text_area.setPlainText("")
             return
 
@@ -97,9 +111,13 @@ class LogsScreen(QWidget):
 
         if len(lines) > MAX_LINES_SHOWN:
             self._status_label.setText(
-                f"Showing the most recent {MAX_LINES_SHOWN} of {len(lines)} lines - {self._log_path}"
+                self._translator.tr("logs-showing-recent").format(
+                    shown=MAX_LINES_SHOWN, total=len(lines), path=self._log_path
+                )
             )
         else:
-            self._status_label.setText(f"{len(lines)} line(s) - {self._log_path}")
+            self._status_label.setText(
+                self._translator.tr("logs-line-count").format(count=len(lines), path=self._log_path)
+            )
 
         self._text_area.setPlainText("\n".join(newest_first))

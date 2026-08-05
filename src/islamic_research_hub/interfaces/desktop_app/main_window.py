@@ -252,6 +252,7 @@ class MainWindow(QMainWindow):
             self._viewer_stack.addWidget(self._pdf_viewer_screen)
             self._ai_panel = AiAssistantPanel(
                 self._settings,
+                self._translator,
                 database_path=database_path,
                 # Real tool-calling loop over a cloud LLM (Anthropic/OpenAI/
                 # Gemini, chosen in Settings) - the app's first feature
@@ -276,6 +277,7 @@ class MainWindow(QMainWindow):
             event_manager_screen = EventManagerScreen(database_path, browser=self._browser)
             self._home_screen = HomeScreen(
                 database_path,
+                self._translator,
                 browser=self._browser,
                 recent_books=self._recent_books,
                 bookmarks=self._bookmarks,
@@ -288,7 +290,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(taxonomy_browser_screen)
             self._stack.addWidget(citation_manager_screen)
             self._stack.addWidget(event_manager_screen)
-            self._stack.addWidget(LogsScreen(log_directory))
+            self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
             )

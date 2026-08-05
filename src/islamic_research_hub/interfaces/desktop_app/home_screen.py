@@ -36,6 +36,7 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.bookmark_repository import (
     BookmarkRepository,
 )
+from islamic_research_hub.domain.models.verification_report import VerificationReport
 from islamic_research_hub.infrastructure.persistence.database_verifier import DatabaseVerifier
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
@@ -44,6 +45,7 @@ from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLa
 from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_APPLICATION,
     SETTINGS_ORGANIZATION,
+    Translator,
 )
 from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
@@ -60,21 +62,19 @@ _CARD_MIN_HEIGHT = 180
 """Tall enough for a heading + up to _MAX_LISTED_ITEMS real list rows -
 the tallest real card content on this screen."""
 
-_NO_RECENT_BOOKS_TEXT = "No books opened yet - search for one to get started."
-_NO_RECENT_SEARCHES_TEXT = "No searches yet."
-_NO_BOOKMARKS_TEXT = "No bookmarks yet - open a book and bookmark a page."
-_NO_RECENT_AUTHORS_TEXT = "No books opened yet."
-_NO_RECENT_CATEGORIES_TEXT = "No books opened yet."
-_NO_IMPORTS_THIS_SESSION_TEXT = "No libraries imported this session yet."
-_COLLECTIONS_PLACEHOLDER_TEXT = (
-    "Browsing your rated/bookmarked books isn't available yet - "
-    "open a book to rate or bookmark it."
+_CARD_KEYS = (
+    "home-card-continue-reading",
+    "home-card-bookmarks",
+    "home-card-recent-searches",
+    "home-card-statistics",
+    "home-card-recent-authors",
+    "home-card-recent-categories",
+    "home-card-recently-imported",
+    "home-card-library-health",
+    "home-card-collections",
+    "home-card-pinned-books",
+    "home-card-ai-suggestions",
 )
-_PINNED_BOOKS_PLACEHOLDER_TEXT = "Pinning books isn't available yet."
-_AI_SUGGESTIONS_PLACEHOLDER_TEXT = (
-    "Open a book to see related suggestions in the Assistant panel."
-)
-_LIBRARY_HEALTH_IDLE_TEXT = "Not checked yet this session."
 
 
 class HomeScreen(QWidget):
@@ -86,6 +86,7 @@ class HomeScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         browser: BookBrowserRepository | None = None,
         recent_books: RecentBookRepository | None = None,
         bookmarks: BookmarkRepository | None = None,
@@ -94,6 +95,7 @@ class HomeScreen(QWidget):
     ) -> None:
         super().__init__(parent)
         self._database_path = database_path
+        self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._recent_books = recent_books or RecentBookRepository(database_path)
         self._bookmarks = bookmarks or BookmarkRepository(database_path)
@@ -101,14 +103,16 @@ class HomeScreen(QWidget):
             QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         )
         self._imported_this_session: list[str] = []
+        self._health_report: VerificationReport | None = None
+        self._card_headings: dict[str, QLabel] = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
         outer.setSpacing(Spacing.SM)
 
-        heading = QLabel("Home")
-        heading.setStyleSheet(f"font-size: 20px; font-weight: 700; color: {INK};")
-        outer.addWidget(heading)
+        self._heading = QLabel(self._translator.tr("home-heading"))
+        self._heading.setStyleSheet(f"font-size: 20px; font-weight: 700; color: {INK};")
+        outer.addWidget(self._heading)
 
         self._grid = QGridLayout()
         self._grid.setSpacing(Spacing.MD)
@@ -116,25 +120,38 @@ class HomeScreen(QWidget):
         outer.addStretch(1)
 
         # Clickable-rows cards (real per-item QPushButton rows via _set_card_rows):
-        self._continue_reading_body = self._add_card("Continue Reading", is_list=True)
-        self._bookmarks_body = self._add_card("Bookmarks", is_list=True)
+        self._continue_reading_body = self._add_card("home-card-continue-reading", is_list=True)
+        self._bookmarks_body = self._add_card("home-card-bookmarks", is_list=True)
         # Plain-text cards (joined-line QLabel via _set_text_lines):
-        self._recent_searches_body = self._add_card("Recent Searches")
-        self._statistics_body = self._add_card("Statistics")
-        self._recent_authors_body = self._add_card("Recently Viewed Authors")
-        self._recent_categories_body = self._add_card("Recently Viewed Categories")
-        self._recently_imported_body = self._add_card("Recently Imported")
+        self._recent_searches_body = self._add_card("home-card-recent-searches")
+        self._statistics_body = self._add_card("home-card-statistics")
+        self._recent_authors_body = self._add_card("home-card-recent-authors")
+        self._recent_categories_body = self._add_card("home-card-recent-categories")
+        self._recently_imported_body = self._add_card("home-card-recently-imported")
         self._library_health_body, self._check_health_button = self._add_health_card()
         self._collections_body = self._add_card(
-            "Collections", initial_text=_COLLECTIONS_PLACEHOLDER_TEXT
+            "home-card-collections", initial_text_key="home-placeholder-collections"
         )
         self._pinned_books_body = self._add_card(
-            "Pinned Books", initial_text=_PINNED_BOOKS_PLACEHOLDER_TEXT
+            "home-card-pinned-books", initial_text_key="home-placeholder-pinned-books"
         )
         self._ai_suggestions_body = self._add_card(
-            "AI Suggestions", initial_text=_AI_SUGGESTIONS_PLACEHOLDER_TEXT
+            "home-card-ai-suggestions", initial_text_key="home-placeholder-ai-suggestions"
         )
 
+        self.refresh()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        """Update this screen's own labels after the app language changes."""
+        self._heading.setText(self._translator.tr("home-heading"))
+        for key in _CARD_KEYS:
+            self._card_headings[key].setText(self._translator.tr(key))
+        self._check_health_button.setText(self._translator.tr("home-check-now"))
+        self._collections_body.setText(self._translator.tr("home-placeholder-collections"))
+        self._pinned_books_body.setText(self._translator.tr("home-placeholder-pinned-books"))
+        self._ai_suggestions_body.setText(self._translator.tr("home-placeholder-ai-suggestions"))
+        self._render_health_body()
         self.refresh()
 
     def refresh(self) -> None:
@@ -142,22 +159,22 @@ class HomeScreen(QWidget):
         recent_books = self._recent_books.list_recent(limit=_MAX_LISTED_ITEMS)
         self._set_card_rows(
             self._continue_reading_body,
-            [(_book_line(book), book.book_id, None) for book in recent_books],
-            _NO_RECENT_BOOKS_TEXT,
+            [(_book_line(self._translator, book), book.book_id, None) for book in recent_books],
+            self._translator.tr("home-empty-recent-books"),
         )
 
         recent_queries = self._recent_searches.list_recent()[:_MAX_LISTED_ITEMS]
         self._set_text_lines(
-            self._recent_searches_body, recent_queries, _NO_RECENT_SEARCHES_TEXT
+            self._recent_searches_body, recent_queries, self._translator.tr("home-empty-recent-searches")
         )
 
         stats = self._browser.get_header_stats()
         self._set_text_lines(
             self._statistics_body,
             [
-                f"{stats.book_count} books",
-                f"{stats.library_count} libraries",
-                f"{stats.author_count} authors",
+                self._translator.tr("home-stats-books").format(count=stats.book_count),
+                self._translator.tr("home-stats-libraries").format(count=stats.library_count),
+                self._translator.tr("home-stats-authors").format(count=stats.author_count),
             ],
             "",
         )
@@ -166,10 +183,10 @@ class HomeScreen(QWidget):
         self._set_card_rows(
             self._bookmarks_body,
             [
-                (_bookmark_line(bookmark), bookmark.book_id, bookmark.page_number)
+                (_bookmark_line(self._translator, bookmark), bookmark.book_id, bookmark.page_number)
                 for bookmark in recent_bookmarks
             ],
-            _NO_BOOKMARKS_TEXT,
+            self._translator.tr("home-empty-bookmarks"),
         )
 
         recent_authors = list(
@@ -178,18 +195,20 @@ class HomeScreen(QWidget):
             )
         )[:_MAX_LISTED_ITEMS]
         self._set_text_lines(
-            self._recent_authors_body, recent_authors, _NO_RECENT_AUTHORS_TEXT
+            self._recent_authors_body, recent_authors, self._translator.tr("home-empty-recent-authors")
         )
 
         recent_categories = self._recent_books.list_recent_categories(limit=_MAX_LISTED_ITEMS)
         self._set_text_lines(
-            self._recent_categories_body, recent_categories, _NO_RECENT_CATEGORIES_TEXT
+            self._recent_categories_body,
+            recent_categories,
+            self._translator.tr("home-empty-recent-categories"),
         )
 
         self._set_text_lines(
             self._recently_imported_body,
             self._imported_this_session,
-            _NO_IMPORTS_THIS_SESSION_TEXT,
+            self._translator.tr("home-empty-recently-imported"),
         )
 
     def note_library_imported(self, library_name: str) -> None:
@@ -201,28 +220,36 @@ class HomeScreen(QWidget):
     def _check_library_health(self) -> None:
         """Run the real integrity checks on demand - a genuine table-scan
         cost, not something to repeat on every dashboard refresh."""
-        report = DatabaseVerifier(self._database_path).verify()
-        if not report.issues:
-            self._library_health_body.setText("Healthy - no issues found.")
+        self._health_report = DatabaseVerifier(self._database_path).verify()
+        self._render_health_body()
+
+    def _render_health_body(self) -> None:
+        if self._health_report is None:
+            self._library_health_body.setText(self._translator.tr("home-library-health-idle"))
+        elif not self._health_report.issues:
+            self._library_health_body.setText(self._translator.tr("home-library-health-healthy"))
         else:
             self._library_health_body.setText(
-                f"{report.error_count} error(s), {report.warning_count} warning(s) found."
+                self._translator.tr("home-library-health-issues").format(
+                    errors=self._health_report.error_count,
+                    warnings=self._health_report.warning_count,
+                )
             )
 
     def _add_card(
         self,
-        title: str,
+        title_key: str,
         is_list: bool = False,
-        initial_text: str = "",
+        initial_text_key: str | None = None,
     ) -> QVBoxLayout | QLabel:
-        card, layout = self._new_card(title)
+        card, layout = self._new_card(title_key)
         if is_list:
             body_layout = QVBoxLayout()
             body_layout.setSpacing(2)
             layout.addLayout(body_layout)
             self._place_card(card)
             return body_layout
-        body = QLabel(initial_text)
+        body = QLabel(self._translator.tr(initial_text_key) if initial_text_key else "")
         body.setStyleSheet(MUTED_LABEL_STYLE)
         body.setWordWrap(True)
         layout.addWidget(body)
@@ -230,18 +257,18 @@ class HomeScreen(QWidget):
         return body
 
     def _add_health_card(self) -> tuple[QLabel, QPushButton]:
-        card, layout = self._new_card("Library Health")
-        body = QLabel(_LIBRARY_HEALTH_IDLE_TEXT)
+        card, layout = self._new_card("home-card-library-health")
+        body = QLabel(self._translator.tr("home-library-health-idle"))
         body.setStyleSheet(MUTED_LABEL_STYLE)
         body.setWordWrap(True)
         layout.addWidget(body)
-        button = QPushButton("Check now")
+        button = QPushButton(self._translator.tr("home-check-now"))
         button.clicked.connect(self._check_library_health)
         layout.addWidget(button)
         self._place_card(card)
         return body, button
 
-    def _new_card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
+    def _new_card(self, title_key: str) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setObjectName("card")
         # Real UI fix: cards had no shared height floor, so a card with
@@ -253,9 +280,10 @@ class HomeScreen(QWidget):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
         layout.setSpacing(Spacing.XS)
-        heading = QLabel(title)
+        heading = QLabel(self._translator.tr(title_key))
         heading.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
         layout.addWidget(heading)
+        self._card_headings[title_key] = heading
         return card, layout
 
     def _place_card(self, card: QFrame) -> None:
@@ -296,11 +324,11 @@ class HomeScreen(QWidget):
             body_layout.addWidget(button)
 
 
-def _book_line(book: BookSummary) -> str:
-    title = book.title or "(untitled)"
+def _book_line(translator: Translator, book: BookSummary) -> str:
+    title = book.title or translator.tr("home-untitled")
     return f"{title} - {book.author}" if book.author else title
 
 
-def _bookmark_line(bookmark: RecentBookmark) -> str:
-    title = bookmark.title or "(untitled)"
-    return f"{title} - page {bookmark.page_number}"
+def _bookmark_line(translator: Translator, bookmark: RecentBookmark) -> str:
+    title = bookmark.title or translator.tr("home-untitled")
+    return translator.tr("home-bookmark-line").format(title=title, page=bookmark.page_number)
