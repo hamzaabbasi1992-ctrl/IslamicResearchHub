@@ -44,21 +44,22 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.migration_runner import TAXONOMY_DIMENSIONS
 from islamic_research_hub.infrastructure.persistence.taxonomy_repository import TaxonomyRepository
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.import_screen import _heading
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE, Type
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
 
-_DIMENSION_LABELS: dict[str, str] = {
-    "subject": "Subject",
-    "author": "Author",
-    "language": "Language",
-    "publisher": "Publisher",
-    "madhhab": "Madhhab",
-    "region": "Region",
-    "personality": "Personality",
-    "event": "Event",
-    "tag": "Tag",
+_DIMENSION_KEYS: dict[str, str] = {
+    "subject": "taxonomy-dim-subject",
+    "author": "taxonomy-dim-author",
+    "language": "taxonomy-dim-language",
+    "publisher": "taxonomy-dim-publisher",
+    "madhhab": "taxonomy-dim-madhhab",
+    "region": "taxonomy-dim-region",
+    "personality": "taxonomy-dim-personality",
+    "event": "taxonomy-dim-event",
+    "tag": "taxonomy-dim-tag",
 }
 _DIMENSION_COLUMNS = 3
 
@@ -71,15 +72,19 @@ class TaxonomyBrowserScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         taxonomy: TaxonomyRepository | None = None,
         browser: BookBrowserRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._database_path = database_path
+        self._translator = translator
         self._taxonomy = taxonomy or TaxonomyRepository(database_path)
         self._browser = browser or BookBrowserRepository(database_path)
         self._current_dimension = TAXONOMY_DIMENSIONS[0]
+        self._current_term_id: int | None = None
+        self._current_term_label: str | None = None
         self._dimension_buttons: dict[str, QPushButton] = {}
 
         outer = QVBoxLayout(self)
@@ -98,9 +103,37 @@ class TaxonomyBrowserScreen(QWidget):
             self._select_dimension(self._first_populated_dimension())
         else:
             self._empty_dimension_label.setText(
-                "No taxonomy data yet - run the taxonomy population step first."
+                self._translator.tr("taxonomy-no-data-any-dimension")
             )
             self._empty_dimension_label.setVisible(True)
+
+        self._translator.language_changed.connect(self._retranslate)
+
+    # ------------------------------------------------------------- i18n
+
+    def _retranslate(self, _language: str) -> None:
+        self._heading_label.setText(self._translator.tr("taxonomy-heading"))
+        for code, button in self._dimension_buttons.items():
+            button.setText(self._translator.tr(_DIMENSION_KEYS.get(code, code)))
+        self._filter_edit.setPlaceholderText(self._translator.tr("taxonomy-search-placeholder"))
+        self._refresh_dimension_buttons()
+        if not self._populated_dimensions:
+            self._empty_dimension_label.setText(
+                self._translator.tr("taxonomy-no-data-any-dimension")
+            )
+        elif not self._taxonomy.get_term_tree(self._current_dimension):
+            self._empty_dimension_label.setText(self._translator.tr("taxonomy-no-data-for-dimension"))
+        if self._current_term_id is not None and self._current_term_label is not None:
+            self._show_books_for_term(self._current_term_id, self._current_term_label)
+        elif self._populated_dimensions:
+            dimension_label = self._translator.tr(
+                _DIMENSION_KEYS.get(self._current_dimension, self._current_dimension)
+            ).lower()
+            self._clear_results(
+                self._translator.tr("taxonomy-pick-dimension").format(dimension=dimension_label)
+            )
+        else:
+            self._clear_results(self._translator.tr("taxonomy-pick-term"))
 
     # -------------------------------------------------------------- left
 
@@ -113,12 +146,13 @@ class TaxonomyBrowserScreen(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(8)
 
-        layout.addWidget(_heading("Taxonomy"))
+        self._heading_label = _heading(self._translator.tr("taxonomy-heading"))
+        layout.addWidget(self._heading_label)
 
         dimension_grid = QGridLayout()
         dimension_grid.setSpacing(4)
         for index, code in enumerate(TAXONOMY_DIMENSIONS):
-            button = QPushButton(_DIMENSION_LABELS.get(code, code))
+            button = QPushButton(self._translator.tr(_DIMENSION_KEYS.get(code, code)))
             button.setCheckable(True)
             button.setObjectName("navTab")
             button.clicked.connect(lambda _checked, c=code: self._select_dimension(c))
@@ -133,7 +167,7 @@ class TaxonomyBrowserScreen(QWidget):
         layout.addWidget(self._empty_dimension_label)
 
         self._filter_edit = QLineEdit()
-        self._filter_edit.setPlaceholderText("Search within taxonomy...")
+        self._filter_edit.setPlaceholderText(self._translator.tr("taxonomy-search-placeholder"))
         self._filter_edit.textChanged.connect(self._apply_filter)
         layout.addWidget(self._filter_edit)
 
@@ -178,21 +212,26 @@ class TaxonomyBrowserScreen(QWidget):
         for code, button in self._dimension_buttons.items():
             populated = code in self._populated_dimensions
             button.setEnabled(populated)
-            button.setToolTip("" if populated else "No data yet for this dimension.")
+            button.setToolTip("" if populated else self._translator.tr("taxonomy-no-data-for-dimension"))
             button.setChecked(code == self._current_dimension)
 
     def _select_dimension(self, code: str) -> None:
         if code not in self._populated_dimensions:
             return
         self._current_dimension = code
+        self._current_term_id = None
+        self._current_term_label = None
         self._refresh_dimension_buttons()
         self._filter_edit.clear()
-        self._clear_results(f"Pick a {_DIMENSION_LABELS.get(code, code).lower()} to see its books.")
+        dimension_label = self._translator.tr(_DIMENSION_KEYS.get(code, code)).lower()
+        self._clear_results(
+            self._translator.tr("taxonomy-pick-dimension").format(dimension=dimension_label)
+        )
 
         self._tree.clear()
         tree = self._taxonomy.get_term_tree(code)
         if not tree:
-            self._empty_dimension_label.setText("No data yet for this dimension.")
+            self._empty_dimension_label.setText(self._translator.tr("taxonomy-no-data-for-dimension"))
             self._empty_dimension_label.setVisible(True)
             return
         self._empty_dimension_label.setVisible(False)
@@ -220,7 +259,7 @@ class TaxonomyBrowserScreen(QWidget):
         self._results_layout = QVBoxLayout(content)
         self._results_layout.setContentsMargins(16, 16, 16, 16)
         self._results_layout.setSpacing(10)
-        self._status_label = EmptyStateLabel("Pick a term to see its books.", centered=True)
+        self._status_label = EmptyStateLabel(self._translator.tr("taxonomy-pick-term"), centered=True)
         self._results_layout.addWidget(self._status_label, stretch=1)
         scroll_area.setWidget(content)
         return scroll_area
@@ -243,16 +282,21 @@ class TaxonomyBrowserScreen(QWidget):
                 widget.deleteLater()
 
     def _show_books_for_term(self, term_id: int, term_label: str) -> None:
+        self._current_term_id = term_id
+        self._current_term_label = term_label
         book_ids = self._taxonomy.list_books_for_term(term_id)
         self._empty_results_layout()
         if not book_ids:
             self._status_label = EmptyStateLabel(
-                f'No books linked to "{term_label}".', centered=True
+                self._translator.tr("taxonomy-no-books-linked").format(term=term_label),
+                centered=True,
             )
             self._results_layout.addWidget(self._status_label, stretch=1)
             return
         summaries = self._browser.list_books_by_ids(book_ids)
-        self._status_label = QLabel(f'Books in "{term_label}" - {len(book_ids)} book(s)')
+        self._status_label = QLabel(
+            self._translator.tr("taxonomy-books-in-term").format(term=term_label, count=len(book_ids))
+        )
         self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
         self._results_layout.addWidget(self._status_label)
         for book_id in book_ids:
@@ -267,17 +311,24 @@ class TaxonomyBrowserScreen(QWidget):
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card_layout = QVBoxLayout(card)
 
-        title = QLabel(summary.title or "(untitled)")
+        title = QLabel(summary.title or self._translator.tr("common-untitled"))
         title.setStyleSheet(f"font-size: 15px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         card_layout.addWidget(title)
 
-        meta = QLabel(" · ".join([summary.author or "Unknown author", summary.library or "Unknown library"]))
+        meta = QLabel(
+            " · ".join(
+                [
+                    summary.author or self._translator.tr("common-unknown-author"),
+                    summary.library or self._translator.tr("common-unknown-library"),
+                ]
+            )
+        )
         meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
 
         open_row = QHBoxLayout()
-        read_button = QPushButton("Read in app")
+        read_button = QPushButton(self._translator.tr("common-read-in-app"))
         read_button.setIcon(button_icon("viewer"))
         read_button.setIconSize(button_icon_size())
         read_button.clicked.connect(

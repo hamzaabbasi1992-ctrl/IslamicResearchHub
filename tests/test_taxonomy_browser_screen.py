@@ -7,6 +7,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Category, Page  # noqa: E402
@@ -19,9 +20,14 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (  
 from islamic_research_hub.infrastructure.persistence.taxonomy_repository import (  # noqa: E402
     TaxonomyRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.taxonomy_browser_screen import (  # noqa: E402
     TaxonomyBrowserScreen,
 )
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 def _seed_populated_database(database_path: Path) -> None:
@@ -62,7 +68,7 @@ def test_screen_selects_the_first_populated_dimension_by_default(
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
 
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._current_dimension == "subject"
@@ -76,7 +82,7 @@ def test_subject_tree_shows_the_real_category_hierarchy(qtbot, tmp_path: Path) -
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
 
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._tree.topLevelItemCount() == 1
@@ -90,7 +96,7 @@ def test_clicking_a_term_shows_its_real_linked_books(qtbot, tmp_path: Path) -> N
     """Clicking a subject node lists exactly the real books linked to it."""
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     root = screen._tree.topLevelItem(0)  # الفقه - linked to both real books
@@ -106,7 +112,7 @@ def test_clicking_read_in_app_emits_open_in_viewer_requested(qtbot, tmp_path: Pa
     """The Read-in-app button on a book card emits the real signal main_window.py wires up."""
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     root = screen._tree.topLevelItem(0)
     screen._on_term_clicked(root, 0)
@@ -125,7 +131,7 @@ def test_search_filter_hides_non_matching_terms_and_expands_matching_branches(
     """Typing in the filter box narrows the tree, same pattern as Search's category tree."""
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._filter_edit.setText("الزكاة")
@@ -140,7 +146,7 @@ def test_switching_dimensions_reloads_the_tree_and_clears_results(qtbot, tmp_pat
     """Selecting a different populated dimension shows that dimension's own real terms."""
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._select_dimension("author")
@@ -154,7 +160,7 @@ def test_a_click_on_a_disabled_empty_dimension_does_nothing(qtbot, tmp_path: Pat
     """Selecting an unpopulated dimension is a safe no-op, not a crash."""
     database_path = tmp_path / "books.db"
     _seed_populated_database(database_path)
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._select_dimension("madhhab")
@@ -175,8 +181,30 @@ def test_screen_degrades_honestly_on_an_unmigrated_database(qtbot, tmp_path: Pat
         database_path, (book,), (database_path.parent / "one.mjbz",)
     )
 
-    screen = TaxonomyBrowserScreen(database_path)
+    screen = TaxonomyBrowserScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert not any(button.isEnabled() for button in screen._dimension_buttons.values())
     assert screen._empty_dimension_label.text() != ""
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    """Heading, dimension buttons, and the selected term's results all
+    re-render in the new language - not just the chrome around them."""
+    database_path = tmp_path / "books.db"
+    _seed_populated_database(database_path)
+    translator = _translator(tmp_path)
+    screen = TaxonomyBrowserScreen(database_path, translator)
+    qtbot.addWidget(screen)
+    root = screen._tree.topLevelItem(0)
+    screen._on_term_clicked(root, 0)
+    assert screen._heading_label.text() == "Taxonomy"
+    assert screen._dimension_buttons["subject"].text() == "Subject"
+
+    translator.set_language("ur")
+
+    assert screen._heading_label.text() == "درجہ بندی"
+    assert screen._dimension_buttons["subject"].text() == "موضوع"
+    assert "کتابیں" in screen._status_label.text()
+    read_button = next(b for b in screen.findChildren(QPushButton) if b.text() == "ایپ میں پڑھیں")
+    assert read_button is not None

@@ -7,6 +7,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
@@ -22,8 +23,13 @@ from islamic_research_hub.infrastructure.persistence.migration_runner import (  
 from islamic_research_hub.interfaces.desktop_app.citation_manager_screen import (  # noqa: E402
     CitationManagerScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 
 _DISTINCTIVE_TITLE = "A Real Distinctive Citation Target Title"
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 def _action_button(actions_widget: QPushButton, text: str) -> QPushButton:
@@ -59,7 +65,7 @@ def _seed_real_citation(database_path: Path) -> None:
 def test_empty_state_shows_zero_candidates(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_real_citation(database_path)
-    screen = CitationManagerScreen(database_path)
+    screen = CitationManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert "0 candidate(s)" in screen._status_label.text()
@@ -69,7 +75,7 @@ def test_empty_state_shows_zero_candidates(qtbot, tmp_path: Path) -> None:
 def test_scan_button_detects_and_lists_a_real_citation(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_real_citation(database_path)
-    screen = CitationManagerScreen(database_path)
+    screen = CitationManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._scan_button.click()
@@ -88,7 +94,7 @@ def test_dismiss_button_persists_and_removes_the_row(qtbot, tmp_path: Path) -> N
     database_path = tmp_path / "books.db"
     _seed_real_citation(database_path)
     CitationCandidateRepository(database_path).detect_and_store()
-    screen = CitationManagerScreen(database_path)
+    screen = CitationManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     assert screen._citation_table.rowCount() == 1
 
@@ -126,7 +132,7 @@ def test_dismiss_all_from_this_book_dismisses_every_row_for_the_pair(qtbot, tmp_
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
     CitationCandidateRepository(database_path).detect_and_store()
-    screen = CitationManagerScreen(database_path)
+    screen = CitationManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     assert screen._citation_table.rowCount() == 2
 
@@ -173,7 +179,7 @@ def test_pagination_controls_page_through_a_large_real_result_set(
         MigrationRunner().migrate(connection)
     CitationCandidateRepository(database_path).detect_and_store()
 
-    screen = CitationManagerScreen(database_path)
+    screen = CitationManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._citation_table.rowCount() == 2
@@ -191,3 +197,22 @@ def test_pagination_controls_page_through_a_large_real_result_set(
     screen._previous_page_button.click()
 
     assert "1-2 of 3" in screen._page_label.text()
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_real_citation(database_path)
+    CitationCandidateRepository(database_path).detect_and_store()
+    translator = _translator(tmp_path)
+    screen = CitationManagerScreen(database_path, translator)
+    qtbot.addWidget(screen)
+    assert screen._heading_label.text() == "Citation review"
+    assert screen._scan_button.text() == "Scan for citations"
+
+    translator.set_language("ar")
+
+    assert screen._heading_label.text() == "مراجعة الاستشهادات"
+    assert screen._scan_button.text() == "البحث عن استشهادات"
+    assert screen._previous_page_button.text() == "السابق"
+    actions = screen._citation_table.cellWidget(0, 4)
+    _action_button(actions, "رفض")
