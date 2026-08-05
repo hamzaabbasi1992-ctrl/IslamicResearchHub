@@ -227,3 +227,35 @@ def test_extract_narrators_rejects_a_backwards_page_range() -> None:
 
     with pytest.raises(ValueError):
         service.extract_narrators(book_id=1, start_page=20, end_page=10)
+
+
+def test_compare_positions_rejects_a_blank_question() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.compare_positions("   ")
+
+
+def test_compare_positions_seeds_the_real_question() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="Position A vs Position B", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.compare_positions("How did the four madhhabs differ on raising the hands in salah?")
+
+    assert result.answer == "Position A vs Position B"
+    _system_prompt, messages = provider.calls[0]
+    assert "four madhhabs" in messages[0].text
+
+
+def test_compare_positions_uses_its_own_system_prompt_forbidding_a_verdict() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="answer", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.compare_positions("A comparative question.")
+
+    system_prompt, _messages = provider.calls[0]
+    lowered = system_prompt.lower()
+    assert "never" in lowered
+    assert "correct" in lowered or "verdict" in lowered

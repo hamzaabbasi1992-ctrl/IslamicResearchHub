@@ -331,6 +331,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "preservation-report-col-reason": "Issue",
         "preservation-report-reason-no-text-no-pdf": "No page text, no PDF fallback",
         "preservation-report-reason-sparse-text-no-pdf-match": "Heading-only text, no matched PDF",
+        "ai-panel-compare-mode": "Compare scholarly positions",
+        "ai-panel-compare-mode-tooltip": "When checked, looks for and presents multiple real, differing positions on your question side by side, each with a citation - never picks a \"correct\" one.",
     },
     "ur": {
         "rail-home": "ہوم",
@@ -648,6 +650,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "preservation-report-col-reason": "مسئلہ",
         "preservation-report-reason-no-text-no-pdf": "کوئی صفحہ متن نہیں، کوئی پی ڈی ایف متبادل نہیں",
         "preservation-report-reason-sparse-text-no-pdf-match": "صرف عنوان جیسا متن، کوئی مماثل پی ڈی ایف نہیں",
+        "ai-panel-compare-mode": "علمی آراء کا موازنہ کریں",
+        "ai-panel-compare-mode-tooltip": "نشان زد کرنے پر، آپ کے سوال پر متعدد حقیقی، مختلف آراء کو ایک ساتھ حوالوں کے ساتھ پیش کیا جائے گا - کبھی بھی کسی ایک کو \"درست\" قرار نہیں دیا جائے گا۔",
     },
     "ar": {
         "rail-home": "الرئيسية",
@@ -965,6 +969,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "preservation-report-col-reason": "المشكلة",
         "preservation-report-reason-no-text-no-pdf": "لا يوجد نص صفحات، ولا بديل PDF",
         "preservation-report-reason-sparse-text-no-pdf-match": "نص عناوين فقط، بلا PDF مطابق",
+        "ai-panel-compare-mode": "مقارنة الآراء الفقهية",
+        "ai-panel-compare-mode-tooltip": "عند التحديد، يبحث عن آراء حقيقية متعددة ومختلفة حول سؤالك ويعرضها جنبًا إلى جنب مع الاستشهادات - لا يختار أبدًا رأيًا \"صحيحًا\".",
     },
 }
 

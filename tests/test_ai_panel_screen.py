@@ -128,6 +128,14 @@ class _FakeAiAgentService:
             raise RuntimeError("real failure")
         return AgentTurnResult(answer=self.answer, tool_calls_made=self.tool_calls_made)
 
+    def compare_positions(self, question: str):
+        from islamic_research_hub.application.ai_agent_service import AgentTurnResult
+
+        self.last_question = question
+        if self.fail:
+            raise RuntimeError("real failure")
+        return AgentTurnResult(answer=self.answer, tool_calls_made=self.tool_calls_made)
+
 
 def _install_fake_ai_agent(panel: AiAssistantPanel, **kwargs) -> _FakeAiAgentService:
     """Inject a fake service in place of the real provider-backed one,
@@ -155,6 +163,55 @@ def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path:
     assert "search_books" in panel._tool_calls_label.text()
     assert "get_book_pages" in panel._tool_calls_label.text()
     assert panel._ask_button.isEnabled()
+
+
+def test_compare_mode_checkbox_routes_to_compare_positions(qtbot, tmp_path: Path) -> None:
+    """When checked, the worker calls compare_positions(), not converse() -
+    verified via a fake that only implements one distinctly."""
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+
+    class _CompareOnlyFakeService:
+        def __init__(self):
+            self.compare_called_with = None
+
+        def compare_positions(self, question: str):
+            from islamic_research_hub.application.ai_agent_service import AgentTurnResult
+
+            self.compare_called_with = question
+            return AgentTurnResult(answer="Position A vs Position B.", tool_calls_made=("semantic_search_books",))
+
+        def converse(self, question: str):
+            raise AssertionError("converse() should not be called in compare mode")
+
+    fake = _CompareOnlyFakeService()
+    panel._build_real_ai_agent_service = lambda: fake
+    panel._compare_mode_checkbox.setChecked(True)
+    panel._question_edit.setText("How did the four madhhabs differ on raising the hands in salah?")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert fake.compare_called_with == "How did the four madhhabs differ on raising the hands in salah?"
+    assert panel._answer_area.toPlainText() == "Position A vs Position B."
+
+
+def test_compare_mode_unchecked_still_routes_to_converse(qtbot, tmp_path: Path) -> None:
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    fake = _install_fake_ai_agent(panel, answer="A normal answer.")
+    assert panel._compare_mode_checkbox.isChecked() is False
+    panel._question_edit.setText("A regular question.")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert fake.last_question == "A regular question."
+    assert panel._answer_area.toPlainText() == "A normal answer."
 
 
 def test_asking_a_question_when_the_service_fails_shows_a_real_message(
@@ -281,3 +338,4 @@ def test_switching_language_retranslates_the_panel(qtbot, tmp_path: Path) -> Non
     assert panel._title_label.text() == "اسسٹنٹ"
     assert panel._ask_button.text() == "پوچھیں"
     assert panel._notes_heading.text() == "نوٹس"
+    assert panel._compare_mode_checkbox.text() == "علمی آراء کا موازنہ کریں"

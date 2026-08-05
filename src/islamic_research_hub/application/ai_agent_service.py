@@ -99,6 +99,25 @@ _EXTRACT_NARRATORS_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_COMPARE_POSITIONS_SYSTEM_PROMPT = (
+    "You are helping a researcher compare real scholarly positions found "
+    "in this offline Islamic research library. Use the available tools "
+    "(prefer semantic_search_books for conceptual questions, search_books "
+    "for exact terms) to find genuinely differing positions on the "
+    "question - different madhhabs, different scholars, or different real "
+    "opinions actually present in the corpus. For each distinct real "
+    "position you find: state it clearly, name the source (school/"
+    "scholar/book) if the text itself identifies one, and cite it using "
+    "that result's own \"citation\" field verbatim - never invent a "
+    "citation. Present every position you find side by side, neutrally, "
+    "as real evidence gathered from the library. Never state which "
+    "position is correct, more authoritative, or preferable - your job "
+    "is evidence-gathering and organizing, not rendering a verdict on "
+    "scholarly disagreement. If you can only find one real position (or "
+    "none at all) in the corpus, say so honestly instead of inventing a "
+    "comparison that isn't really there."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTurnResult:
@@ -165,6 +184,20 @@ class AiAgentService:
         )
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),), system_prompt=_EXTRACT_NARRATORS_SYSTEM_PROMPT
+        )
+
+    def compare_positions(self, question: str) -> AgentTurnResult:
+        """Gather and present real, differing scholarly positions on a
+        comparative question (Phase 11 Milestone 1), each grounded with a
+        real citation from this library - never the model's own verdict
+        on which position is correct. Same seed shape as `converse()`; the
+        real difference is entirely in the system prompt."""
+        normalized_question = question.strip()
+        if not normalized_question:
+            raise ValueError("Question must not be empty.")
+        return self._run_loop(
+            (LLMMessage(role="user", text=normalized_question),),
+            system_prompt=_COMPARE_POSITIONS_SYSTEM_PROMPT,
         )
 
     def _run_loop(

@@ -1025,7 +1025,7 @@ not new data-collection problems of their own:
   evaluating a different multilingual model - not attempted this pass,
   scope not yet sized.
 
-### Phase 11 — AI research assistant: **scheduled after Phase 10, not started**
+### Phase 11 — AI research assistant: **Milestone 1 done**
 
 Goes beyond search: a user asks a real comparative question ("how did
 the four madhhabs differ on raising the hands in salah?") and the
@@ -1042,6 +1042,24 @@ Commodity-level feature (any AI-document tool could offer something
 like this) - real value comes from Phase 7's cross-tradition corpus and
 Phase 10's verified citation graph underneath it, not from this layer
 itself being novel.
+
+**Milestone 1: done** (see CHANGELOG) - a "Compare scholarly positions"
+mode added to the already-shipped AI Agent's Ask box, not a separate
+system: same real tool-calling loop, a second system prompt requiring
+real citations per position and explicitly forbidding a verdict on
+which is correct. Deliberately does **not** wait on the rest of Phase
+10's knowledge graph/encyclopedia work - the underlying tool-calling
+loop already does real retrieval (`search_books`/`semantic_search_books`/
+`get_book_pages`) regardless of whether a formal knowledge graph exists
+on top of it; a real citation graph or populated taxonomy would improve
+*findability* of positions, not gate whether comparison itself works.
+**Not yet live-tested with a real API key** - same open item as AI
+Agent Milestone 1 itself, needs the user to try a real comparative
+question. Deferred, not silently dropped: any UI surfacing of
+positions beyond plain text (e.g. a real side-by-side visual layout,
+not just prose in the existing answer area) - a real, separate
+follow-up once the underlying comparison quality itself is verified
+against a real provider.
 
 ### Phase 12 — Translation engine: **scheduled after Phase 11, not started**
 

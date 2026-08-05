@@ -1,5 +1,32 @@
 # Changelog
 
+## Phase 11: Comparative Research Assistant - Milestone 1
+
+A new "Compare scholarly positions" mode in the AI Assistant panel's
+existing Ask box - the same real, cloud-LLM-backed tool-calling loop
+already grounding Q&A (Milestone 1, AI Agent), given a second,
+comparative-analysis system prompt instead of a new system. Checking
+the box and asking a comparative question ("how did the four madhhabs
+differ on raising the hands in salah?") searches the corpus for
+genuinely differing real positions, requires a real citation for each
+one found, and explicitly forbids the model from rendering its own
+verdict on which position is correct - evidence gathered and organized
+side by side, never a judgment, matching this project's established
+discipline for anything touching real scholarly disagreement (same
+reasoning as the citation graph and contradiction-detector scoping).
+
+New: `AiAgentService.compare_positions()` + its own system prompt
+(mirrors `extract_events()`/`extract_narrators()`'s exact shape - one
+new method, one new prompt, the same `_run_loop()`).
+`AiAgentWorker` gained a `mode` parameter (`"converse"` default,
+`"compare"`) selecting which method runs; nothing else about the
+worker/panel's error handling, busy-state, or AI-unavailable-popup
+paths changed. 6 new tests; full suite 970 passed.
+
+**Not yet live-tested with a real API key** (same as the underlying AI
+Agent Milestone 1) - needs the user to actually try a real comparative
+question against a real provider.
+
 ## Phase 10: cross-language conceptual search checked for real - confirmed broken
 
 The roadmap explicitly flagged this item as needing "a real check

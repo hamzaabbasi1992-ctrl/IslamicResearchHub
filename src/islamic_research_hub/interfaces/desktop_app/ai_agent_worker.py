@@ -36,11 +36,16 @@ class AiAgentWorker(QThread):
         self,
         get_service: Callable[[], AiAgentService | None],
         question: str,
+        mode: str = "converse",
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._get_service = get_service
         self._question = question
+        self._mode = mode
+        """"converse" (default, grounded Q&A) or "compare" (Phase 11's
+        multi-position comparative research mode) - selects which real
+        AiAgentService method/system prompt runs, nothing else differs."""
 
     def run(self) -> None:
         try:
@@ -49,7 +54,10 @@ class AiAgentWorker(QThread):
                 self.answer_failed.emit(_NOT_CONFIGURED_MESSAGE)
                 self.answer_unavailable.emit(_NOT_CONFIGURED_MESSAGE)
                 return
-            result = service.converse(self._question)
+            if self._mode == "compare":
+                result = service.compare_positions(self._question)
+            else:
+                result = service.converse(self._question)
         except Exception:
             self.answer_failed.emit("Something went wrong answering that question.")
             return

@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QSettings, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -111,6 +112,10 @@ class AiAssistantPanel(QWidget):
         self._ask_button.clicked.connect(self._on_ask_clicked)
         ask_row.addWidget(self._ask_button)
         layout.addLayout(ask_row)
+
+        self._compare_mode_checkbox = QCheckBox(self._translator.tr("ai-panel-compare-mode"))
+        self._compare_mode_checkbox.setToolTip(self._translator.tr("ai-panel-compare-mode-tooltip"))
+        layout.addWidget(self._compare_mode_checkbox)
         self._apply_ai_agent_enabled_state()
 
         self._tool_calls_label = QLabel()
@@ -155,6 +160,8 @@ class AiAssistantPanel(QWidget):
         self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
         self._body_label.setText(self._translator.tr("ai-panel-placeholder-body"))
         self._ask_button.setText(self._translator.tr("ai-panel-ask"))
+        self._compare_mode_checkbox.setText(self._translator.tr("ai-panel-compare-mode"))
+        self._compare_mode_checkbox.setToolTip(self._translator.tr("ai-panel-compare-mode-tooltip"))
         self._notes_heading.setText(self._translator.tr("ai-panel-notes-heading"))
         self._notes_body.setText(self._translator.tr("ai-panel-notes-placeholder"))
         self._references_heading.setText(self._translator.tr("ai-panel-references-heading"))
@@ -194,6 +201,7 @@ class AiAssistantPanel(QWidget):
     def _apply_ai_agent_enabled_state(self) -> None:
         self._question_edit.setEnabled(self._enable_lazy_ai_agent)
         self._ask_button.setEnabled(self._enable_lazy_ai_agent)
+        self._compare_mode_checkbox.setEnabled(self._enable_lazy_ai_agent)
         self._question_edit.setPlaceholderText(
             self._translator.tr("ai-panel-ask-placeholder")
             if self._enable_lazy_ai_agent
@@ -205,7 +213,8 @@ class AiAssistantPanel(QWidget):
         if not question:
             return
         self._set_busy(True)
-        worker = AiAgentWorker(self.get_or_build_ai_agent_service, question, self)
+        mode = "compare" if self._compare_mode_checkbox.isChecked() else "converse"
+        worker = AiAgentWorker(self.get_or_build_ai_agent_service, question, mode, self)
         worker.answer_ready.connect(self._on_answer_ready)
         worker.answer_failed.connect(self._on_answer_failed)
         worker.answer_unavailable.connect(self._on_answer_unavailable)
