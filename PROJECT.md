@@ -651,6 +651,15 @@ explicit go/no-go, not a bulk pass:
   stub duplicates removed per explicit user decision, Maknoon side kept;
   `data/books.db`: 104,793 -> 102,790 books; full backup + before/after
   audit report in `docs/duplicate_analysis/`.
+- **Page-count-corroborated same-library/cross-library duplicates**:
+  **done** (see CHANGELOG) - the two remaining analysis files grouped
+  books by title text alone (no author/page-count corroboration),
+  confirmed directly to be dangerous (one group falsely clustered 4
+  genuinely different real editions of "أحكام أهل الذمة" as
+  "duplicates"). Re-scored by sub-clustering on exact real page count
+  (excluding anything with real `VolumeNumber`/`SeriesID` data) instead
+  of bulk-processing the weak signal - 304 real extra copies removed
+  per explicit user decision; `data/books.db`: 102,790 -> 102,486 books.
 - **Dismiss the 52 confirmed-different candidates**: **done.**
   `DuplicateCandidates` gained a real `Status` column
   (`pending`/`dismissed`), preserved across `detect_and_store()` re-scans;
@@ -977,14 +986,17 @@ not new data-collection problems of their own:
   correlations; a real, separate, smaller follow-up once useful.
 - **Digital preservation reports**: **Milestone 1 done** (see
   CHANGELOG) - new `PreservationReportScreen`, generated on demand via
-  a background worker (real cost against production: well over two
-  minutes, same territory as citation detection). Surfaces pending
-  duplicate count (linking to Duplicate Manager, not re-implementing
-  review) and real incomplete/unreadable books (no text and no PDF
-  fallback either way) - both extensions of already-built detection
+  a background worker (real, measured cost against the full production
+  corpus: ~28 minutes/1696s, genuinely citation-detection territory,
+  not a rough guess). Surfaces pending duplicate count (linking to
+  Duplicate Manager, not re-implementing review) and real
+  incomplete/unreadable books (no text and no PDF fallback either way)
+  - both extensions of already-built detection
   (`DuplicateCandidateRepository` from Phase 2,
   `PdfMatchCandidateRepository`'s own stub thresholds reused, not
-  redefined). **Corrupted/damaged file tracking confirmed not
+  redefined). Real yield: 3 pending duplicates, 1,565 incomplete books
+  (all sparse/heading-only with no matched PDF - zero real zero-page
+  anomalies found). **Corrupted/damaged file tracking confirmed not
   buildable as "just a report"**: investigated directly - import-time
   failures are only ever a transient log line today, nothing persisted
   post-import to query; would need new schema across every importer, a

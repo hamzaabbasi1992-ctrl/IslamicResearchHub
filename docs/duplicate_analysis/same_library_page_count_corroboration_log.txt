@@ -1,0 +1,43 @@
+Page-count-corroborated same-library/cross-library duplicate resolution - 2026-08-06
+
+Source: same_library_exact_duplicates.csv (5,396 title-only groups) and
+cross_library_exact_title_matches.csv (1,694 title-only rows) - both left
+untouched from an earlier analysis pass. Grouping by title text alone (no
+author or page-count corroboration) was confirmed directly to be dangerous:
+one group ("أحكام أهل الذمة") clustered 4 books as "duplicates" that turned
+out to be 4 genuinely different real editions (distinct SeriesID 5901,
+5902, 5903, 5905; real page counts 500, 514, 273, 1). Bulk-processing
+either file as-is would have deleted real, distinct scholarly editions.
+
+Re-scored instead: within each same_library_exact_duplicates.csv title
+group, sub-clustered by exact real Books.PageCount, excluding any book
+carrying real VolumeNumber/SeriesID data (a multi-volume set sharing a
+base title is never a duplicate, regardless of page count). Output:
+same_library_page_count_corroborated.csv (303 sub-groups).
+
+Confidence tiers (by page count - a larger matching page count is a much
+stronger signal against coincidence than a small one):
+  High   (20+ pages):  211 sub-groups, 211 extra copies
+  Medium (5-19 pages):  80 sub-groups,  80 extra copies
+  Low    (1-4 pages):   12 sub-groups,  13 extra copies
+
+Per explicit user decision, all three tiers processed (304 total). For
+each sub-group, the lowest BookID was kept, all others removed. Every
+removal backed up via export_book() first into
+same_library_page_count_duplicates_removed_backup.json (304 entries;
+kept-BookID mapping in same_library_page_count_kept_map.json) before
+deletion. The raw JSON backup is 106MB (real, substantial book content,
+unlike the earlier PDF-archive stubs' empty backups) - over GitHub's
+100MB limit, so only the gzipped .json.gz (28MB) is committed; the raw
+.json stays local-only (gitignored) for direct reading without
+decompressing first.
+
+Verified afterward: 0 removed books still present, 0 kept books missing,
+0 orphaned DuplicateCandidates rows. data/books.db: 102,790 -> 102,486
+books.
+
+cross_library_exact_title_matches.csv was investigated but not acted on
+this pass (same title-only weakness, cross-library adds another real
+axis of legitimate difference - different libraries' own real editions
+of a shared classical text are common and expected, not necessarily
+duplicates). Left for a future pass if ever warranted.

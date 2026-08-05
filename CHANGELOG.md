@@ -1,5 +1,33 @@
 # Changelog
 
+## Phase 8.5: removed 304 more real duplicates (page-count-corroborated)
+
+Investigating the two leftover duplicate-analysis files
+(`same_library_exact_duplicates.csv`, 5,396 groups;
+`cross_library_exact_title_matches.csv`, 1,694 rows) found they group
+books by **title text alone** - no author or page-count corroboration,
+a much weaker signal than what was safely acted on earlier. Confirmed
+directly, not assumed, that this is dangerous: one group ("أحكام أهل
+الذمة") clustered 4 books as "duplicates" that turned out to be 4
+genuinely different real editions (distinct `SeriesID`s: 5901, 5902,
+5903, 5905, real page counts 500/514/273/1) - bulk-processing this file
+as-is would have deleted 3 real, distinct scholarly editions.
+
+Built a safer re-scoring pass instead: within each title group,
+sub-cluster by **exact real page count** (a much stronger corroborating
+signal - two books sharing both a title and an exact page count,
+especially a large one, is not plausible coincidence), and exclude any
+book with real `VolumeNumber`/`SeriesID` data (a multi-volume set
+sharing a base title is never a duplicate, regardless of page count).
+Real yield: 303 high-confidence sub-groups, tiered by page count for
+transparency (211 at 20+ pages, 80 at 5-19 pages, 12 at 1-4 pages).
+
+Per explicit user decision, all 304 extra copies removed (lowest
+`BookID` per sub-group kept). Backed up via `export_book()` first
+(`docs/duplicate_analysis/same_library_page_count_duplicates_removed_backup.json`);
+verified 0 orphaned references, 0 kept books lost. `data/books.db`:
+102,790 -> 102,486 books.
+
 ## Phase 10: Digital Preservation Report - real duplicate/incompleteness gaps
 
 A new report screen surfacing two real corpus-health signals, both
@@ -20,15 +48,18 @@ scoping note), not new detection logic:
 
 Generation runs on a new background `PreservationReportWorker`
 (`QThread`), never on the GUI thread - real, measured cost against the
-production corpus exceeded two minutes for the underlying scan (a full
-`Pages` aggregate, the same query shape `PdfMatchCandidateRepository`
-already runs for its own detection), the same "too slow for the GUI
-thread" territory as citation detection. A real query rewrite was
-needed along the way: the zero-page lookup's first draft used `BookID
-NOT IN (SELECT DISTINCT BookID FROM Pages)`, a known SQLite slow path at
-this corpus's scale - rewritten as `LEFT JOIN ... WHERE p.BookID IS
-NULL`, confirmed directly (the `NOT IN` version did not complete in a
-reasonable time).
+full production corpus: **~28 minutes** (1696s) for the underlying scan
+(a full `Pages` aggregate, the same query shape `PdfMatchCandidateRepository`
+already runs for its own detection) - genuinely citation-detection
+territory, not a rough guess. A real query rewrite was needed along the
+way: the zero-page lookup's first draft used `BookID NOT IN (SELECT
+DISTINCT BookID FROM Pages)`, a known SQLite slow path at this corpus's
+scale - rewritten as `LEFT JOIN ... WHERE p.BookID IS NULL`, confirmed
+directly (the `NOT IN` version did not complete in a reasonable time).
+Real yield from the actual completed scan: 3 pending duplicates, 1,565
+incomplete books - every one a sparse/heading-only book with no matched
+PDF (zero real zero-page anomalies found, a healthy sign for the
+corpus's core text libraries).
 
 **Deliberately out of scope for this milestone**: corrupted/damaged
 source-file tracking. Investigated directly - an import-time failure
