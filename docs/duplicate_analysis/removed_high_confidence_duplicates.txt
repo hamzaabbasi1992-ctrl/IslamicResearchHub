@@ -1,6 +1,8 @@
 High-confidence duplicate resolution - 73 pairs reviewed
 
 68 removed automatically (keep-more-complete-side policy), 5 flagged for manual review (transitive chain, unverified).
+All 5 flagged pairs resolved 2026-08-05 with direct user review of real page-count/source data for each chain
+(see "MANUAL REVIEW RESOLUTION" section at the end of this file). 73/73 complete.
 
 ====================================================================================================
 
@@ -368,3 +370,38 @@ High-confidence duplicate resolution - 73 pairs reviewed
     Title: النكت للسرخسي وشرح النكت للعتابي
     Author: أبو نصر العَتَّابي
     Pages: BookID 45535=162  DuplicateOfBookID 1152=202  MatchType=exact_title
+
+====================================================================================================
+
+MANUAL REVIEW RESOLUTION - 2026-08-05
+
+The 5 flagged pairs formed two real transitive chains. Each chain was reviewed directly against
+real page-count/source data (not guessed) and resolved per explicit user decision. All removals
+were backed up via export_book() into removed_high_confidence_duplicates_backup.json before
+deletion. Verified afterward: 0 orphaned DuplicateCandidates rows referencing any removed book.
+
+Chain 1 - Bahishti Zewar Mukammal, Ashraf Ali Thanvi:
+  BookID 2347 (639 pages, kept), BookID 4747 (639 pages), BookID 4752 (769 pages)
+  2347 and 4747 had identical page counts (639=639) - a real duplicate. 4752's page count (769)
+  did not match either - kept as a distinct, more complete edition.
+
+  [REMOVED] kept BookID=2347  removed BookID=4747
+      Pages: BookID 4747=639  DuplicateOfBookID 2347=639  MatchType=exact_title_and_author_same_library
+  [DISMISSED - kept as a real, distinct edition] BookID=4752  DuplicateOfBookID=2347
+      Pages: BookID 4752=769  DuplicateOfBookID 2347=639  MatchType=exact_title_and_author_same_library
+
+Chain 2 - Sahih Muslim, Vol. 1, Dars-e-Nizami edition:
+  BookID 4499 (537 pages, kept), BookID 4500 (537 pages), BookID 4501 (516 pages), BookID 4502 (571 pages)
+  User explicitly chose to remove all three as duplicates of 4499 despite the page-count
+  differences on 4501/4502 (516 and 571 vs 4499's 537) - a real, deliberate risk accepted by
+  the user after being shown the page-count mismatch, not a default/automatic policy choice.
+
+  [REMOVED] kept BookID=4499  removed BookID=4500
+      Pages: BookID 4500=537  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+  [REMOVED] kept BookID=4499  removed BookID=4501
+      Pages: BookID 4501=516  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+  [REMOVED] kept BookID=4499  removed BookID=4502
+      Pages: BookID 4502=571  DuplicateOfBookID 4499=537  MatchType=exact_title_and_author_same_library
+
+Final: 4 books removed (4747, 4500, 4501, 4502), 1 pair dismissed (4752/2347). Real book count:
+104,797 -> 104,793. 73/73 high-confidence pairs now fully resolved.

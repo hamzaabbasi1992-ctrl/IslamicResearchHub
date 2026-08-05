@@ -1,5 +1,55 @@
 # Changelog
 
+## Phase 8.5: removed 2,003 duplicate PDF-archive catalog stubs (Maknoon vs. Jibreel)
+
+Investigating the `NO_COMMON_PAGES` scoring bucket (2,004 rows, previously
+left untouched as "unverified") found a real, distinct pattern from the
+73 high-confidence pairs above: every single row was a metadata-only
+stub (zero real page text on *both* sides) with the exact same real PDF
+filename, cataloged twice - once under "Maktaba Al-Maknoon (PDF
+Archive)" and once under "Maktaba Jibreel (PDF Archive)" - the same PDF
+collection imported from two overlapping folder trees on the user's
+drive. Confirmed directly, not assumed: 2,002 of 2,004 pairs had
+byte-identical filenames (the other 2 were trivial underscore/space
+spelling variants of the same name).
+
+Per explicit user decision (goal: search-result quality, not disk
+space - confirmed negligible space impact either way, ~536MB max on a
+156GB database), the Jibreel-side entry was removed from every pair,
+keeping the Maknoon side (2,003 books total, including one same-library
+edge case). Every removal was backed up via `export_book()` first
+(`docs/duplicate_analysis/pdf_archive_stub_duplicates_removed_backup.json`,
+2,003 entries); a full before/after audit report was generated
+(`maknoon_jibreel_pdf_archive_report.csv`). Verified: 0 orphaned
+`DuplicateCandidates` rows, 0 real content loss (every removed book was
+a zero-page stub; its real Maknoon-side counterpart survives).
+`data/books.db`: 102,790 books after (104,793 -> 102,790), combined
+Maknoon+Jibreel PDF Archive file count 6,001 -> 3,998.
+
+## Phase 8.5: resolved the last 5 high-confidence duplicate pairs (73/73 done)
+
+The 5 rows left pending from the earlier 73-pair duplicate cleanup (two
+transitive chains that needed real human judgment, not a safe
+automatic inference) were resolved with the user directly reviewing
+each chain's real page-count/source data:
+
+- **Bahishti Zewar Mukammal chain** (BookIDs 2347/4747/4752): 2347 and
+  4747 had identical page counts (639=639, a real duplicate) - 4747
+  removed, 2347 kept. 4752 (769 pages) didn't match either - dismissed
+  as a real, distinct edition, not deleted.
+- **Sahih Muslim Vol. 1 chain** (BookIDs 4499/4500/4501/4502): all
+  three removed as duplicates of 4499, per explicit user decision made
+  after being shown that 4501/4502's page counts (516/571) didn't
+  match 4499's (537) - a real, deliberate risk the user chose to
+  accept, not a default policy.
+
+Each removal was backed up via `export_book()` into the existing
+`removed_high_confidence_duplicates_backup.json` before deletion (now
+72 entries); the resolution is logged in
+`docs/duplicate_analysis/removed_high_confidence_duplicates.txt`.
+Verified: 0 orphaned `DuplicateCandidates` rows referencing any removed
+book. `data/books.db`: 104,797 -> 104,793 books.
+
 ## Phase 10: Knowledge Gap Detector - real corpus coverage gaps, no new AI
 
 A new "Knowledge Gaps" screen surfaces a genuine research signal - "only

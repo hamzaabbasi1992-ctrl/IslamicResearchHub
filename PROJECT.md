@@ -632,16 +632,25 @@ explicit go/no-go, not a bulk pass:
   Revisit once a dedicated session is warranted; measure actual
   reclaimable space first before committing real effort.
 - **Act on the 73 high-confidence (~100% content-identical) duplicate
-  pairs**: **68 of 73 done**, with explicit approval of the exact policy
-  first. Real complication found: the smaller side of each pair is a
-  complete subset of the larger, so the policy is "keep whichever side
-  has more pages" (not "always delete the flagged side" - that would have
-  deleted the better copy in 9 of the 73 cases). 5 rows form two
-  transitive chains that would need an unverified inference to resolve
-  safely - left pending rather than guessed at. `data/books.db`:
-  104,865 -> 104,797 books; zero orphaned rows verified across every
-  referencing table afterward; full backup + human-readable list in
-  `docs/duplicate_analysis/`. See CHANGELOG.
+  pairs**: **73 of 73 done.** 68 resolved automatically with explicit
+  approval of the exact policy first ("keep whichever side has more
+  pages," not "always delete the flagged side" - that would have deleted
+  the better copy in 9 of the 73 cases). The remaining 5 (two transitive
+  chains) needed real human judgment, not a safe inference - resolved
+  2026-08-05 with the user directly reviewing each chain's real
+  page-count/source data. `data/books.db`: 104,865 -> 104,793 books;
+  zero orphaned rows verified across every referencing table afterward;
+  full backup + human-readable list in `docs/duplicate_analysis/`
+  (including the manual-review resolution log). See CHANGELOG.
+- **PDF-archive stub duplicates (Maknoon vs. Jibreel)**: **done** (see
+  CHANGELOG) - the `NO_COMMON_PAGES` scoring bucket (2,004 rows,
+  previously left as "unverified") turned out to be a real, distinct,
+  high-confidence pattern: the same PDF collection cataloged twice under
+  "Maktaba Al-Maknoon (PDF Archive)" and "Maktaba Jibreel (PDF Archive)"
+  (2,002 of 2,004 pairs byte-identical filenames). 2,003 Jibreel-side
+  stub duplicates removed per explicit user decision, Maknoon side kept;
+  `data/books.db`: 104,793 -> 102,790 books; full backup + before/after
+  audit report in `docs/duplicate_analysis/`.
 - **Dismiss the 52 confirmed-different candidates**: **done.**
   `DuplicateCandidates` gained a real `Status` column
   (`pending`/`dismissed`), preserved across `detect_and_store()` re-scans;
