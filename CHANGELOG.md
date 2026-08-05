@@ -1,5 +1,26 @@
 # Changelog
 
+## UI audit: PDF viewer toolbar hardened against the same crowding bug
+
+Following the maximize/window-sizing fix, audited every screen for the
+same failure class (a toolbar's real minimum width exceeding its
+container's) and for genuinely-hidden-vs-dynamic-visibility controls.
+Found one real, unmitigated gap: `PdfViewerScreen`'s toolbar (6 real
+controls - Prev/Next/page-jump/Bookmark/zoom in/zoom out) had no
+`QScrollArea` wrap and no `Ignored` size policy, unlike `ViewerScreen`'s
+own toolbar (already fixed in an earlier pass). Applied the same proven
+fix: wrapped in a horizontally-scrolling `QScrollArea`, so a narrow
+window gets a scrollbar instead of silently squeezed/missing controls.
+
+Confirmed via the audit: all three feature-gated controls in the app
+(TTS play button, Extract Events button, voice-search mic button) are
+genuinely reachable through a real Settings checkbox - none are stuck
+permanently hidden by a bug. No `.hide()`/`.show()` calls exist anywhere
+in the screen files; every conditional-visibility path is a traceable
+`.setVisible()` call. Nav rail and dropdown-consolidation
+recommendations from the same audit are tracked as follow-ups, not
+implemented in this pass.
+
 ## Real-scale fixes: app crash, unusable review table, maximize/window sizing
 
 Running the citation graph's full detection pass against the real

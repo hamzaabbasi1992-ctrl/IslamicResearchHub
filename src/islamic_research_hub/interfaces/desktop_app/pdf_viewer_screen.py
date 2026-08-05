@@ -14,10 +14,12 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -70,7 +72,8 @@ class PdfViewerScreen(QWidget):
         header.addWidget(self._author_label)
         reader_layout.addLayout(header)
 
-        toolbar = QHBoxLayout()
+        toolbar_container = QWidget()
+        toolbar = QHBoxLayout(toolbar_container)
         toolbar.setContentsMargins(16, 4, 16, 8)
         self._prev_button = QPushButton("Prev")
         self._prev_button.setIcon(button_icon("prev"))
@@ -111,7 +114,22 @@ class PdfViewerScreen(QWidget):
         zoom_in_button.clicked.connect(lambda: self._change_zoom(ZOOM_STEP))
         toolbar.addWidget(zoom_in_button)
 
-        reader_layout.addLayout(toolbar)
+        # Real bug found and fixed elsewhere in this app (ViewerScreen's own
+        # toolbar, see its comment): a text-labeled multi-button toolbar's
+        # own real minimum width can exceed the reader pane's floor,
+        # silently squeezing controls toward zero width under space
+        # pressure instead of just not dictating the container's minimum
+        # size. Same proven fix applied here before this screen hits the
+        # same bug for real - a narrow window gets a scrollbar instead of
+        # missing controls.
+        toolbar_scroll = QScrollArea()
+        toolbar_scroll.setWidget(toolbar_container)
+        toolbar_scroll.setWidgetResizable(True)
+        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        toolbar_scroll.setFixedHeight(toolbar_container.sizeHint().height())
+        reader_layout.addWidget(toolbar_scroll)
 
         self._document = QPdfDocument(self)
         self._pdf_view = QPdfView()
