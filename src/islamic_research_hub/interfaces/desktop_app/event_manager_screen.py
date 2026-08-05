@@ -29,8 +29,15 @@ from islamic_research_hub.infrastructure.persistence.book_browser_repository imp
 from islamic_research_hub.infrastructure.persistence.event_candidate_repository import (
     EventCandidateRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.import_screen import _heading, _readonly_item
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE
+
+_STATUS_KEYS: dict[str, str] = {
+    "pending": "event-manager-status-pending",
+    "confirmed": "event-manager-status-confirmed",
+    "dismissed": "event-manager-status-dismissed",
+}
 
 
 class EventManagerScreen(QWidget):
@@ -39,12 +46,14 @@ class EventManagerScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         browser: BookBrowserRepository | None = None,
         events: EventCandidateRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._database_path = database_path
+        self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._events = events or EventCandidateRepository(database_path)
 
@@ -58,13 +67,14 @@ class EventManagerScreen(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        layout.addWidget(_heading("Event review"))
+        self._heading_label = _heading(self._translator.tr("event-manager-heading"))
+        layout.addWidget(self._heading_label)
         self._status_label = QLabel()
         self._status_label.setStyleSheet(MUTED_LABEL_STYLE)
         layout.addWidget(self._status_label)
 
         self._event_table = QTableWidget(0, 5)
-        self._event_table.setHorizontalHeaderLabels(["Book", "Event", "Subject", "Status", ""])
+        self._event_table.setHorizontalHeaderLabels(self._table_header_labels())
         self._event_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self._event_table.verticalHeader().setVisible(False)
         self._event_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -73,6 +83,21 @@ class EventManagerScreen(QWidget):
         outer.addWidget(scroll_area)
 
         self.refresh()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _table_header_labels(self) -> list[str]:
+        return [
+            self._translator.tr("event-manager-col-book"),
+            self._translator.tr("event-manager-col-event"),
+            self._translator.tr("taxonomy-dim-subject"),
+            self._translator.tr("event-manager-col-status"),
+            "",
+        ]
+
+    def _retranslate(self, _language: str) -> None:
+        self._heading_label.setText(self._translator.tr("event-manager-heading"))
+        self._event_table.setHorizontalHeaderLabels(self._table_header_labels())
+        self._reload_candidates()
 
     def refresh(self) -> None:
         """Reload the event-candidates table from the real database."""
@@ -80,7 +105,9 @@ class EventManagerScreen(QWidget):
 
     def _reload_candidates(self) -> None:
         candidates = list(self._events.list_candidates(include_dismissed=True))
-        self._status_label.setText(f"{len(candidates)} candidate(s)")
+        self._status_label.setText(
+            self._translator.tr("event-manager-candidates-count").format(count=len(candidates))
+        )
         self._event_table.setRowCount(len(candidates))
 
         book_ids = tuple({candidate.book_id for candidate in candidates})
@@ -88,11 +115,18 @@ class EventManagerScreen(QWidget):
 
         for row, candidate in enumerate(candidates):
             book_summary = summaries.get(candidate.book_id)
-            book_title = book_summary.title if book_summary else f"Book {candidate.book_id}"
-            self._event_table.setItem(row, 0, _readonly_item(book_title or "(untitled)", rtl=True))
+            book_title = (
+                book_summary.title
+                if book_summary
+                else self._translator.tr("common-book-number").format(id=candidate.book_id)
+            )
+            untitled = self._translator.tr("common-untitled")
+            self._event_table.setItem(row, 0, _readonly_item(book_title or untitled, rtl=True))
             self._event_table.setItem(row, 1, _readonly_item(candidate.event.title, rtl=True))
             self._event_table.setItem(row, 2, _readonly_item(candidate.event.subject))
-            self._event_table.setItem(row, 3, _readonly_item(candidate.status))
+            self._event_table.setItem(
+                row, 3, _readonly_item(self._translator.tr(_STATUS_KEYS.get(candidate.status, candidate.status)))
+            )
             self._event_table.setCellWidget(row, 4, self._build_candidate_actions(candidate))
 
     def _build_candidate_actions(self, candidate: EventCandidate) -> QWidget:
@@ -101,20 +135,20 @@ class EventManagerScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        view_button = QPushButton("View")
+        view_button = QPushButton(self._translator.tr("common-view"))
         view_button.clicked.connect(lambda _checked, c=candidate: self._show_detail(c))
         layout.addWidget(view_button)
 
-        confirm_button = QPushButton("Confirm")
-        confirm_button.setToolTip("Mark this event as reviewed and verified accurate.")
+        confirm_button = QPushButton(self._translator.tr("common-confirm"))
+        confirm_button.setToolTip(self._translator.tr("event-manager-confirm-tooltip"))
         confirm_button.setEnabled(candidate.status != "confirmed")
         confirm_button.clicked.connect(
             lambda _checked, i=candidate.id: self._confirm_candidate(i)
         )
         layout.addWidget(confirm_button)
 
-        dismiss_button = QPushButton("Dismiss")
-        dismiss_button.setToolTip("Reject this event as hallucinated or wrong.")
+        dismiss_button = QPushButton(self._translator.tr("common-dismiss"))
+        dismiss_button.setToolTip(self._translator.tr("event-manager-dismiss-tooltip"))
         dismiss_button.setEnabled(candidate.status != "dismissed")
         dismiss_button.clicked.connect(
             lambda _checked, i=candidate.id: self._dismiss_candidate(i)
@@ -132,11 +166,11 @@ class EventManagerScreen(QWidget):
         self._reload_candidates()
 
     def _show_detail(self, candidate: EventCandidate) -> None:
-        dialog = _build_detail_dialog(candidate, self)
+        dialog = _build_detail_dialog(candidate, self._translator, self)
         dialog.exec()
 
 
-def _build_detail_dialog(candidate: EventCandidate, parent: QWidget) -> QDialog:
+def _build_detail_dialog(candidate: EventCandidate, translator: Translator, parent: QWidget) -> QDialog:
     """Build a real, read-only dialog showing every extracted field."""
     event = candidate.event
     dialog = QDialog(parent)
@@ -154,18 +188,20 @@ def _build_detail_dialog(candidate: EventCandidate, parent: QWidget) -> QDialog:
     content = QWidget()
     content_layout = QVBoxLayout(content)
 
+    none_text = translator.tr("event-manager-detail-none")
+    unknown_text = translator.tr("event-manager-detail-unknown")
     fields: tuple[tuple[str, str], ...] = (
-        ("Alternate names", ", ".join(event.alternate_names) or "(none)"),
-        ("Subject", event.subject),
-        ("Date (Hijri)", event.date_hijri or "(unknown)"),
-        ("Date (Gregorian)", event.date_gregorian or "(unknown)"),
-        ("Location", event.location or "(unknown)"),
-        ("Background", event.background),
-        ("Summary", event.summary),
-        ("Key figures", ", ".join(event.key_figures) or "(none)"),
-        ("Quoted excerpt", event.quoted_excerpt),
-        ("Citation", event.citation),
-        ("Status", candidate.status),
+        (translator.tr("event-manager-detail-alternate-names"), ", ".join(event.alternate_names) or none_text),
+        (translator.tr("taxonomy-dim-subject"), event.subject),
+        (translator.tr("event-manager-detail-date-hijri"), event.date_hijri or unknown_text),
+        (translator.tr("event-manager-detail-date-gregorian"), event.date_gregorian or unknown_text),
+        (translator.tr("event-manager-detail-location"), event.location or unknown_text),
+        (translator.tr("event-manager-detail-background"), event.background),
+        (translator.tr("event-manager-detail-summary"), event.summary),
+        (translator.tr("event-manager-detail-key-figures"), ", ".join(event.key_figures) or none_text),
+        (translator.tr("event-manager-detail-quoted-excerpt"), event.quoted_excerpt),
+        (translator.tr("event-manager-detail-citation"), event.citation),
+        (translator.tr("event-manager-col-status"), translator.tr(_STATUS_KEYS.get(candidate.status, candidate.status))),
     )
     for label_text, value in fields:
         field_label = QLabel(label_text)
@@ -179,7 +215,7 @@ def _build_detail_dialog(candidate: EventCandidate, parent: QWidget) -> QDialog:
     scroll_area.setWidget(content)
     layout.addWidget(scroll_area, stretch=1)
 
-    close_button = QPushButton("Close")
+    close_button = QPushButton(translator.tr("common-close"))
     close_button.clicked.connect(dialog.accept)
     layout.addWidget(close_button)
 

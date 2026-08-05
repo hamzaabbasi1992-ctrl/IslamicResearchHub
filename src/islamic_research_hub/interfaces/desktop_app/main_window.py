@@ -278,7 +278,9 @@ class MainWindow(QMainWindow):
             citation_manager_screen = CitationManagerScreen(
                 database_path, self._translator, browser=self._browser
             )
-            event_manager_screen = EventManagerScreen(database_path, browser=self._browser)
+            event_manager_screen = EventManagerScreen(
+                database_path, self._translator, browser=self._browser
+            )
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
