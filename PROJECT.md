@@ -975,12 +975,20 @@ not new data-collection problems of their own:
   references" type cross-dimension finding - the current version reports
   per-term gaps within one dimension at a time, not cross-dimension
   correlations; a real, separate, smaller follow-up once useful.
-- **Digital preservation reports**: automatically flag damaged scans,
-  duplicate editions, incomplete books, and corrupt files - largely an
-  extension of already-built infrastructure (duplicate-candidate
-  detection from Phase 2, the corrupted-file handling hardened during
-  Phase 1) surfaced as a real report, not new detection logic from
-  scratch.
+- **Digital preservation reports**: **Milestone 1 done** (see
+  CHANGELOG) - new `PreservationReportScreen`, generated on demand via
+  a background worker (real cost against production: well over two
+  minutes, same territory as citation detection). Surfaces pending
+  duplicate count (linking to Duplicate Manager, not re-implementing
+  review) and real incomplete/unreadable books (no text and no PDF
+  fallback either way) - both extensions of already-built detection
+  (`DuplicateCandidateRepository` from Phase 2,
+  `PdfMatchCandidateRepository`'s own stub thresholds reused, not
+  redefined). **Corrupted/damaged file tracking confirmed not
+  buildable as "just a report"**: investigated directly - import-time
+  failures are only ever a transient log line today, nothing persisted
+  post-import to query; would need new schema across every importer, a
+  real, separate, bigger undertaking - deferred, not silently dropped.
 - **Cross-language conceptual search**: a query typed in Urdu should be
   able to surface relevant Arabic-only results (and vice versa) - a
   real gap distinct from Phase 12's paragraph translation, since this

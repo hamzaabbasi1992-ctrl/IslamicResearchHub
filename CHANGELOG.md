@@ -1,5 +1,49 @@
 # Changelog
 
+## Phase 10: Digital Preservation Report - real duplicate/incompleteness gaps
+
+A new report screen surfacing two real corpus-health signals, both
+extensions of already-built detection infrastructure (per the original
+scoping note), not new detection logic:
+
+- **Pending duplicates**: a summary count from `DuplicateCandidateRepository`
+  (already fully built - Phase 2/8.5), with a "Review in Duplicate
+  Manager" button that navigates straight there rather than
+  re-implementing duplicate review in a second place.
+- **Incomplete/unreadable books**: real books with no substantive
+  readable content in the app today - either zero real page text from a
+  library where that's *not* expected (a `(PDF Archive)` library having
+  zero pages is the normal format, never flagged), or heading-only/
+  sparse text (the same thresholds `PdfMatchCandidateRepository` already
+  uses for its own stub detection, reused not redefined) with no PDF
+  fallback found either way.
+
+Generation runs on a new background `PreservationReportWorker`
+(`QThread`), never on the GUI thread - real, measured cost against the
+production corpus exceeded two minutes for the underlying scan (a full
+`Pages` aggregate, the same query shape `PdfMatchCandidateRepository`
+already runs for its own detection), the same "too slow for the GUI
+thread" territory as citation detection. A real query rewrite was
+needed along the way: the zero-page lookup's first draft used `BookID
+NOT IN (SELECT DISTINCT BookID FROM Pages)`, a known SQLite slow path at
+this corpus's scale - rewritten as `LEFT JOIN ... WHERE p.BookID IS
+NULL`, confirmed directly (the `NOT IN` version did not complete in a
+reasonable time).
+
+**Deliberately out of scope for this milestone**: corrupted/damaged
+source-file tracking. Investigated directly - an import-time failure
+today is only ever a transient log line
+(`maknoon_import_cli.py`/`shamela_import_cli.py` both log-and-continue),
+with nothing persisted post-import to query. Adding that would mean new
+schema across every importer - a real, separate, bigger undertaking,
+not a report over data that already exists.
+
+New: `infrastructure/persistence/preservation_report_repository.py`,
+`interfaces/desktop_app/preservation_report_worker.py`,
+`interfaces/desktop_app/preservation_report_screen.py`, a new rail
+icon. Full language support from day one. 11 new tests; full suite 965
+passed.
+
 ## Phase 8.5: removed 2,003 duplicate PDF-archive catalog stubs (Maknoon vs. Jibreel)
 
 Investigating the `NO_COMMON_PAGES` scoring bucket (2,004 rows, previously

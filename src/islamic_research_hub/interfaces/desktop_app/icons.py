@@ -117,6 +117,10 @@ _SVG_PATHS: dict[str, str] = {
         '<path d="M12 7.5v5.5"/>'
         '<circle cx="12" cy="16.3" r="0.9" fill="{color}"/>'
     ),
+    "preservation": (
+        '<path d="M12 3.5 19.5 6.5V11c0 5-3.2 8.5-7.5 9.5C7.7 19.5 4.5 16 4.5 11V6.5z"/>'
+        '<path d="M9 12 11 14 15.5 9.5"/>'
+    ),
     "maximize": (
         '<polyline points="15 3 21 3 21 9"/>'
         '<polyline points="9 21 3 21 3 15"/>'

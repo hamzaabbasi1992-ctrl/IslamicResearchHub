@@ -71,6 +71,9 @@ from islamic_research_hub.interfaces.desktop_app.narrator_manager_screen import 
     NarratorManagerScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.pdf_viewer_screen import PdfViewerScreen
+from islamic_research_hub.interfaces.desktop_app.preservation_report_screen import (
+    PreservationReportScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
@@ -111,6 +114,7 @@ _RAIL_KEYS = (
     "rail-events",
     "rail-narrators",
     "rail-knowledge-gaps",
+    "rail-preservation",
     "rail-logs",
     "rail-settings",
 )
@@ -124,6 +128,7 @@ _RAIL_ICON_NAMES = (
     "events",
     "narrators",
     "knowledge-gaps",
+    "preservation",
     "logs",
     "settings",
 )
@@ -143,6 +148,9 @@ _PLACEHOLDER_TITLES = (
 # named as one constant, rather than a hardcoded index, so it stays correct
 # as the rail is reordered/grown across the desktop UI redesign's milestones.
 _WORKSPACE_STACK_INDEX = 1
+_DUPLICATE_MANAGER_STACK_INDEX = 3
+"""So `PreservationReportScreen`'s "Review in Duplicate Manager" button
+can navigate there without a hardcoded index scattered at the call site."""
 
 
 class MainWindow(QMainWindow):
@@ -308,6 +316,10 @@ class MainWindow(QMainWindow):
                 database_path, self._translator, browser=self._browser
             )
             knowledge_gap_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            preservation_report_screen = PreservationReportScreen(database_path, self._translator)
+            preservation_report_screen.review_duplicates_requested.connect(
+                lambda: self._show_screen(_DUPLICATE_MANAGER_STACK_INDEX)
+            )
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -325,6 +337,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(event_manager_screen)
             self._stack.addWidget(narrator_manager_screen)
             self._stack.addWidget(knowledge_gap_screen)
+            self._stack.addWidget(preservation_report_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
