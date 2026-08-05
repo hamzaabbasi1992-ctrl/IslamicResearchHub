@@ -11,6 +11,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtCore import QSettings  # noqa: E402
 from PySide6.QtWidgets import QDialog, QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
@@ -31,6 +32,11 @@ from islamic_research_hub.interfaces.desktop_app.duplicate_manager_screen import
     DuplicateManagerScreen,
     _build_comparison_dialog,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 def _action_button(actions_widget: QPushButton, text: str) -> QPushButton:
@@ -79,7 +85,7 @@ def test_scan_button_detects_real_cross_library_duplicates(qtbot, tmp_path: Path
         (database_path.parent / "dup.mjbz",),
         library_name="Library C",
     )
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     assert screen._duplicate_table.rowCount() == 0  # nothing scanned yet
 
@@ -109,7 +115,7 @@ def test_cleanup_button_removes_a_real_empty_stub_duplicate(qtbot, tmp_path: Pat
     )
     DuplicateCandidateRepository(database_path).detect_and_store()
 
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     assert screen._duplicate_table.rowCount() == 1
 
@@ -132,7 +138,7 @@ def test_cleanup_emits_duplicates_resolved_only_when_something_was_removed(
     """The Libraries screen/header only need to refresh if a book actually left."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
 
     with qtbot.assertNotEmitted(screen.duplicates_resolved):
@@ -168,7 +174,7 @@ def test_duplicate_table_has_a_real_compare_button_per_row(qtbot, tmp_path: Path
         database_path, (duplicate_book,), (database_path.parent / "dup.mjbz",),
         library_name="Library C",
     )
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._run_scan()
 
@@ -196,7 +202,7 @@ def test_compare_button_opens_a_dialog_with_the_real_comparison(
     )
     monkeypatch.setattr(QDialog, "exec", lambda self: QDialog.DialogCode.Accepted)
 
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._run_scan()
 
@@ -231,7 +237,7 @@ def test_merge_button_is_present_but_disabled(qtbot, tmp_path: Path) -> None:
         database_path, (duplicate_book,), (database_path.parent / "dup.mjbz",),
         library_name="Library C",
     )
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._run_scan()
 
@@ -254,7 +260,7 @@ def test_dismiss_hides_a_candidate_without_deleting_any_data(qtbot, tmp_path: Pa
         database_path, (duplicate_book,), (database_path.parent / "dup.mjbz",),
         library_name="Library C",
     )
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._run_scan()
     dismiss_button = _action_button(screen._duplicate_table.cellWidget(0, 4), "Dismiss")
@@ -282,7 +288,7 @@ def test_dismiss_persists_across_a_rescan_and_a_fresh_screen(qtbot, tmp_path: Pa
         database_path, (duplicate_book,), (database_path.parent / "dup.mjbz",),
         library_name="Library C",
     )
-    screen = DuplicateManagerScreen(database_path)
+    screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._run_scan()
     _action_button(screen._duplicate_table.cellWidget(0, 4), "Dismiss").click()
@@ -291,12 +297,12 @@ def test_dismiss_persists_across_a_rescan_and_a_fresh_screen(qtbot, tmp_path: Pa
 
     assert screen._duplicate_table.rowCount() == 0
 
-    fresh_screen = DuplicateManagerScreen(database_path)
+    fresh_screen = DuplicateManagerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(fresh_screen)
     assert fresh_screen._duplicate_table.rowCount() == 0
 
 
-def test_comparison_dialog_shows_identical_pages_summary() -> None:
+def test_comparison_dialog_shows_identical_pages_summary(tmp_path: Path) -> None:
     """The dialog reports real page counts and a clear "identical" summary."""
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication, QLabel
@@ -310,7 +316,7 @@ def test_comparison_dialog_shows_identical_pages_summary() -> None:
     )
     parent = QDialog()
 
-    dialog = _build_comparison_dialog(result, parent)
+    dialog = _build_comparison_dialog(result, _translator(tmp_path), parent)
 
     labels_text = " ".join(
         label.text() for label in dialog.findChildren(QLabel)
@@ -321,7 +327,7 @@ def test_comparison_dialog_shows_identical_pages_summary() -> None:
     assert "No meaningfully differing pages" in labels_text
 
 
-def test_comparison_dialog_shows_differing_page_text(monkeypatch) -> None:
+def test_comparison_dialog_shows_differing_page_text(monkeypatch, tmp_path: Path) -> None:
     """A real differing page shows its page number, similarity, and both texts."""
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication, QLabel
@@ -341,7 +347,7 @@ def test_comparison_dialog_shows_differing_page_text(monkeypatch) -> None:
     )
     parent = QDialog()
 
-    dialog = _build_comparison_dialog(result, parent)
+    dialog = _build_comparison_dialog(result, _translator(tmp_path), parent)
 
     labels_text = " ".join(label.text() for label in dialog.findChildren(QLabel))
     assert "Page 3" in labels_text
@@ -350,7 +356,7 @@ def test_comparison_dialog_shows_differing_page_text(monkeypatch) -> None:
     assert "Rewritten wording here" in labels_text
 
 
-def test_comparison_dialog_honestly_reports_no_overlapping_pages() -> None:
+def test_comparison_dialog_honestly_reports_no_overlapping_pages(tmp_path: Path) -> None:
     """When pagination doesn't overlap, the dialog says so honestly, not a fake 0%."""
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication, QLabel
@@ -364,7 +370,35 @@ def test_comparison_dialog_honestly_reports_no_overlapping_pages() -> None:
     )
     parent = QDialog()
 
-    dialog = _build_comparison_dialog(result, parent)
+    dialog = _build_comparison_dialog(result, _translator(tmp_path), parent)
 
     labels_text = " ".join(label.text() for label in dialog.findChildren(QLabel))
     assert "no overlapping page numbers" in labels_text
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    duplicate_book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Duplicate content", "Plain"),),
+    )
+    _seed_database(database_path)
+    MasterBookRepository().import_books(
+        database_path, (duplicate_book,), (database_path.parent / "dup.mjbz",),
+        library_name="Library C",
+    )
+    translator = _translator(tmp_path)
+    screen = DuplicateManagerScreen(database_path, translator)
+    qtbot.addWidget(screen)
+    screen._run_scan()
+    assert screen._heading_label.text() == "Duplicate review"
+    assert screen._scan_button.text() == "Scan for duplicates"
+
+    translator.set_language("ur")
+
+    assert screen._heading_label.text() == "نقل کا جائزہ"
+    assert screen._scan_button.text() == "نقول تلاش کریں"
+    actions = screen._duplicate_table.cellWidget(0, 4)
+    _action_button(actions, "موازنہ")

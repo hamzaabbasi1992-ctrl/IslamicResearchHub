@@ -40,6 +40,7 @@ from islamic_research_hub.infrastructure.persistence.duplicate_candidate_reposit
     DuplicateCandidateRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.import_screen import _heading, _readonly_item
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE, Type
 
@@ -54,6 +55,7 @@ class DuplicateManagerScreen(QWidget):
     def __init__(
         self,
         database_path: Path,
+        translator: Translator,
         browser: BookBrowserRepository | None = None,
         duplicates: DuplicateCandidateRepository | None = None,
         comparisons: BookComparisonRepository | None = None,
@@ -61,9 +63,11 @@ class DuplicateManagerScreen(QWidget):
     ) -> None:
         super().__init__(parent)
         self._database_path = database_path
+        self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._duplicates = duplicates or DuplicateCandidateRepository(database_path)
         self._comparisons = comparisons or BookComparisonRepository(database_path)
+        self._scanning = False
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -75,26 +79,25 @@ class DuplicateManagerScreen(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        layout.addWidget(_heading("Duplicate review"))
+        self._heading_label = _heading(self._translator.tr("duplicate-review"))
+        layout.addWidget(self._heading_label)
         self._duplicate_status_label = QLabel()
         self._duplicate_status_label.setStyleSheet(MUTED_LABEL_STYLE)
         layout.addWidget(self._duplicate_status_label)
 
         button_row = QHBoxLayout()
-        scan_button = QPushButton("Scan for duplicates")
-        scan_button.clicked.connect(self._run_scan)
-        button_row.addWidget(scan_button)
+        self._scan_button = QPushButton(self._translator.tr("duplicate-manager-scan"))
+        self._scan_button.clicked.connect(self._run_scan)
+        button_row.addWidget(self._scan_button)
 
-        self._cleanup_button = QPushButton("Remove empty-stub duplicates")
+        self._cleanup_button = QPushButton(self._translator.tr("duplicate-manager-cleanup"))
         self._cleanup_button.clicked.connect(self._run_cleanup)
         button_row.addWidget(self._cleanup_button)
         button_row.addStretch(1)
         layout.addLayout(button_row)
 
         self._duplicate_table = QTableWidget(0, 5)
-        self._duplicate_table.setHorizontalHeaderLabels(
-            ["Book", "Library", "Possible duplicate of", "Library", ""]
-        )
+        self._duplicate_table.setHorizontalHeaderLabels(self._table_header_labels())
         self._duplicate_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
@@ -109,6 +112,26 @@ class DuplicateManagerScreen(QWidget):
         outer.addWidget(scroll_area)
 
         self.refresh()
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _table_header_labels(self) -> list[str]:
+        return [
+            self._translator.tr("event-manager-col-book"),
+            self._translator.tr("citation-manager-col-library"),
+            self._translator.tr("duplicate-manager-col-possible-duplicate"),
+            self._translator.tr("citation-manager-col-library"),
+            "",
+        ]
+
+    def _retranslate(self, _language: str) -> None:
+        self._heading_label.setText(self._translator.tr("duplicate-review"))
+        self._scan_button.setText(self._translator.tr("duplicate-manager-scan"))
+        self._cleanup_button.setText(self._translator.tr("duplicate-manager-cleanup"))
+        self._duplicate_table.setHorizontalHeaderLabels(self._table_header_labels())
+        if self._scanning:
+            self._duplicate_status_label.setText(self._translator.tr("duplicate-manager-scanning"))
+        else:
+            self._reload_duplicates()
 
     def refresh(self) -> None:
         """Reload the duplicate-candidates table from the real database."""
@@ -116,7 +139,9 @@ class DuplicateManagerScreen(QWidget):
 
     def _reload_duplicates(self) -> None:
         candidates = list(self._duplicates.list_candidates())
-        self._duplicate_status_label.setText(f"{len(candidates)} candidate(s) awaiting review")
+        self._duplicate_status_label.setText(
+            self._translator.tr("citation-manager-candidates-awaiting").format(total=len(candidates))
+        )
         self._duplicate_table.setRowCount(len(candidates))
 
         # One bulk lookup for every book involved, instead of calling
@@ -134,17 +159,21 @@ class DuplicateManagerScreen(QWidget):
             book_summary = summaries.get(candidate.book_id)
             other_summary = summaries.get(candidate.duplicate_of_book_id)
 
-            book_title = book_summary.title if book_summary else f"Book {candidate.book_id}"
-            other_title = (
-                other_summary.title if other_summary else f"Book {candidate.duplicate_of_book_id}"
-            )
-            book_library = book_summary.library if book_summary else "Unknown"
-            other_library = other_summary.library if other_summary else "Unknown"
+            book_title = book_summary.title if book_summary else self._translator.tr(
+                "common-book-number"
+            ).format(id=candidate.book_id)
+            other_title = other_summary.title if other_summary else self._translator.tr(
+                "common-book-number"
+            ).format(id=candidate.duplicate_of_book_id)
+            book_library = book_summary.library if book_summary else self._translator.tr("common-unknown")
+            other_library = other_summary.library if other_summary else self._translator.tr("common-unknown")
 
-            self._duplicate_table.setItem(row, 0, _readonly_item(book_title or "(untitled)", rtl=True))
-            self._duplicate_table.setItem(row, 1, _readonly_item(book_library or "Unknown"))
-            self._duplicate_table.setItem(row, 2, _readonly_item(other_title or "(untitled)", rtl=True))
-            self._duplicate_table.setItem(row, 3, _readonly_item(other_library or "Unknown"))
+            untitled = self._translator.tr("common-untitled")
+            unknown = self._translator.tr("common-unknown")
+            self._duplicate_table.setItem(row, 0, _readonly_item(book_title or untitled, rtl=True))
+            self._duplicate_table.setItem(row, 1, _readonly_item(book_library or unknown))
+            self._duplicate_table.setItem(row, 2, _readonly_item(other_title or untitled, rtl=True))
+            self._duplicate_table.setItem(row, 3, _readonly_item(other_library or unknown))
             self._duplicate_table.setCellWidget(
                 row, 4, self._build_candidate_actions(candidate.book_id, candidate.duplicate_of_book_id)
             )
@@ -155,24 +184,22 @@ class DuplicateManagerScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        compare_button = QPushButton("Compare")
+        compare_button = QPushButton(self._translator.tr("duplicate-manager-compare"))
         compare_button.clicked.connect(
             lambda _checked, a=book_id, b=duplicate_of_book_id: self._show_comparison(a, b)
         )
         layout.addWidget(compare_button)
 
-        dismiss_button = QPushButton("Dismiss")
-        dismiss_button.setToolTip(
-            "Confirm these are different books - stop flagging this pair (permanent)."
-        )
+        dismiss_button = QPushButton(self._translator.tr("common-dismiss"))
+        dismiss_button.setToolTip(self._translator.tr("duplicate-manager-dismiss-tooltip"))
         dismiss_button.clicked.connect(
             lambda _checked, a=book_id, b=duplicate_of_book_id: self._dismiss_candidate(a, b)
         )
         layout.addWidget(dismiss_button)
 
-        merge_button = QPushButton("Merge")
+        merge_button = QPushButton(self._translator.tr("duplicate-manager-merge"))
         merge_button.setEnabled(False)
-        merge_button.setToolTip("Coming soon - no merge operation exists yet.")
+        merge_button.setToolTip(self._translator.tr("duplicate-manager-merge-tooltip"))
         layout.addWidget(merge_button)
 
         return actions
@@ -183,49 +210,59 @@ class DuplicateManagerScreen(QWidget):
         self._reload_duplicates()
 
     def _run_scan(self) -> None:
-        self._duplicate_status_label.setText("Scanning...")
+        self._scanning = True
+        self._duplicate_status_label.setText(self._translator.tr("duplicate-manager-scanning"))
         self._duplicates.detect_and_store()
+        self._scanning = False
         self._reload_duplicates()
 
     def _run_cleanup(self) -> None:
         removed = self._duplicates.resolve_empty_stub_duplicates()
         self._reload_duplicates()
         remaining = self._duplicate_status_label.text()
-        self._duplicate_status_label.setText(f"Removed {removed} empty-stub duplicate(s). {remaining}")
+        self._duplicate_status_label.setText(
+            self._translator.tr("duplicate-manager-cleanup-result").format(
+                removed=removed, remaining=remaining
+            )
+        )
         if removed:
             self.duplicates_resolved.emit()
 
     def _show_comparison(self, book_id_a: int, book_id_b: int) -> None:
         """Compute and show a real page-level comparison between two candidates."""
         result = self._comparisons.compare(book_id_a, book_id_b)
-        dialog = _build_comparison_dialog(result, self)
+        dialog = _build_comparison_dialog(result, self._translator, self)
         dialog.exec()
 
 
-def _build_comparison_dialog(result: BookComparisonResult, parent: QWidget) -> QDialog:
+def _build_comparison_dialog(result: BookComparisonResult, translator: Translator, parent: QWidget) -> QDialog:
     """Build a real, read-only dialog showing a page-level book comparison."""
     dialog = QDialog(parent)
-    dialog.setWindowTitle("Compare books")
+    dialog.setWindowTitle(translator.tr("duplicate-manager-compare-title"))
     dialog.resize(640, 520)
     layout = QVBoxLayout(dialog)
 
-    title = QLabel(f"{result.title_a or '(untitled)'}  vs  {result.title_b or '(untitled)'}")
+    untitled = translator.tr("common-untitled")
+    title = QLabel(
+        translator.tr("duplicate-manager-compare-vs").format(
+            a=result.title_a or untitled, b=result.title_b or untitled
+        )
+    )
     title.setWordWrap(True)
     title.setStyleSheet(f"font-size: 15px; font-weight: 700; {RTL_TEXT_STYLE}")
     layout.addWidget(title)
 
     if result.overall_similarity is None:
-        summary_text = (
-            f"{result.page_count_a} vs {result.page_count_b} page(s) - "
-            "no overlapping page numbers, so no direct page-by-page comparison "
-            "is possible (these books' pagination doesn't line up)."
+        summary_text = translator.tr("duplicate-manager-compare-no-overlap").format(
+            a=result.page_count_a, b=result.page_count_b
         )
     else:
-        summary_text = (
-            f"{result.page_count_a} vs {result.page_count_b} page(s), "
-            f"{result.common_page_count} page(s) in common, "
-            f"{result.overall_similarity:.1%} average similarity on those pages, "
-            f"{len(result.differing_pages)} page(s) differ meaningfully."
+        summary_text = translator.tr("duplicate-manager-compare-summary").format(
+            a=result.page_count_a,
+            b=result.page_count_b,
+            common=result.common_page_count,
+            similarity=f"{result.overall_similarity:.1%}",
+            differing=len(result.differing_pages),
         )
     summary = QLabel(summary_text)
     summary.setWordWrap(True)
@@ -238,23 +275,28 @@ def _build_comparison_dialog(result: BookComparisonResult, parent: QWidget) -> Q
     content_layout = QVBoxLayout(content)
     if not result.differing_pages:
         empty = EmptyStateLabel(
-            "No meaningfully differing pages."
+            translator.tr("duplicate-manager-compare-no-differences")
             if result.common_page_count
-            else "Nothing to compare."
+            else translator.tr("duplicate-manager-compare-nothing")
         )
         content_layout.addWidget(empty)
+    empty_content_text = translator.tr("duplicate-manager-compare-empty-content")
     for entry in result.differing_pages:
         page_frame = QFrame()
         page_frame.setObjectName("settingsBlock")
         page_layout = QVBoxLayout(page_frame)
-        header = QLabel(f"Page {entry.page_number} - {entry.similarity:.1%} similar")
+        header = QLabel(
+            translator.tr("duplicate-manager-compare-page-header").format(
+                page=entry.page_number, similarity=f"{entry.similarity:.1%}"
+            )
+        )
         header.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
         page_layout.addWidget(header)
-        text_a = QLabel(entry.content_a or "(empty)")
+        text_a = QLabel(entry.content_a or empty_content_text)
         text_a.setWordWrap(True)
         text_a.setStyleSheet(f"font-size: {Type.BODY_SM}px; {RTL_TEXT_STYLE}")
         page_layout.addWidget(text_a)
-        text_b = QLabel(entry.content_b or "(empty)")
+        text_b = QLabel(entry.content_b or empty_content_text)
         text_b.setWordWrap(True)
         text_b.setStyleSheet(f"font-size: {Type.BODY_SM}px; {RTL_TEXT_STYLE}")
         page_layout.addWidget(text_b)
@@ -263,7 +305,7 @@ def _build_comparison_dialog(result: BookComparisonResult, parent: QWidget) -> Q
     scroll_area.setWidget(content)
     layout.addWidget(scroll_area, stretch=1)
 
-    close_button = QPushButton("Close")
+    close_button = QPushButton(translator.tr("common-close"))
     close_button.clicked.connect(dialog.accept)
     layout.addWidget(close_button)
 
