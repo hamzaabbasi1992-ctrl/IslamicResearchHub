@@ -55,6 +55,7 @@ from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLa
 from islamic_research_hub.interfaces.desktop_app.i18n import (
     SETTINGS_APPLICATION,
     SETTINGS_ORGANIZATION,
+    Translator,
 )
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
@@ -79,7 +80,6 @@ from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_h
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = 30
-ALL_LIBRARIES_LABEL = "All libraries"
 LEFT_PANE_WIDTH = 230
 RIGHT_PANE_WIDTH = 220
 """UI Polish Pass 2: narrowed from 260 - the detail panel's real content
@@ -105,6 +105,7 @@ class SearchScreen(QWidget):
         self,
         database_path: Path,
         maknoon_pdf_folder: Path,
+        translator: Translator,
         search_service: BookSearchService | None = None,
         browser: BookBrowserRepository | None = None,
         recent_books: RecentBookRepository | None = None,
@@ -118,6 +119,9 @@ class SearchScreen(QWidget):
         super().__init__(parent)
         self._database_path = database_path
         self._maknoon_pdf_folder = maknoon_pdf_folder
+        self._translator = translator
+        self._status_is_idle = True
+        self._detail_panel_is_empty = True
         self._search_service = search_service or BookSearchService(
             SqliteBookSearchRepository(database_path)
         )
@@ -174,6 +178,40 @@ class SearchScreen(QWidget):
         self._install_search_completer()
         self._query_edit.installEventFilter(self)
 
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        tr = self._translator.tr
+        self._categories_tab_button.setText(tr("tab-categories"))
+        self._authors_tab_button.setText(tr("tab-authors"))
+        self._recent_tab_button.setText(tr("search-tab-recent"))
+        self._browse_filter_edit.setPlaceholderText(tr("search-filter-placeholder"))
+        self._libraries_pane_title_label.setText(tr("pane-libraries"))
+        self._rebuild_library_chips()
+        if self._browse_stack.currentIndex() == 2:
+            self._refresh_recent_list()
+        self._query_edit.setPlaceholderText(tr("search-query-placeholder"))
+        self._search_button.setText(tr("search-run-button"))
+        self._mic_button.setToolTip(tr("search-mic-tooltip"))
+        self._library_combo.setItemText(0, tr("all-libraries"))
+        self._author_edit.setPlaceholderText(tr("search-author-placeholder"))
+        self._category_edit.setPlaceholderText(tr("search-category-placeholder"))
+        self._exact_match_checkbox.setText(tr("search-exact-match"))
+        self._exact_match_checkbox.setToolTip(tr("search-exact-match-tooltip"))
+        for index, key in enumerate(("search-target-both", "search-target-title", "search-target-content")):
+            self._search_target_combo.setItemText(index, tr(key))
+        self._search_target_combo.setToolTip(tr("search-target-tooltip"))
+        for index, key in enumerate(("search-scope-main", "search-scope-footnotes", "search-scope-both")):
+            self._scope_combo.setItemText(index, tr(key))
+        self._scope_combo.setToolTip(tr("search-scope-tooltip"))
+        self._detail_toggle_button.setToolTip(tr("search-detail-toggle-tooltip"))
+        self._detail_maximize_button.setToolTip(tr("search-detail-maximize-tooltip"))
+        if self._status_is_idle:
+            self._status_label.setText(tr("search-status-idle"))
+        if self._detail_panel_is_empty:
+            self._clear_detail_panel()
+            self._show_detail_empty_state()
+
     # ---------------------------------------------------------------- left
 
     def _build_left_pane(self) -> QWidget:
@@ -196,20 +234,20 @@ class SearchScreen(QWidget):
         layout.setSpacing(Spacing.XS)
 
         tab_row = QHBoxLayout()
-        self._categories_tab_button = QPushButton("Categories")
+        self._categories_tab_button = QPushButton(self._translator.tr("tab-categories"))
         self._categories_tab_button.setCheckable(True)
         self._categories_tab_button.setChecked(True)
         self._categories_tab_button.setObjectName("navTab")
         self._categories_tab_button.clicked.connect(lambda: self._show_browse_tab(0))
         tab_row.addWidget(self._categories_tab_button)
 
-        self._authors_tab_button = QPushButton("Authors")
+        self._authors_tab_button = QPushButton(self._translator.tr("tab-authors"))
         self._authors_tab_button.setCheckable(True)
         self._authors_tab_button.setObjectName("navTab")
         self._authors_tab_button.clicked.connect(lambda: self._show_browse_tab(1))
         tab_row.addWidget(self._authors_tab_button)
 
-        self._recent_tab_button = QPushButton("Recent")
+        self._recent_tab_button = QPushButton(self._translator.tr("search-tab-recent"))
         self._recent_tab_button.setCheckable(True)
         self._recent_tab_button.setObjectName("navTab")
         self._recent_tab_button.clicked.connect(lambda: self._show_browse_tab(2))
@@ -219,7 +257,7 @@ class SearchScreen(QWidget):
         # 691 real categories and 650 real authors are too many to scroll
         # through blindly - a live filter narrows either list as you type.
         self._browse_filter_edit = QLineEdit()
-        self._browse_filter_edit.setPlaceholderText("Filter...")
+        self._browse_filter_edit.setPlaceholderText(self._translator.tr("search-filter-placeholder"))
         self._browse_filter_edit.textChanged.connect(self._apply_browse_filter)
         layout.addWidget(self._browse_filter_edit)
 
@@ -232,7 +270,8 @@ class SearchScreen(QWidget):
         self._browse_stack.addWidget(self._recent_list)
         layout.addWidget(self._browse_stack, stretch=1)
 
-        layout.addWidget(_pane_title("Libraries"))
+        self._libraries_pane_title_label = _pane_title(self._translator.tr("pane-libraries"))
+        layout.addWidget(self._libraries_pane_title_label)
         self._library_chip_layout = QVBoxLayout()
         self._library_chip_layout.setSpacing(4)
         self._rebuild_library_chips()
@@ -297,12 +336,12 @@ class SearchScreen(QWidget):
 
         recent = self._recent_books.list_recent()
         if not recent:
-            empty_label = EmptyStateLabel("No recently opened books yet - search for one below.")
+            empty_label = EmptyStateLabel(self._translator.tr("search-no-recent-books"))
             self._recent_list_layout.addWidget(empty_label)
         else:
             for summary in recent:
                 button = list_row_button(
-                    f"{summary.title}  ({summary.author or 'Unknown author'})",
+                    f"{summary.title}  ({summary.author or self._translator.tr('common-unknown-author')})",
                     object_name="authorRow",
                 )
                 button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
@@ -322,11 +361,12 @@ class SearchScreen(QWidget):
             if widget is not None:
                 widget.deleteLater()
 
+        all_libraries_label = self._translator.tr("all-libraries")
         all_chip = list_row_button(
-            f"{ALL_LIBRARIES_LABEL}  ({self._browser.get_header_stats().book_count})",
+            f"{all_libraries_label}  ({self._browser.get_header_stats().book_count})",
             object_name="libraryChip",
         )
-        all_chip.clicked.connect(lambda: self._filter_by_library(ALL_LIBRARIES_LABEL))
+        all_chip.clicked.connect(lambda: self._filter_by_library(all_libraries_label))
         self._library_chip_layout.addWidget(all_chip)
         for name, count in self._browser.list_libraries_with_counts():
             chip = list_row_button(f"{name}  ({count})", object_name="libraryChip")
@@ -382,14 +422,20 @@ class SearchScreen(QWidget):
         if self._query_edit.text().strip():
             self._run_search()
         else:
-            self._browse(self._browser.list_books_in_category(name), f'Books in "{name}"')
+            self._browse(
+                self._browser.list_books_in_category(name),
+                self._translator.tr("search-heading-category").format(name=name),
+            )
 
     def _filter_by_author(self, name: str) -> None:
         self._author_edit.setText(name)
         if self._query_edit.text().strip():
             self._run_search()
         else:
-            self._browse(self._browser.list_books_by_author(name), f"Books by {name}")
+            self._browse(
+                self._browser.list_books_by_author(name),
+                self._translator.tr("search-heading-author").format(name=name),
+            )
 
     def _filter_by_library(self, name: str) -> None:
         index = self._library_combo.findText(name)
@@ -397,22 +443,35 @@ class SearchScreen(QWidget):
             self._library_combo.setCurrentIndex(index)
         if self._query_edit.text().strip():
             self._run_search()
-        elif name != ALL_LIBRARIES_LABEL:
-            self._browse(self._browser.list_books_in_library(name), f"Books in {name}")
+        elif name != self._translator.tr("all-libraries"):
+            self._browse(
+                self._browser.list_books_in_library(name),
+                self._translator.tr("search-heading-library").format(name=name),
+            )
         else:
             self._clear_results()
-            self._status_label.setText(
-                "Type a search, or pick a specific category/author/library to browse."
-            )
+            self._status_is_idle = True
+            self._status_label.setText(self._translator.tr("search-status-idle"))
 
     def _browse(self, summaries: tuple[BookSummary, ...], heading: str) -> None:
         """Show a directly-openable list of books - no search query, no excerpts."""
         self._clear_results()
+        self._status_is_idle = False
         if not summaries:
-            self._status_label.setText(f"{heading}: no books found.")
+            self._status_label.setText(
+                self._translator.tr("search-status-browse-empty").format(heading=heading)
+            )
             return
-        suffix = f" (showing first {len(summaries)})" if len(summaries) == MAX_BROWSE_RESULTS else ""
-        self._status_label.setText(f"{heading} - {len(summaries)} book(s){suffix}")
+        suffix = (
+            self._translator.tr("search-status-showing-first").format(count=len(summaries))
+            if len(summaries) == MAX_BROWSE_RESULTS
+            else ""
+        )
+        self._status_label.setText(
+            self._translator.tr("search-status-browse-count").format(
+                heading=heading, count=len(summaries), suffix=suffix
+            )
+        )
         for summary in summaries:
             self._results_layout.insertWidget(
                 self._results_layout.count() - 1, self._build_summary_card(summary)
@@ -432,26 +491,23 @@ class SearchScreen(QWidget):
         search_row = QHBoxLayout()
         search_row.setSpacing(8)
         self._query_edit = QLineEdit()
-        self._query_edit.setPlaceholderText(
-            "Search by content, title, author... "
-            '(content search supports AND / OR / NOT, "phrases")'
-        )
+        self._query_edit.setPlaceholderText(self._translator.tr("search-query-placeholder"))
         self._query_edit.setObjectName("mainSearchBox")
         self._query_edit.setMinimumHeight(40)
         self._query_edit.returnPressed.connect(self._run_search)
         search_row.addWidget(self._query_edit, stretch=1)
 
-        search_button = QPushButton("Search")
-        search_button.setObjectName("primaryButton")
-        search_button.setMinimumHeight(40)
-        search_button.setDefault(True)
-        search_button.clicked.connect(self._run_search)
-        search_row.addWidget(search_button)
+        self._search_button = QPushButton(self._translator.tr("search-run-button"))
+        self._search_button.setObjectName("primaryButton")
+        self._search_button.setMinimumHeight(40)
+        self._search_button.setDefault(True)
+        self._search_button.clicked.connect(self._run_search)
+        search_row.addWidget(self._search_button)
 
         self._mic_button = QPushButton()
         self._mic_button.setIcon(button_icon("mic"))
         self._mic_button.setIconSize(button_icon_size())
-        self._mic_button.setToolTip("Speak a search query")
+        self._mic_button.setToolTip(self._translator.tr("search-mic-tooltip"))
         self._mic_button.setMinimumHeight(40)
         # Visible only when voice search is actually enabled (Settings
         # toggle, wired via MainWindow) - same visibility-gating discipline
@@ -481,25 +537,21 @@ class SearchScreen(QWidget):
         self._library_combo.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
         )
-        self._library_combo.addItem(ALL_LIBRARIES_LABEL)
+        self._library_combo.addItem(self._translator.tr("all-libraries"))
         for library in self._browser.list_libraries():
             self._library_combo.addItem(library)
         filter_row_1.addWidget(self._library_combo)
 
         self._author_edit = QLineEdit()
-        self._author_edit.setPlaceholderText("Author (exact)")
+        self._author_edit.setPlaceholderText(self._translator.tr("search-author-placeholder"))
         filter_row_1.addWidget(self._author_edit)
 
         self._category_edit = QLineEdit()
-        self._category_edit.setPlaceholderText("Category (exact)")
+        self._category_edit.setPlaceholderText(self._translator.tr("search-category-placeholder"))
         filter_row_1.addWidget(self._category_edit)
 
-        self._exact_match_checkbox = QCheckBox("Exact match")
-        self._exact_match_checkbox.setToolTip(
-            "On: literal spelling only.\n"
-            "Off (default): tolerant of real spelling/keyboard variants "
-            "(e.g. علي/علی, ك/ک)."
-        )
+        self._exact_match_checkbox = QCheckBox(self._translator.tr("search-exact-match"))
+        self._exact_match_checkbox.setToolTip(self._translator.tr("search-exact-match-tooltip"))
         self._exact_match_checkbox.toggled.connect(self._on_exact_match_toggled)
         filter_row_1.addWidget(self._exact_match_checkbox)
         layout.addLayout(filter_row_1)
@@ -509,12 +561,10 @@ class SearchScreen(QWidget):
         self._search_target_combo.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
         )
-        self._search_target_combo.addItem("Name + content", "both")
-        self._search_target_combo.addItem("Book name only", "title")
-        self._search_target_combo.addItem("Book content only", "content")
-        self._search_target_combo.setToolTip(
-            "Search by book name (title), inside book content, or both."
-        )
+        self._search_target_combo.addItem(self._translator.tr("search-target-both"), "both")
+        self._search_target_combo.addItem(self._translator.tr("search-target-title"), "title")
+        self._search_target_combo.addItem(self._translator.tr("search-target-content"), "content")
+        self._search_target_combo.setToolTip(self._translator.tr("search-target-tooltip"))
         self._search_target_combo.currentIndexChanged.connect(self._on_search_target_changed)
         filter_row_2.addWidget(self._search_target_combo)
 
@@ -522,13 +572,10 @@ class SearchScreen(QWidget):
         self._scope_combo.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
         )
-        self._scope_combo.addItem("Main text", "content")
-        self._scope_combo.addItem("Footnotes", "footnotes")
-        self._scope_combo.addItem("Both", "both")
-        self._scope_combo.setToolTip(
-            "When searching book content: main page text, footnotes/"
-            "commentary only, or both."
-        )
+        self._scope_combo.addItem(self._translator.tr("search-scope-main"), "content")
+        self._scope_combo.addItem(self._translator.tr("search-scope-footnotes"), "footnotes")
+        self._scope_combo.addItem(self._translator.tr("search-scope-both"), "both")
+        self._scope_combo.setToolTip(self._translator.tr("search-scope-tooltip"))
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         filter_row_2.addWidget(self._scope_combo)
         filter_row_2.addStretch(1)
@@ -536,7 +583,7 @@ class SearchScreen(QWidget):
         self._detail_toggle_button = QPushButton()
         self._detail_toggle_button.setCheckable(True)
         self._detail_toggle_button.setChecked(True)
-        self._detail_toggle_button.setToolTip("Show/hide the details panel")
+        self._detail_toggle_button.setToolTip(self._translator.tr("search-detail-toggle-tooltip"))
         self._detail_toggle_button.setFlat(True)
         self._detail_toggle_button.setIcon(button_icon("prev"))
         self._detail_toggle_button.setIconSize(button_icon_size())
@@ -547,7 +594,7 @@ class SearchScreen(QWidget):
         self._detail_maximize_button.setFlat(True)
         self._detail_maximize_button.setIcon(button_icon("maximize"))
         self._detail_maximize_button.setIconSize(button_icon_size())
-        self._detail_maximize_button.setToolTip("Maximize the details panel")
+        self._detail_maximize_button.setToolTip(self._translator.tr("search-detail-maximize-tooltip"))
         self._detail_maximize_button.clicked.connect(self._on_detail_maximize_clicked)
         filter_row_2.addWidget(self._detail_maximize_button)
         layout.addLayout(filter_row_2)
@@ -604,9 +651,10 @@ class SearchScreen(QWidget):
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
+        self._status_is_idle = False
 
         library = self._library_combo.currentText()
-        library = None if library == ALL_LIBRARIES_LABEL else library
+        library = None if library == self._translator.tr("all-libraries") else library
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
         exact = self._exact_match_checkbox.isChecked()
@@ -643,12 +691,10 @@ class SearchScreen(QWidget):
                     query, DEFAULT_LIMIT, library, author, category, exact, scope
                 )
             except BookSearchError:
-                self._status_label.setText(
-                    "That search couldn't be run - check your query and try again."
-                )
+                self._status_label.setText(self._translator.tr("search-error-could-not-run"))
                 return
             except ValueError:
-                self._status_label.setText("Enter a search term.")
+                self._status_label.setText(self._translator.tr("search-error-enter-term"))
                 return
 
         matched_keys = {(result.book_id, result.page_number) for result in results}
@@ -666,22 +712,26 @@ class SearchScreen(QWidget):
 
         if not results and not title_matches:
             status = (
-                f'No matches found for "{query}" yet - checking related pages...'
+                self._translator.tr("search-status-no-matches-checking-related").format(query=query)
                 if semantic_will_run
-                else f'No matches found for "{query}".'
+                else self._translator.tr("search-status-no-matches").format(query=query)
             )
             self._status_label.setText(status)
         else:
             status_bits = []
             if title_matches:
-                status_bits.append(f"{len(title_matches)} title match(es)")
+                status_bits.append(
+                    self._translator.tr("search-status-title-matches").format(count=len(title_matches))
+                )
             if content_search_active:
-                status_bits.append(f"{len(results)} content result(s)")
+                status_bits.append(
+                    self._translator.tr("search-status-content-results").format(count=len(results))
+                )
             self._status_label.setText(", ".join(status_bits))
 
         if title_matches:
             self._results_layout.insertWidget(
-                self._results_layout.count() - 1, _pane_title("Matching titles")
+                self._results_layout.count() - 1, _pane_title(self._translator.tr("search-matching-titles"))
             )
             for summary in title_matches:
                 self._results_layout.insertWidget(
@@ -753,18 +803,26 @@ class SearchScreen(QWidget):
     ) -> None:
         if not semantic_results:
             if self._current_title_count == 0 and self._current_content_count == 0:
-                self._status_label.setText(f'No matches found for "{self._current_query}".')
+                self._status_label.setText(
+                    self._translator.tr("search-status-no-matches").format(query=self._current_query)
+                )
             return
 
         status_bits = []
         if self._current_title_count:
-            status_bits.append(f"{self._current_title_count} title match(es)")
-        status_bits.append(f"{self._current_content_count} content result(s)")
-        status_bits.append(f"{len(semantic_results)} related page(s)")
+            status_bits.append(
+                self._translator.tr("search-status-title-matches").format(count=self._current_title_count)
+            )
+        status_bits.append(
+            self._translator.tr("search-status-content-results").format(count=self._current_content_count)
+        )
+        status_bits.append(
+            self._translator.tr("search-status-related-pages").format(count=len(semantic_results))
+        )
         self._status_label.setText(", ".join(status_bits))
 
         self._results_layout.insertWidget(
-            self._results_layout.count() - 1, _pane_title("Related pages")
+            self._results_layout.count() - 1, _pane_title(self._translator.tr("search-related-pages-heading"))
         )
         for semantic_result in semantic_results:
             self._results_layout.insertWidget(
@@ -806,30 +864,28 @@ class SearchScreen(QWidget):
     def _start_recording(self) -> None:
         device = QMediaDevices.defaultAudioInput()
         if device.isNull():
-            self._status_label.setText("No microphone was found.")
+            self._status_label.setText(self._translator.tr("search-no-microphone"))
             return
         audio_format = QAudioFormat()
         audio_format.setSampleRate(VOICE_SEARCH_SAMPLE_RATE)
         audio_format.setChannelCount(1)
         audio_format.setSampleFormat(QAudioFormat.SampleFormat.Int16)
         if not device.isFormatSupported(audio_format):
-            self._status_label.setText(
-                "This microphone doesn't support the required audio format."
-            )
+            self._status_label.setText(self._translator.tr("search-mic-format-unsupported"))
             return
 
         self._audio_buffer = bytearray()
         source = QAudioSource(device, audio_format, self)
         io_device = source.start()
         if io_device is None:
-            self._status_label.setText("Could not start recording from the microphone.")
+            self._status_label.setText(self._translator.tr("search-mic-start-failed"))
             return
         io_device.readyRead.connect(self._on_audio_data_ready)
         self._audio_source = source
         self._audio_io_device = io_device
         self._mic_button.setIcon(button_icon("mic", DANGER))
-        self._mic_button.setToolTip("Recording... click to stop")
-        self._status_label.setText("Listening...")
+        self._mic_button.setToolTip(self._translator.tr("search-mic-recording-tooltip"))
+        self._status_label.setText(self._translator.tr("search-mic-listening"))
         self._max_record_timer.start()
 
     def _on_audio_data_ready(self) -> None:
@@ -858,8 +914,8 @@ class SearchScreen(QWidget):
         instead of driving real hardware."""
         self._mic_button.setEnabled(False)
         self._mic_button.setIcon(button_icon("mic"))
-        self._mic_button.setToolTip("Speak a search query")
-        self._status_label.setText("Transcribing...")
+        self._mic_button.setToolTip(self._translator.tr("search-mic-tooltip"))
+        self._status_label.setText(self._translator.tr("search-mic-transcribing"))
         worker = VoiceSearchWorker(
             self._get_or_build_voice_search_service, samples, sample_rate, self
         )
@@ -907,7 +963,7 @@ class SearchScreen(QWidget):
 
     def _on_transcription_failed(self) -> None:
         self._mic_button.setEnabled(True)
-        self._status_label.setText("Could not understand the recording - please try again.")
+        self._status_label.setText(self._translator.tr("search-mic-transcribe-failed"))
 
     def _browse_by_filters(
         self, library: str | None, author: str | None, category: str | None
@@ -916,12 +972,15 @@ class SearchScreen(QWidget):
         summaries = self._browser.list_books_by_filters(library, author, category)
         heading_bits = []
         if author:
-            heading_bits.append(f"author {author}")
+            heading_bits.append(self._translator.tr("search-filter-bit-author").format(author=author))
         if category:
-            heading_bits.append(f'category "{category}"')
+            heading_bits.append(self._translator.tr("search-filter-bit-category").format(category=category))
         if library:
-            heading_bits.append(f"library {library}")
-        self._browse(summaries, "Books matching " + ", ".join(heading_bits))
+            heading_bits.append(self._translator.tr("search-filter-bit-library").format(library=library))
+        self._browse(
+            summaries,
+            self._translator.tr("search-heading-matching-prefix") + ", ".join(heading_bits),
+        )
 
     def _clear_results(self) -> None:
         while self._results_layout.count() > 1:
@@ -1014,17 +1073,20 @@ class SearchScreen(QWidget):
         card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
-        title = QLabel(result.title or "(untitled)")
+        title = QLabel(result.title or self._translator.tr("common-untitled"))
         title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
 
-        meta_bits = [result.author or "Unknown author", result.library or "Unknown library"]
+        meta_bits = [
+            result.author or self._translator.tr("common-unknown-author"),
+            result.library or self._translator.tr("common-unknown-library"),
+        ]
         if result.page_number is not None:
-            meta_bits.append(f"page {result.page_number}")
+            meta_bits.append(self._translator.tr("search-meta-page").format(page=result.page_number))
         if result.source == "footnote":
-            meta_bits.append("footnote match")
+            meta_bits.append(self._translator.tr("search-meta-footnote-match"))
         meta = QLabel(" · ".join(meta_bits))
         meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
@@ -1061,15 +1123,18 @@ class SearchScreen(QWidget):
         card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
-        title = QLabel(result.title or "(untitled)")
+        title = QLabel(result.title or self._translator.tr("common-untitled"))
         title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
 
-        meta_bits = [result.author or "Unknown author", result.library or "Unknown library"]
+        meta_bits = [
+            result.author or self._translator.tr("common-unknown-author"),
+            result.library or self._translator.tr("common-unknown-library"),
+        ]
         if result.page_number is not None:
-            meta_bits.append(f"page {result.page_number}")
+            meta_bits.append(self._translator.tr("search-meta-page").format(page=result.page_number))
         meta = QLabel(" · ".join(meta_bits))
         meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
@@ -1101,13 +1166,16 @@ class SearchScreen(QWidget):
         card_layout.setContentsMargins(Spacing.SM, Spacing.XS, Spacing.SM, Spacing.XS)
         card_layout.setSpacing(Spacing.XS)
 
-        title = QLabel(summary.title or "(untitled)")
+        title = QLabel(summary.title or self._translator.tr("common-untitled"))
         title.setStyleSheet(f"font-size: {Type.BODY_LG}px; font-weight: 600; {RTL_TEXT_STYLE}")
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card_layout.addWidget(title)
 
-        meta_bits = [summary.author or "Unknown author", summary.library or "Unknown library"]
+        meta_bits = [
+            summary.author or self._translator.tr("common-unknown-author"),
+            summary.library or self._translator.tr("common-unknown-library"),
+        ]
         meta = QLabel(" · ".join(meta_bits))
         meta.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.BODY_SM}px;")
         card_layout.addWidget(meta)
@@ -1130,14 +1198,14 @@ class SearchScreen(QWidget):
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 4, 0, 0)
         if pdf_path is not None:
-            pdf_button = QPushButton("Open PDF")
+            pdf_button = QPushButton(self._translator.tr("search-open-pdf"))
             pdf_button.setIcon(button_icon("open-pdf"))
             pdf_button.setIconSize(button_icon_size())
             pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
             row_layout.addWidget(pdf_button)
 
         target_page = page_number or 1
-        read_button = QPushButton("Read in app")
+        read_button = QPushButton(self._translator.tr("common-read-in-app"))
         read_button.setIcon(button_icon("viewer"))
         read_button.setIconSize(button_icon_size())
         read_button.clicked.connect(
@@ -1145,12 +1213,12 @@ class SearchScreen(QWidget):
         )
         row_layout.addWidget(read_button)
 
-        details_button = QPushButton("Details")
+        details_button = QPushButton(self._translator.tr("search-details-button"))
         details_button.clicked.connect(lambda: self._show_details(book_id, page_number))
         row_layout.addWidget(details_button)
 
-        citation_button = QPushButton("Copy citation")
-        citation_button.setToolTip("Copy a citation for this page to the clipboard.")
+        citation_button = QPushButton(self._translator.tr("viewer-copy-citation"))
+        citation_button.setToolTip(self._translator.tr("search-copy-citation-tooltip"))
         citation_button.clicked.connect(
             lambda: self._copy_card_citation(book_id, page_number)
         )
@@ -1215,10 +1283,9 @@ class SearchScreen(QWidget):
     def _show_detail_empty_state(self) -> None:
         """The detail pane before anything is selected - a real message,
         not a blank rectangle."""
+        self._detail_panel_is_empty = True
         self._detail_layout.addWidget(
-            EmptyStateLabel(
-                "Select a result to see its details here.", centered=True
-            )
+            EmptyStateLabel(self._translator.tr("search-detail-empty-state"), centered=True)
         )
         self._detail_layout.addStretch(1)
 
@@ -1233,6 +1300,7 @@ class SearchScreen(QWidget):
         metadata = self._browser.get_book_metadata(book_id)
         if metadata is None:
             return
+        self._detail_panel_is_empty = False
         self._clear_detail_panel()
         self._populate_detail_panel(metadata, page_number)
 
@@ -1244,35 +1312,36 @@ class SearchScreen(QWidget):
                 widget.deleteLater()
 
     def _populate_detail_panel(self, metadata: BookMetadata, page_number: int | None) -> None:
-        title = QLabel(metadata.title or "(untitled)")
+        tr = self._translator.tr
+        title = QLabel(metadata.title or tr("common-untitled"))
         title.setWordWrap(True)
         title.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         title.setStyleSheet(f"font-size: 16px; font-weight: 700; {RTL_TEXT_STYLE}")
         self._detail_layout.addWidget(title)
 
         rows: list[tuple[str, str | None]] = [
-            ("Author", metadata.author),
-            ("Publisher", metadata.publisher),
-            ("Language", metadata.language),
-            ("Category", metadata.category),
-            ("Library", metadata.library),
+            (tr("search-detail-author"), metadata.author),
+            (tr("search-detail-publisher"), metadata.publisher),
+            (tr("search-detail-language"), metadata.language),
+            (tr("search-detail-category"), metadata.category),
+            (tr("search-detail-library"), metadata.library),
         ]
         if metadata.series_title:
             series_text = metadata.series_title
             if metadata.volume_number is not None:
-                series_text += f" (volume {metadata.volume_number})"
-            rows.append(("Series", series_text))
-        rows.append(("Pages", str(metadata.page_count)))
-        rows.append(("Chapters", str(metadata.chapter_count)))
+                series_text += tr("search-detail-volume-suffix").format(volume=metadata.volume_number)
+            rows.append((tr("search-detail-series"), series_text))
+        rows.append((tr("search-detail-pages"), str(metadata.page_count)))
+        rows.append((tr("search-detail-chapters"), str(metadata.chapter_count)))
         if page_number is not None:
-            rows.append(("Matched page", str(page_number)))
+            rows.append((tr("search-detail-matched-page"), str(page_number)))
 
         for label_text, value in rows:
-            self._detail_layout.addWidget(_detail_row(label_text, value))
+            self._detail_layout.addWidget(_detail_row(label_text, value, tr("common-unknown")))
 
-        self._detail_layout.addWidget(_pane_title("Your rating"))
+        self._detail_layout.addWidget(_pane_title(tr("search-your-rating")))
         self._rating_combo = QComboBox()
-        self._rating_combo.addItem("Not rated", None)
+        self._rating_combo.addItem(tr("search-not-rated"), None)
         for value in range(1, 6):
             self._rating_combo.addItem("★" * value, value)
         current_rating = self._ratings.get_rating(metadata.book_id)
@@ -1282,7 +1351,7 @@ class SearchScreen(QWidget):
         )
         self._detail_layout.addWidget(self._rating_combo)
 
-        open_viewer_button = QPushButton("Open in Viewer")
+        open_viewer_button = QPushButton(tr("search-open-in-viewer"))
         open_viewer_button.setObjectName("primaryButton")
         open_viewer_button.setIcon(button_icon("viewer", SURFACE_RAISED))
         open_viewer_button.setIconSize(button_icon_size())
@@ -1296,7 +1365,7 @@ class SearchScreen(QWidget):
         if source is not None:
             pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
             if pdf_path is not None:
-                pdf_button = QPushButton("Open source PDF")
+                pdf_button = QPushButton(tr("search-open-source-pdf"))
                 pdf_button.setIcon(button_icon("open-pdf"))
                 pdf_button.setIconSize(button_icon_size())
                 pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
@@ -1313,7 +1382,7 @@ def _pane_title(text: str) -> QLabel:
     return label
 
 
-def _detail_row(label_text: str, value: str | None) -> QWidget:
+def _detail_row(label_text: str, value: str | None, unknown_text: str) -> QWidget:
     row = QWidget()
     layout = QVBoxLayout(row)
     layout.setContentsMargins(0, 0, 0, 0)
@@ -1321,7 +1390,7 @@ def _detail_row(label_text: str, value: str | None) -> QWidget:
     caption = QLabel(label_text)
     caption.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
     layout.addWidget(caption)
-    value_label = QLabel(value or "Unknown")
+    value_label = QLabel(value or unknown_text)
     value_label.setWordWrap(True)
     value_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     layout.addWidget(value_label)

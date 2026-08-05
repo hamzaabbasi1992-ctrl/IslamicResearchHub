@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QSettings, Qt  # noqa: E402
 from PySide6.QtWidgets import QFrame, QLabel, QPushButton  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Category, Page  # noqa: E402
@@ -26,7 +26,12 @@ from islamic_research_hub.domain.models.semantic_search_result import (  # noqa:
 from islamic_research_hub.infrastructure.persistence.sqlite_page_embedding_repository import (  # noqa: E402
     PageEmbeddingError,
 )
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen  # noqa: E402
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat))
 
 
 class FakeSemanticSearchService:
@@ -72,7 +77,7 @@ def test_search_screen_shows_ranked_results(qtbot, tmp_path: Path) -> None:
     """Typing a query and pressing Enter populates result cards."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
@@ -109,7 +114,7 @@ def test_arrow_keys_move_selection_through_result_cards(qtbot, tmp_path: Path) -
     results without needing to click - keyboard-only navigation."""
     database_path = tmp_path / "books.db"
     _seed_two_matching_books(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
@@ -128,7 +133,7 @@ def test_enter_opens_the_selected_result(qtbot, tmp_path: Path) -> None:
     """Pressing Enter with a card selected opens it, instead of re-searching."""
     database_path = tmp_path / "books.db"
     _seed_two_matching_books(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
@@ -146,7 +151,7 @@ def test_copy_citation_button_on_a_result_card_copies_a_real_citation(
     just in the reader - reuses the existing format_citation(), no new backend."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
@@ -171,7 +176,7 @@ def test_result_card_excerpt_is_capped_to_a_dense_desktop_height(
 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
@@ -197,7 +202,7 @@ def test_results_and_detail_panes_have_no_redundant_native_frame(
 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     detail_pane = next(
@@ -211,7 +216,7 @@ def test_search_screen_shows_no_results_message(qtbot, tmp_path: Path) -> None:
     """A query with no matches shows a clear message and no result cards."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "nonexistentterm")
@@ -234,7 +239,7 @@ def test_search_screen_respects_author_filter(qtbot, tmp_path: Path) -> None:
     MasterBookRepository().import_books(
         database_path, (other_book,), (database_path.parent / "other.mjbz",)
     )
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._author_edit, "Author Two")
@@ -248,7 +253,7 @@ def test_search_screen_library_dropdown_lists_real_libraries(qtbot, tmp_path: Pa
     """The library filter is populated from the real database, not hardcoded."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     items = [screen._library_combo.itemText(i) for i in range(screen._library_combo.count())]
@@ -260,7 +265,7 @@ def test_search_screen_clears_previous_results_on_new_search(qtbot, tmp_path: Pa
     """Running a second search replaces the first result set, doesn't append to it."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
@@ -282,7 +287,7 @@ def test_detail_panel_shows_a_real_empty_state_before_any_selection(
     guidance message instead."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._detail_layout.count() >= 1
@@ -295,7 +300,7 @@ def test_details_button_populates_the_inline_detail_panel(qtbot, tmp_path: Path)
     """Clicking Details on a result fills the right-hand panel with real catalog data."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._show_details(1, page_number=1)
@@ -312,7 +317,7 @@ def test_detail_panel_shows_not_rated_by_default(qtbot, tmp_path: Path) -> None:
     """A book with no stored rating shows "Not rated" selected, not an error."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._show_details(1, page_number=1)
@@ -327,7 +332,7 @@ def test_selecting_a_rating_persists_it(qtbot, tmp_path: Path) -> None:
     _seed_database(database_path)
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._show_details(1, page_number=1)
 
@@ -342,7 +347,7 @@ def test_reopening_details_shows_the_previously_saved_rating(qtbot, tmp_path: Pa
     _seed_database(database_path)
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._ratings.set_rating(1, 5)
 
@@ -356,7 +361,7 @@ def test_clicking_a_category_in_the_tree_filters_and_searches(qtbot, tmp_path: P
     """Clicking a real category node sets the category filter and runs a search."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._query_edit.setText("jurisprudence")
@@ -372,7 +377,7 @@ def test_clicking_an_author_in_the_list_filters_and_searches(qtbot, tmp_path: Pa
     """Clicking a real author row sets the author filter and runs a search."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._query_edit.setText("jurisprudence")
@@ -389,7 +394,7 @@ def test_clicking_a_category_with_no_query_browses_its_books_directly(
     (previously did nothing - see the CHANGELOG fix for this exact gap)."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     top_item = screen._category_tree.topLevelItem(0)
@@ -406,7 +411,7 @@ def test_clicking_an_author_with_no_query_browses_their_books_directly(
     """With an empty search box, clicking an author lists their real books directly."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._filter_by_author("Author One")
@@ -420,7 +425,7 @@ def test_clicking_a_library_chip_with_no_query_browses_its_books_directly(
     """With an empty search box, clicking a specific library chip lists its real books."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._filter_by_library("Maktaba Jibreel (Mobile)")
@@ -434,7 +439,7 @@ def test_clicking_all_libraries_with_no_query_prompts_instead_of_listing_everyth
     """"All libraries" with no query doesn't dump the whole corpus as cards."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._filter_by_library("All libraries")
@@ -449,7 +454,7 @@ def test_recent_tab_shows_empty_state_with_no_history(qtbot, tmp_path: Path) -> 
     _seed_database(database_path)
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._show_browse_tab(2)
@@ -469,7 +474,7 @@ def test_recent_tab_lists_a_real_recently_opened_book_and_opens_it_on_click(
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
     RecentBookRepository(database_path).record_open(1, page_number=5)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._show_browse_tab(2)
@@ -492,7 +497,7 @@ def test_typing_an_author_and_clicking_search_with_no_query_browses_directly(
     even read - see the CHANGELOG fix for this exact gap)."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._author_edit, "Author One")
@@ -509,7 +514,7 @@ def test_typing_a_category_and_clicking_search_with_no_query_browses_directly(
     text) lists that category's real books directly."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._category_edit, "Fiqh")
@@ -525,7 +530,7 @@ def test_search_shows_real_title_matches_separately_from_content_matches(
     """A query matching a real book title shows a distinct "Matching titles" group."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "Fiqh")
@@ -549,7 +554,7 @@ def test_exact_match_checkbox_requires_literal_spelling(qtbot, tmp_path: Path) -
     )
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._query_edit.setText("علي")
@@ -583,7 +588,7 @@ def test_semantic_results_shown_as_a_separate_related_pages_section(
         )
     )
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), semantic_search_service=semantic
     )
     qtbot.addWidget(screen)
 
@@ -622,7 +627,7 @@ def test_semantic_results_exclude_pages_already_shown_as_keyword_matches(
         )
     )
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), semantic_search_service=semantic
     )
     qtbot.addWidget(screen)
 
@@ -645,7 +650,7 @@ def test_semantic_search_failure_degrades_gracefully_not_a_crash(
     _seed_database(database_path)
     semantic = FakeSemanticSearchService(error=PageEmbeddingError("no index"))
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), semantic_search_service=semantic
     )
     qtbot.addWidget(screen)
 
@@ -672,7 +677,7 @@ def test_semantic_search_is_skipped_under_exact_match(qtbot, tmp_path: Path) -> 
         )
     )
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", semantic_search_service=semantic
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), semantic_search_service=semantic
     )
     qtbot.addWidget(screen)
 
@@ -688,7 +693,7 @@ def test_lazy_semantic_search_is_not_attempted_by_default(qtbot, tmp_path: Path)
     real model loading is opt-in, never a side effect of a plain search."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     build_calls = []
     screen._build_real_semantic_search_service = lambda: (build_calls.append(1), None)[1]
@@ -707,7 +712,7 @@ def test_lazy_semantic_search_builds_at_most_once_across_searches(
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", enable_lazy_semantic_search=True
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), enable_lazy_semantic_search=True
     )
     qtbot.addWidget(screen)
     build_calls = []
@@ -738,7 +743,7 @@ def test_search_target_book_name_only_skips_content_search(qtbot, tmp_path: Path
     """"Book name only" finds real title matches and never runs content search."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     title_only_index = screen._search_target_combo.findData("title")
@@ -754,7 +759,7 @@ def test_search_target_book_content_only_skips_title_search(qtbot, tmp_path: Pat
     """"Book content only" finds real content matches and never runs title search."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     content_only_index = screen._search_target_combo.findData("content")
@@ -770,7 +775,7 @@ def test_search_target_default_runs_both_name_and_content(qtbot, tmp_path: Path)
     """The default "Name + content" still runs both, matching prior behavior."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._query_edit.setText("Fiqh")
@@ -798,7 +803,7 @@ def test_scope_dropdown_footnotes_finds_a_real_footnote_only_term(qtbot, tmp_pat
     )
     with sqlite3.connect(database_path) as connection:
         MigrationRunner().migrate(connection)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     screen._query_edit.setText("sincerity")
@@ -828,7 +833,7 @@ def test_browse_filter_narrows_the_real_author_list(qtbot, tmp_path: Path) -> No
     MasterBookRepository().import_books(
         database_path, (other_book,), (database_path.parent / "other.mjbz",)
     )
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     screen._show_browse_tab(1)
 
@@ -853,7 +858,7 @@ def test_running_a_search_records_it_in_recent_searches(qtbot, tmp_path: Path) -
     _seed_database(database_path)
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
     store = RecentSearchStore(settings)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", recent_search_store=store)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), recent_search_store=store)
     qtbot.addWidget(screen)
 
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
@@ -877,6 +882,7 @@ def test_search_box_has_a_completer_seeded_from_authors_and_recent_searches(
     screen = SearchScreen(
         database_path,
         tmp_path / "maknoon_pdfs",
+        _translator(tmp_path),
         recent_search_store=RecentSearchStore(settings),
     )
     qtbot.addWidget(screen)
@@ -896,7 +902,7 @@ def test_detail_panel_toggle_collapses_and_expands(qtbot, tmp_path: Path) -> Non
     toggle - visible by default, matching prior behavior."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     assert screen._detail_toggle_button.isChecked() is True
     assert screen._splitter.sizes()[2] > 0
@@ -922,7 +928,7 @@ def test_detail_panel_maximize_grows_it_and_shrinks_the_siblings(
 ) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.resize(1200, 700)
     screen.show()
@@ -944,7 +950,7 @@ def test_detail_panel_maximize_expands_it_first_if_collapsed(
 ) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.resize(1200, 700)
     screen._detail_toggle_button.setChecked(False)
@@ -993,7 +999,7 @@ def test_mic_button_hidden_when_voice_search_disabled_by_default(qtbot, tmp_path
     a dead control offering a feature that's off is worse than no control."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
 
     assert screen._mic_button.isHidden() is True
@@ -1005,7 +1011,7 @@ def test_mic_button_visible_when_voice_search_enabled(qtbot, tmp_path: Path) -> 
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), enable_lazy_voice_search=True
     )
     qtbot.addWidget(screen)
 
@@ -1017,7 +1023,7 @@ def test_lazy_voice_search_is_not_attempted_by_default(qtbot, tmp_path: Path) ->
     real model loading is opt-in, never a side effect of recording."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     qtbot.addWidget(screen)
     build_calls = []
     screen._build_real_voice_search_service = lambda: (build_calls.append(1), None)[1]
@@ -1036,7 +1042,7 @@ def test_finishing_a_recording_transcribes_and_runs_search(qtbot, tmp_path: Path
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), enable_lazy_voice_search=True
     )
     qtbot.addWidget(screen)
     transcriber = _install_fake_voice_transcriber(screen, transcript="jurisprudence")
@@ -1059,7 +1065,7 @@ def test_voice_search_failure_resets_mic_button_without_crashing(qtbot, tmp_path
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = SearchScreen(
-        database_path, tmp_path / "maknoon_pdfs", enable_lazy_voice_search=True
+        database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path), enable_lazy_voice_search=True
     )
     qtbot.addWidget(screen)
     _install_fake_voice_transcriber(screen, fail=True)
@@ -1075,3 +1081,24 @@ def test_voice_search_failure_resets_mic_button_without_crashing(qtbot, tmp_path
     qtbot.keyClicks(screen._query_edit, "jurisprudence")
     qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
     assert "1 content result" in screen._status_label.text()
+
+
+def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
+    """Static chrome (tabs, filter combos, buttons) and the idle status/
+    empty detail placeholder all re-render in the new language."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    translator = _translator(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", translator)
+    qtbot.addWidget(screen)
+    assert screen._categories_tab_button.text() == "Categories"
+    assert screen._search_button.text() == "Search"
+    assert screen._library_combo.itemText(0) == "All libraries"
+
+    translator.set_language("ur")
+
+    assert screen._categories_tab_button.text() == "موضوعات"
+    assert screen._search_button.text() == "تلاش کریں"
+    assert screen._library_combo.itemText(0) == "تمام مکاتب"
+    assert screen._exact_match_checkbox.text() == "عین مطابق"
+    assert screen._status_label.text() == "تلاش کریں، یا براؤز کرنے کے لیے کوئی مخصوص زمرہ/مصنف/لائبریری منتخب کریں۔"

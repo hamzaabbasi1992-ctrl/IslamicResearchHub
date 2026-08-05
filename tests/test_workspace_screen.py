@@ -48,7 +48,7 @@ def _seed_database(database_path: Path) -> None:
 def _build_workspace(qtbot, tmp_path: Path) -> tuple[WorkspaceScreen, QStackedWidget, QLabel]:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
-    search_screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs")
+    search_screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
     reader_stack = QStackedWidget()
     reader_placeholder = QLabel("reader content")
     reader_stack.addWidget(reader_placeholder)

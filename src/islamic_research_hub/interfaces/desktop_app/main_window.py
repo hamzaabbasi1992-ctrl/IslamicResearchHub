@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
             self._search_screen = SearchScreen(
                 database_path,
                 maknoon_pdf_folder,
+                self._translator,
                 recent_books=self._recent_books,
                 # Real fixes made this safe to enable - see CHANGELOG:
                 # semantic search now runs on a background QThread (never

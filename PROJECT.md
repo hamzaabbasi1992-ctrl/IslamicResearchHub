@@ -1,6 +1,6 @@
 # Islamic Research Hub AI — Project Plan
 
-Last updated: 2026-08-03 (kept in sync with `CHANGELOG.md`, which is the
+Last updated: 2026-08-05 (kept in sync with `CHANGELOG.md`, which is the
 authoritative detailed history — this file is the current-status summary).
 
 ## Goal
@@ -226,6 +226,20 @@ library; those capabilities aren't required to get v1.0's core value.
   leaked a stray `language=ur` value into the real registry before that
   was caught - fixed with dependency injection, same pattern as
   everywhere else `QSettings`/`Translator` are used.
+  - **App-wide text retrofit: done** (see CHANGELOG). The above shipped
+    real RTL/LTR *layout* mirroring, but per-screen *text* stayed
+    hardcoded English outside Settings/HeaderBar - caught directly by
+    the user ("whole maktaba doesnt convert to that language when i
+    select it"). All 11 remaining screens (Home, Logs, AI Assistant
+    panel, Taxonomy Browser, Citation/Event/Duplicate managers, Import,
+    PDF Viewer, Viewer/Reader, Search) now take a required `Translator`
+    and retranslate live on `language_changed`, not just on next
+    launch. `i18n.py` grew from ~30 to 284 keys, real Urdu/Arabic text
+    throughout (not placeholders). Already-rendered dynamic content
+    (search results, an open book's own chapter titles) is real
+    book/library data, not app chrome - left untranslated in place by
+    design; a fresh action (new search, newly opened book) always
+    renders in the current language.
 - Logs, Book Details - **done**: `LogsScreen` reads the real application
   log (newest 500 lines). Details was originally a popup dialog
   (`BookDetailsDialog`); later replaced with the inline detail panel in
