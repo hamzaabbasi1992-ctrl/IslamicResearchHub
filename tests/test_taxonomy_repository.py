@@ -118,6 +118,21 @@ def test_link_book_and_list_books_for_term(tmp_path: Path) -> None:
     assert linked_terms[0].term_id == term_id
 
 
+def test_list_term_book_counts_reflects_real_links(tmp_path: Path) -> None:
+    """Each term's real linked-book count, including zero for an unlinked term."""
+    repo = TaxonomyRepository(_migrated_database(tmp_path))
+    zakat_id = repo.get_or_create_term("subject", "الزكاة", "ar")
+    fiqh_id = repo.get_or_create_term("subject", "الفقه", "ar")
+    repo.link_book(1, zakat_id)
+
+    counts = dict(
+        (term.term_id, count) for term, count in repo.list_term_book_counts("subject")
+    )
+
+    assert counts[zakat_id] == 1
+    assert counts[fiqh_id] == 0
+
+
 def test_get_term_tree_builds_a_real_parent_child_hierarchy(tmp_path: Path) -> None:
     """Subject terms with a real ParentTermID nest correctly under their parent."""
     repo = TaxonomyRepository(_migrated_database(tmp_path))

@@ -62,6 +62,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
 )
 from islamic_research_hub.interfaces.desktop_app.icons import rail_icon
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
+from islamic_research_hub.interfaces.desktop_app.knowledge_gap_screen import KnowledgeGapScreen
 from islamic_research_hub.interfaces.desktop_app.logs_screen import LogsScreen
 from islamic_research_hub.interfaces.desktop_app.narrator_extraction_worker import (
     NarratorExtractionWorker,
@@ -109,6 +110,7 @@ _RAIL_KEYS = (
     "rail-citations",
     "rail-events",
     "rail-narrators",
+    "rail-knowledge-gaps",
     "rail-logs",
     "rail-settings",
 )
@@ -121,6 +123,7 @@ _RAIL_ICON_NAMES = (
     "citations",
     "events",
     "narrators",
+    "knowledge-gaps",
     "logs",
     "settings",
 )
@@ -301,6 +304,10 @@ class MainWindow(QMainWindow):
             narrator_manager_screen = NarratorManagerScreen(
                 database_path, self._translator, browser=self._browser
             )
+            knowledge_gap_screen = KnowledgeGapScreen(
+                database_path, self._translator, browser=self._browser
+            )
+            knowledge_gap_screen.open_in_viewer_requested.connect(self._open_in_viewer)
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -317,6 +324,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(citation_manager_screen)
             self._stack.addWidget(event_manager_screen)
             self._stack.addWidget(narrator_manager_screen)
+            self._stack.addWidget(knowledge_gap_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)

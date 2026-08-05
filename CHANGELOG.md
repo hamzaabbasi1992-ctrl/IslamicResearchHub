@@ -1,5 +1,25 @@
 # Changelog
 
+## Phase 10: Knowledge Gap Detector - real corpus coverage gaps, no new AI
+
+A new "Knowledge Gaps" screen surfaces a genuine research signal - "only
+N books cover this subject/author/publisher/language" - computed
+directly from real `BookTaxonomyTerms` link counts Phase 8's taxonomy
+population already produces. Deliberately **not** a new data-collection
+step: a pure query + threshold filter over existing data, no AI, no
+extraction, no cost, no candidate review. Real coverage-gap terms are
+listed sparsest-first per dimension, with a real, adjustable "fewer
+than N books" threshold (default 3); clicking a term shows its actual
+linked books via the same bulk-hydration pattern `TaxonomyBrowserScreen`
+already uses. Terms with *zero* linked books are deliberately excluded
+- a different, murkier case (an unlinked/import-artifact term) than "the
+library is genuinely thin on this real topic."
+
+New: `application/knowledge_gap_analysis.py` (`TermCoverage` +
+`find_low_coverage_terms()`), `TaxonomyRepository.list_term_book_counts()`,
+`interfaces/desktop_app/knowledge_gap_screen.py`, a new rail icon. Full
+language support from day one. 12 new tests; full suite 954 passed.
+
 ## Phase 10: Structured narrator/isnad database (safe version) - Milestone 1
 
 Book-by-book, on-demand extraction of real narrator mentions (which

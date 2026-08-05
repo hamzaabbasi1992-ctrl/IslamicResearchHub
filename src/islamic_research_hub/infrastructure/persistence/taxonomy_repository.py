@@ -143,6 +143,26 @@ class TaxonomyRepository:
             flat_terms = self._load_terms(connection, dimension_id)
         return _build_tree(flat_terms)
 
+    def list_term_book_counts(self, dimension_code: str) -> tuple[tuple[TaxonomyTerm, int], ...]:
+        """Return every real term in a dimension paired with its real
+        linked-book count - the raw material for a real coverage-gap
+        report (`application/knowledge_gap_analysis.py`), not itself
+        opinionated about what counts as "low"."""
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            dimension_id = self._dimension_id(connection, dimension_code)
+            terms = self._load_terms(connection, dimension_id)
+            count_rows = connection.execute(
+                """
+                SELECT bt.TermID, COUNT(*) FROM BookTaxonomyTerms bt
+                JOIN TaxonomyTerms t ON t.TermID = bt.TermID
+                WHERE t.DimensionID = ?
+                GROUP BY bt.TermID
+                """,
+                (dimension_id,),
+            ).fetchall()
+        counts_by_term = dict(count_rows)
+        return tuple((term, counts_by_term.get(term.term_id, 0)) for term in terms)
+
     def list_books_for_term(self, term_id: int) -> tuple[int, ...]:
         """Return every real book id linked to a term."""
         with closing(sqlite3.connect(self._database_path)) as connection:

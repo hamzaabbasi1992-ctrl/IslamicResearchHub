@@ -956,11 +956,16 @@ not new data-collection problems of their own:
   citation graph above. Needs the same content-linking infrastructure
   (real page text already indexed, semantic search from Phase 7) rather
   than new data collection.
-- **Knowledge gap detector**: surface real corpus statistics as
-  research signal - "only 2 books cover this topic," "no English
-  references exist for this subject" - directly computable once the
-  taxonomy (Phase 8) has real population data; not a new data problem,
-  a new query over data other Phase 10 items already produce.
+- **Knowledge gap detector**: **done** (see CHANGELOG) - new
+  `KnowledgeGapScreen`, per dimension (subject/author/language/
+  publisher - the four Phase 8 has actually populated), lists real
+  low-coverage terms ("only N books cover this") sparsest-first, with a
+  real adjustable "fewer than N books" threshold. Pure query + filter
+  over `BookTaxonomyTerms` counts - no AI, no new data collection,
+  confirming the original scoping note. Not yet done: a "no English
+  references" type cross-dimension finding - the current version reports
+  per-term gaps within one dimension at a time, not cross-dimension
+  correlations; a real, separate, smaller follow-up once useful.
 - **Digital preservation reports**: automatically flag damaged scans,
   duplicate editions, incomplete books, and corrupt files - largely an
   extension of already-built infrastructure (duplicate-candidate

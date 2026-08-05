@@ -112,6 +112,11 @@ _SVG_PATHS: dict[str, str] = {
         '<circle cx="7" cy="7" r="3"/><path d="M2 20v-1.5A4.5 4.5 0 0 1 6.5 14h1A4.5 4.5 0 0 1 12 18.5V20"/>'
         '<circle cx="17" cy="7" r="3"/><path d="M12 20v-1.5A4.5 4.5 0 0 1 16.5 14h1a4.5 4.5 0 0 1 4.5 4.5V20"/>'
     ),
+    "knowledge-gaps": (
+        '<circle cx="12" cy="12" r="9"/>'
+        '<path d="M12 7.5v5.5"/>'
+        '<circle cx="12" cy="16.3" r="0.9" fill="{color}"/>'
+    ),
     "maximize": (
         '<polyline points="15 3 21 3 21 9"/>'
         '<polyline points="9 21 3 21 3 15"/>'
