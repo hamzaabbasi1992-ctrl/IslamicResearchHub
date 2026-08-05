@@ -906,13 +906,24 @@ not new data-collection problems of their own:
   step from the original Knowledge Extraction Engine discussion) - a
   real, separate step once enough books have real extracted candidates
   to merge.
-- **Structured narrator/isnad database - safe version**: extract and
-  cross-reference narrator names as searchable structured data (which
-  hadiths, which books mention them) **without the AI ever rendering an
-  authentication judgment**. This is the real, buildable, safe version
-  of "isnad visualization" - deliberately separated from the
+- **Structured narrator/isnad database - safe version**: **Milestone 1
+  done** (see CHANGELOG) - mirrors the Waqiat architecture exactly:
+  book-by-book, on-demand, a real "Extract Narrators" button in the
+  reader with a real cost estimate confirmed first, extracting
+  structured narrator mentions (name, alternate names, kunya/nasab,
+  any generation the text itself states, hadith reference, a verbatim
+  quoted excerpt, a real citation) via the existing AI Agent
+  infrastructure. **Without the AI ever rendering an authentication
+  judgment** - enforced in the extraction system prompt itself (tested
+  directly, not just documented) and reinforced by a visible safety
+  note on the new `NarratorManagerScreen`. Stored as 3-state
+  (`pending`/`confirmed`/`dismissed`) candidates, same reasoning as
+  `EventCandidate`. This is the real, buildable, safe version of
+  "isnad visualization" - deliberately separated from the
   AI-authentication-judgment version, which stays deferred in Phase 20
-  as a high-risk item needing real scholarly review first.
+  as a high-risk item needing real scholarly review first. Deferred,
+  not silently dropped: cross-book narrator identity resolution (the
+  same name spelled differently across books becoming one entity).
 - **Knowledge graph** (general): migration 6's taxonomy schema
   (`TaxonomyTerms` with `ParentTermID` hierarchy, `BookTaxonomyTerms`
   many-to-many, `TaxonomyAliases`) already models this shape of data -

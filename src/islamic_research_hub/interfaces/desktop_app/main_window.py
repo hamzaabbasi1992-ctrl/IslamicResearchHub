@@ -30,6 +30,9 @@ from islamic_research_hub.infrastructure.persistence.bookmark_repository import 
 from islamic_research_hub.infrastructure.persistence.event_candidate_repository import (
     EventCandidateRepository,
 )
+from islamic_research_hub.infrastructure.persistence.narrator_candidate_repository import (
+    NarratorCandidateRepository,
+)
 from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_repository import (
     PdfMatchCandidateRepository,
 )
@@ -60,6 +63,12 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
 from islamic_research_hub.interfaces.desktop_app.icons import rail_icon
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
 from islamic_research_hub.interfaces.desktop_app.logs_screen import LogsScreen
+from islamic_research_hub.interfaces.desktop_app.narrator_extraction_worker import (
+    NarratorExtractionWorker,
+)
+from islamic_research_hub.interfaces.desktop_app.narrator_manager_screen import (
+    NarratorManagerScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.pdf_viewer_screen import PdfViewerScreen
 from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
@@ -99,6 +108,7 @@ _RAIL_KEYS = (
     "rail-taxonomy",
     "rail-citations",
     "rail-events",
+    "rail-narrators",
     "rail-logs",
     "rail-settings",
 )
@@ -110,6 +120,7 @@ _RAIL_ICON_NAMES = (
     "taxonomy",
     "citations",
     "events",
+    "narrators",
     "logs",
     "settings",
 )
@@ -181,6 +192,7 @@ class MainWindow(QMainWindow):
         self._ai_panel: AiAssistantPanel | None = None
         self._database_path: Path | None = None
         self._event_extraction_worker: EventExtractionWorker | None = None
+        self._narrator_extraction_worker: NarratorExtractionWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -247,6 +259,9 @@ class MainWindow(QMainWindow):
             self._viewer_screen.extract_events_requested.connect(
                 self._on_extract_events_requested
             )
+            self._viewer_screen.extract_narrators_requested.connect(
+                self._on_extract_narrators_requested
+            )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
@@ -283,6 +298,9 @@ class MainWindow(QMainWindow):
             event_manager_screen = EventManagerScreen(
                 database_path, self._translator, browser=self._browser
             )
+            narrator_manager_screen = NarratorManagerScreen(
+                database_path, self._translator, browser=self._browser
+            )
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -298,6 +316,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(taxonomy_browser_screen)
             self._stack.addWidget(citation_manager_screen)
             self._stack.addWidget(event_manager_screen)
+            self._stack.addWidget(narrator_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
@@ -570,6 +589,77 @@ class MainWindow(QMainWindow):
     def _on_extraction_finished(self, count: int) -> None:
         QMessageBox.information(
             self, "Extract Events", f"{count} event(s) found - review them in the Events screen."
+        )
+
+    def _on_extract_narrators_requested(self, book_id: int) -> None:
+        """Extract real narrator mentions from one book - same pre-flight
+        check, chunk/cost estimate, and background-worker shape as
+        `_on_extract_events_requested`."""
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Extract Narrators", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Extract Narrators", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Extract Narrators", "This book has no real page content to extract from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Extract Narrators",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        repository = NarratorCandidateRepository(self._database_path)
+        worker = NarratorExtractionWorker(
+            self._ai_panel.get_or_build_ai_agent_service, repository, book_id, chunks, self
+        )
+        worker.extraction_finished.connect(self._on_narrator_extraction_finished)
+        worker.extraction_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Extract Narrators", reason)
+        )
+        self._narrator_extraction_worker = worker
+        worker.start()
+
+    def _on_narrator_extraction_finished(self, count: int) -> None:
+        QMessageBox.information(
+            self,
+            "Extract Narrators",
+            f"{count} narrator mention(s) found - review them in the Narrators screen.",
         )
 
     def _on_language_changed(self, _language: str) -> None:

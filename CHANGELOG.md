@@ -1,5 +1,45 @@
 # Changelog
 
+## Phase 10: Structured narrator/isnad database (safe version) - Milestone 1
+
+Book-by-book, on-demand extraction of real narrator mentions (which
+name appears at which hadith reference), reusing the exact architecture
+Waqiat proved out: a new "Extract Narrators" button in the reader,
+gated behind the same AI Agent Settings toggle, a real chunk-count/cost
+estimate the user confirms before anything runs, a background
+`NarratorExtractionWorker`, and a new `NarratorManagerScreen` for
+three-state (`pending`/`confirmed`/`dismissed`) human review.
+
+**Deliberately the "safe version"**, per the project's own Phase 10
+scope split: this extracts *structural presence data only* - a
+narrator's name, alternate spellings, kunya/nasab, any generation the
+source text itself states, the hadith reference, a verbatim excerpt,
+and a citation. It never renders (and the system prompt explicitly
+forbids) any reliability/authentication judgment - that stays a
+separate, deferred, high-risk item needing real scholarly review first.
+The `NarratorManagerScreen` itself carries a visible safety note
+reinforcing this, and a dedicated test
+(`test_extract_narrators_system_prompt_forbids_authentication_judgments`)
+asserts the prohibition is enforced in the prompt, not just documented.
+
+New: `application/narrator_extraction.py` (`ExtractedNarrator` +
+`parse_extracted_narrators()`), `AiAgentService.extract_narrators()`,
+`domain/models/narrator_candidate.py`,
+`infrastructure/persistence/narrator_candidate_repository.py`
+(`NarratorCandidates` table, joins `DuplicateCandidateRepository`'s
+existing book-cleanup loop),
+`interfaces/desktop_app/narrator_extraction_worker.py`,
+`interfaces/desktop_app/narrator_manager_screen.py`, a new rail icon.
+Full language support from day one (real Urdu/Arabic text, not
+placeholders) - the app-wide retrofit below made this the expected
+baseline for any new screen, not a follow-up. 35 new tests; full suite
+942 passed.
+
+Deferred, not silently dropped: cross-book narrator identity resolution
+(the same name spelled differently across books becoming one entity),
+and any reliability/authentication-judgment feature (stays a separate,
+Phase 20-deferred item needing real scholarly review).
+
 ## App-wide language retrofit: every screen now actually switches language
 
 Fixes the real gap flagged directly by the user: picking a language in

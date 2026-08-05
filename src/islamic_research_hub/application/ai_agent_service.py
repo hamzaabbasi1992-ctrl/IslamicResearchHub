@@ -67,6 +67,38 @@ _EXTRACT_EVENTS_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_EXTRACT_NARRATORS_SYSTEM_PROMPT = (
+    "You are extracting real narrator (isnad-chain) mentions from a real "
+    "Islamic research library for a researcher to review before anything "
+    "is trusted. Call get_book_pages for the given range first (paginate "
+    "with further calls if truncated), then respond with ONLY a raw JSON "
+    "array - no prose, no markdown code fences - and nothing else. Each "
+    "element must have exactly these fields: name (string, the narrator's "
+    "name as it appears in the text), alternate_names (array of strings, "
+    "other spellings/forms of the same name if the text uses more than "
+    "one), kunya_nasab (string or null, a kunya/nasab/lineage given for "
+    "this narrator in the text, e.g. \"Abu Hurayrah\"), generation "
+    "(string or null, only if the text itself states a tabaqah/generation "
+    "- e.g. \"Companion\", \"Tabi'i\" - never infer one), hadith_reference "
+    "(string, the real hadith number/chapter/heading this narrator is "
+    "named in, as given in the text), quoted_excerpt (a real, verbatim "
+    "excerpt containing the narrator's name - never paraphrase this "
+    "field), citation (use that page's own \"citation\" field verbatim "
+    "from get_book_pages - never invent one). Only include narrators "
+    "genuinely named in the real text you read - never invent one to "
+    "have something to report. You are recording structural presence "
+    "data only (who is named where) - NEVER render any judgment about a "
+    "narrator's reliability, trustworthiness, or authentication status, "
+    "and never include such a judgment in any field, even if the source "
+    "text itself discusses it. If the range names no real narrators, "
+    "return an empty array []."
+)
+
+_EXTRACT_NARRATORS_PROMPT_TEMPLATE = (
+    "Extract real narrator mentions from book_id={book_id}, pages "
+    "{start_page}-{end_page}."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTurnResult:
@@ -116,6 +148,23 @@ class AiAgentService:
         )
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),), system_prompt=_EXTRACT_EVENTS_SYSTEM_PROMPT
+        )
+
+    def extract_narrators(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Extract real narrator mentions from one real page range, as a
+        strict JSON array (possibly empty) - never prose, and never an
+        authentication/reliability judgment (enforced by the system
+        prompt). `AgentTurnResult.answer` is the raw JSON text; parsing it
+        into typed narrators is
+        `application/narrator_extraction.py::parse_extracted_narrators()`'s
+        job, not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _EXTRACT_NARRATORS_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),), system_prompt=_EXTRACT_NARRATORS_SYSTEM_PROMPT
         )
 
     def _run_loop(

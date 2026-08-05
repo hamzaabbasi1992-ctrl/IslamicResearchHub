@@ -180,3 +180,50 @@ def test_extract_events_rejects_a_backwards_page_range() -> None:
 
     with pytest.raises(ValueError):
         service.extract_events(book_id=1, start_page=20, end_page=10)
+
+
+def test_extract_narrators_seeds_the_right_book_and_page_range() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="[]", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    result = service.extract_narrators(book_id=42, start_page=10, end_page=20)
+
+    assert result.answer == "[]"
+    _system_prompt, messages = provider.calls[0]
+    seed_text = messages[0].text
+    assert "42" in seed_text
+    assert "10" in seed_text
+    assert "20" in seed_text
+
+
+def test_extract_narrators_uses_its_own_system_prompt_not_shared_with_others() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="[]", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.extract_narrators(book_id=1, start_page=1, end_page=5)
+
+    system_prompt, _messages = provider.calls[0]
+    assert "JSON" in system_prompt
+    assert "narrator" in system_prompt.lower() or "isnad" in system_prompt.lower()
+
+
+def test_extract_narrators_system_prompt_forbids_authentication_judgments() -> None:
+    """The safe-version scope decision (structural presence data only,
+    never a reliability/authentication verdict) must be enforced by the
+    prompt itself, not just documented in a comment."""
+    provider = FakeLLMProvider([LLMTurn(text="[]", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.extract_narrators(book_id=1, start_page=1, end_page=5)
+
+    system_prompt, _messages = provider.calls[0]
+    lowered = system_prompt.lower()
+    assert "never" in lowered
+    assert "authentication" in lowered or "reliability" in lowered
+
+
+def test_extract_narrators_rejects_a_backwards_page_range() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.extract_narrators(book_id=1, start_page=20, end_page=10)
