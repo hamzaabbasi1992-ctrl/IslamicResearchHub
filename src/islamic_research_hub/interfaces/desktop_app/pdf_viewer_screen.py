@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, RTL_TEXT_STYLE, Type
 
@@ -39,8 +40,9 @@ class PdfViewerScreen(QWidget):
 
     bookmark_toggled = Signal(int, int, bool)  # book_id, page_number, is_now_bookmarked
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, translator: Translator, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._translator = translator
         self._zoom = DEFAULT_ZOOM
         self._current_book_id: int | None = None
         self._bookmarked_pages: set[int] = set()
@@ -49,9 +51,7 @@ class PdfViewerScreen(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._empty_label = EmptyStateLabel(
-            "Open a PDF-only book from Search to read it here.", centered=True
-        )
+        self._empty_label = EmptyStateLabel(self._translator.tr("pdf-viewer-empty"), centered=True)
         layout.addWidget(self._empty_label)
 
         self._reader = QWidget()
@@ -75,7 +75,7 @@ class PdfViewerScreen(QWidget):
         toolbar_container = QWidget()
         toolbar = QHBoxLayout(toolbar_container)
         toolbar.setContentsMargins(16, 4, 16, 8)
-        self._prev_button = QPushButton("Prev")
+        self._prev_button = QPushButton(self._translator.tr("common-prev"))
         self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
         self._prev_button.clicked.connect(self._go_previous)
@@ -90,7 +90,7 @@ class PdfViewerScreen(QWidget):
         self._page_count_label = QLabel()
         toolbar.addWidget(self._page_count_label)
 
-        self._next_button = QPushButton("Next")
+        self._next_button = QPushButton(self._translator.tr("common-next"))
         self._next_button.setIcon(button_icon("next"))
         self._next_button.setIconSize(button_icon_size())
         self._next_button.clicked.connect(self._go_next)
@@ -98,7 +98,7 @@ class PdfViewerScreen(QWidget):
 
         toolbar.addStretch(1)
 
-        self._bookmark_button = QPushButton("Bookmark this page")
+        self._bookmark_button = QPushButton(self._translator.tr("common-bookmark-this-page"))
         self._bookmark_button.setIcon(button_icon("bookmark"))
         self._bookmark_button.setIconSize(button_icon_size())
         self._bookmark_button.clicked.connect(self.toggle_bookmark)
@@ -141,6 +141,14 @@ class PdfViewerScreen(QWidget):
 
         layout.addWidget(self._reader, stretch=1)
 
+        self._translator.language_changed.connect(self._retranslate)
+
+    def _retranslate(self, _language: str) -> None:
+        self._empty_label.setText(self._translator.tr("pdf-viewer-empty"))
+        self._prev_button.setText(self._translator.tr("common-prev"))
+        self._next_button.setText(self._translator.tr("common-next"))
+        self._update_bookmark_button()
+
     def load_pdf(
         self,
         pdf_path: Path,
@@ -157,7 +165,7 @@ class PdfViewerScreen(QWidget):
         self._current_book_id = book_id
         self._bookmarked_pages = set(bookmarked_pages or ())
         self._title_label.setText(title or pdf_path.stem)
-        self._author_label.setText(author or "Unknown author")
+        self._author_label.setText(author or self._translator.tr("common-unknown-author"))
         self._empty_label.setVisible(False)
         self._reader.setVisible(True)
         self._zoom = DEFAULT_ZOOM
@@ -222,7 +230,9 @@ class PdfViewerScreen(QWidget):
     def _update_bookmark_button(self) -> None:
         is_bookmarked = self.current_page_number() in self._bookmarked_pages
         self._bookmark_button.setText(
-            "★ Bookmarked" if is_bookmarked else "Bookmark this page"
+            self._translator.tr("common-bookmarked")
+            if is_bookmarked
+            else self._translator.tr("common-bookmark-this-page")
         )
 
     def bookmarked_pages(self) -> set[int]:

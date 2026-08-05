@@ -245,7 +245,7 @@ class MainWindow(QMainWindow):
             self._viewer_screen.extract_events_requested.connect(
                 self._on_extract_events_requested
             )
-            self._pdf_viewer_screen = PdfViewerScreen()
+            self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
             self._viewer_stack.addWidget(self._viewer_screen)

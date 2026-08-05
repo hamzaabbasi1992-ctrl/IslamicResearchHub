@@ -20,12 +20,17 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
     MasterBookRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel  # noqa: E402
+from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.workspace_screen import WorkspaceScreen  # noqa: E402
 
 
 def _isolated_settings(tmp_path: Path) -> QSettings:
     return QSettings(str(tmp_path / "settings.ini"), QSettings.Format.IniFormat)
+
+
+def _translator(tmp_path: Path) -> Translator:
+    return Translator(_isolated_settings(tmp_path))
 
 
 def _seed_database(database_path: Path) -> None:
@@ -47,7 +52,7 @@ def _build_workspace(qtbot, tmp_path: Path) -> tuple[WorkspaceScreen, QStackedWi
     reader_stack = QStackedWidget()
     reader_placeholder = QLabel("reader content")
     reader_stack.addWidget(reader_placeholder)
-    ai_panel = AiAssistantPanel(_isolated_settings(tmp_path))
+    ai_panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
 
     workspace = WorkspaceScreen(search_screen, reader_stack, ai_panel)
     qtbot.addWidget(workspace)

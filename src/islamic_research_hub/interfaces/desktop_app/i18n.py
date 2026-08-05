@@ -203,6 +203,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "duplicate-manager-compare-nothing": "Nothing to compare.",
         "duplicate-manager-compare-page-header": "Page {page} - {similarity} similar",
         "duplicate-manager-compare-empty-content": "(empty)",
+        "pdf-viewer-empty": "Open a PDF-only book from Search to read it here.",
+        "common-prev": "Prev",
+        "common-bookmark-this-page": "Bookmark this page",
+        "common-bookmarked": "★ Bookmarked",
     },
     "ur": {
         "rail-home": "ہوم",
@@ -392,6 +396,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "duplicate-manager-compare-nothing": "موازنے کے لیے کچھ نہیں۔",
         "duplicate-manager-compare-page-header": "صفحہ {page} - {similarity} مماثل",
         "duplicate-manager-compare-empty-content": "(خالی)",
+        "pdf-viewer-empty": "اسے یہاں پڑھنے کے لیے تلاش سے کوئی صرف-پی ڈی ایف کتاب کھولیں۔",
+        "common-prev": "پچھلا",
+        "common-bookmark-this-page": "اس صفحے کو نشان زد کریں",
+        "common-bookmarked": "★ نشان زد شدہ",
     },
     "ar": {
         "rail-home": "الرئيسية",
@@ -581,6 +589,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "duplicate-manager-compare-nothing": "لا يوجد ما يمكن مقارنته.",
         "duplicate-manager-compare-page-header": "الصفحة {page} - {similarity} تشابه",
         "duplicate-manager-compare-empty-content": "(فارغ)",
+        "pdf-viewer-empty": "افتح كتابًا بصيغة PDF فقط من البحث لقراءته هنا.",
+        "common-prev": "السابق",
+        "common-bookmark-this-page": "إضافة إشارة مرجعية لهذه الصفحة",
+        "common-bookmarked": "★ تمت الإشارة إليها",
     },
 }
 
