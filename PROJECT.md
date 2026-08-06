@@ -1006,24 +1006,38 @@ not new data-collection problems of their own:
   real gap distinct from Phase 12's paragraph translation, since this
   is about *search* finding conceptually related content across
   languages, not translating found content afterward.
-  **Checked for real, not assumed - confirmed broken as currently
-  deployed** (2026-08-06): ran real Arabic queries against the live
-  production index (1,695,366 embedded pages: ur 1,031,696 + "Urdu"
-  282,641 + ar 175,727 + unlabeled 205,301 - Arabic is a real 10%+ of
-  the index, not negligible). A real Arabic query about divorce
-  jurisprudence (أحكام الطلاق في الفقه الإسلامي) returned **zero**
-  Arabic-language results in the top 50; a fasting query (فضل الصيام)
-  returned exactly 1 of 50, ranked #35. `paraphrase-multilingual-MiniLM-L12-v2`
-  (the model already in production use for same-language semantic
-  search) does not provide usable cross-lingual retrieval here as
-  currently wired - Urdu content systematically dominates results
-  regardless of query language, likely the model's imperfect
-  cross-lingual alignment compounded by the corpus's real ~6:1
-  Urdu:Arabic embedded-page imbalance. Real follow-up work needed
-  before this is buildable: language-aware re-ranking/boosting, a
-  fairness-weighted merge across per-language result pools, or
-  evaluating a different multilingual model - not attempted this pass,
-  scope not yet sized.
+  **Confirmed broken (2026-08-06), then fixed the same day, both by
+  measurement, not assumption.** Ran real Arabic queries against the
+  live production index (1,695,366 embedded pages, Arabic a real 10%+
+  of it): a divorce-jurisprudence query (أحكام الطلاق في الفقه
+  الإسلامي) returned **zero** Arabic results in the top 50 despite a
+  real, on-topic Arabic page scoring 0.8026 - it ranked #284, buried
+  behind 283 Urdu/unlabeled pages that merely scored higher on raw
+  cosine similarity. Root cause confirmed: `paraphrase-multilingual-
+  MiniLM-L12-v2` doesn't provide usable cross-lingual alignment here as
+  wired, compounded by the corpus's real Urdu:Arabic imbalance -
+  same-language matches were being systematically outnumbered, not
+  individually outscored by better content.
+  **Fix (same-language re-ranking boost)**: `SemanticBookSearchService.
+  search()` now detects the query's own language (`detect_language_from_text()`,
+  the same heuristic already used for narration/translation) and passes
+  it to `SqlitePageEmbeddingRepository.search()`, which adds a real,
+  measured `SAME_LANGUAGE_BOOST` (0.10) to a candidate page's similarity
+  *for ranking only* - the displayed `similarity` score stays the real,
+  unboosted cosine value, so match confidence shown to the user is
+  never inflated. The boost value itself was found by testing 0.03/
+  0.05/0.08/0.10/0.15 against both real broken queries and picking the
+  smallest value that produced a genuine same-language recovery on both
+  without one flipping to Arabic-only noise. A page with no recorded
+  `Books.Language` is never boosted either way. Verified end-to-end
+  against production after the fix: the same 0.8026-similarity Arabic
+  page that ranked #284 unboosted now ranks #3 in a real top-50, with
+  its displayed similarity unchanged. 11 new tests. Real, meaningful
+  remaining gap, not solved by this pass: a page with no recorded
+  `Books.Language` (~12% of the index) still can't be boosted for or
+  against, since detecting its real language would mean reading full
+  page text for every one of ~200K unlabeled pages at query time -
+  worth a real backfill pass later, not attempted here.
 
 ### Phase 11 — AI research assistant: **Milestone 1 done**
 

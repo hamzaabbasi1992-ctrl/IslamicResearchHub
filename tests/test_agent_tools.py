@@ -35,7 +35,7 @@ class FakeSemanticSearchIndex:
     def __init__(self, results: tuple[SemanticSearchResult, ...] = ()) -> None:
         self._results = results
 
-    def search(self, embedding, limit, library=None):
+    def search(self, embedding, limit, library=None, query_language=None):
         return self._results
 
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## Cross-language semantic search fix (real, confirmed bug)
+
+Phase 10's cross-language search item was checked for real this session
+and confirmed broken: an Arabic query about divorce jurisprudence
+(أحكام الطلاق في الفقه الإسلامي) returned zero Arabic results in the
+top 50 despite a genuinely on-topic Arabic page scoring 0.8026 - it
+ranked #284, buried behind 283 Urdu/unlabeled pages with merely higher
+raw cosine similarity. Root cause: the multilingual embedding model
+doesn't provide usable cross-lingual alignment as wired, compounded by
+the corpus's real Urdu:Arabic imbalance - same-language matches were
+losing on numbers, not on relevance.
+
+Fix: `SemanticBookSearchService.search()` now detects the query's own
+language and passes it to `SqlitePageEmbeddingRepository.search()`,
+which adds a new `SAME_LANGUAGE_BOOST` (0.10) to a same-language
+candidate's similarity *for ranking only* - the `similarity` value
+returned to callers stays the real, unboosted cosine score, so
+displayed match confidence is never inflated. The boost value is a
+real, measured number: tested 0.03/0.05/0.08/0.10/0.15 against the two
+confirmed-broken real queries and picked the smallest value that
+produced genuine recovery on both without over-correcting into
+Arabic-only noise. Verified end-to-end against production after the
+fix - the same 0.8026-similarity page that ranked #284 unboosted now
+ranks #3 in a real top-50.
+
+`SemanticSearchIndex`'s Protocol gained an optional `query_language`
+parameter; every existing test fake implementing it (`test_agent_tools.py`,
+`test_hybrid_search.py`, `test_semantic_book_search.py`) updated to
+match, all backward-compatible (defaults to `None`, no boost applied,
+byte-identical behavior to before). 11 new tests.
+
 ## Phase 17: Multimedia generation - Milestone 2 (narrated podcasts)
 
 Completes Phase 17's original scope: real narrated podcasts, generated

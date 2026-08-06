@@ -25,14 +25,20 @@ class FakeIndex:
         self.last_embedding: tuple[float, ...] | None = None
         self.last_limit: int | None = None
         self.last_library: str | None = None
+        self.last_query_language: str | None = None
 
     def search(
-        self, embedding: tuple[float, ...], limit: int, library: str | None = None
+        self,
+        embedding: tuple[float, ...],
+        limit: int,
+        library: str | None = None,
+        query_language: str | None = None,
     ) -> tuple[SemanticSearchResult, ...]:
         """Record the request and return one fixed result."""
         self.last_embedding = embedding
         self.last_limit = limit
         self.last_library = library
+        self.last_query_language = query_language
         return (
             SemanticSearchResult(
                 book_id=1, title="Title", author="Author", page_number=1,
@@ -61,6 +67,18 @@ def test_search_passes_through_library_filter() -> None:
     SemanticBookSearchService(FakeEmbedder(), index).search("query", library="Lib A")
 
     assert index.last_library == "Lib A"
+
+
+def test_search_detects_and_passes_the_query_language() -> None:
+    """Real, confirmed fix: the query's own detected language reaches
+    the index so it can correct for same-language matches being
+    systematically buried under a numerically larger other-language
+    pool (see `SqlitePageEmbeddingRepository.SAME_LANGUAGE_BOOST`)."""
+    index = FakeIndex()
+
+    SemanticBookSearchService(FakeEmbedder(), index).search("رحمة")
+
+    assert index.last_query_language == "Arabic"
 
 
 def test_search_rejects_blank_query() -> None:
