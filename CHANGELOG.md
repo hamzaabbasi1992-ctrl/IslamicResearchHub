@@ -1,5 +1,32 @@
 # Changelog
 
+## Phase 14: Personal research workspace - Milestone 1
+
+Real named Collections: group real bookmarked pages into named research
+projects, then export one as a real .docx document with citations.
+
+New: migration 17 (`Collections`/`CollectionItems`, additive, no FK to
+`BookBookmarks` - a page can join a collection without first being
+separately bookmarked). `domain/models/collection.py`
+(`Collection`/`CollectionItem`). `infrastructure/persistence/
+collection_repository.py` (`CollectionRepository`, mirrors
+`BookmarkRepository`'s exact graceful-degrade-on-a-pre-migration-
+database shape). `research_notes/collection_export.py`
+(`build_export_document()`/`export_collection_to_docx()`, real
+python-docx output - one section per item, its real page content, and
+a real citation via the existing `format_citation()`). New
+`interfaces/desktop_app/collections_screen.py` (create/rename/delete
+collections, view/remove items, export). `ViewerScreen` gained a real
+"Add to Collection" toolbar button (pick an existing collection or
+create one inline) and a new rail entry.
+
+27 new tests (12 `CollectionRepository`, 4 `collection_export`, 8
+`CollectionsScreen`, 3 `ViewerScreen`'s add-to-collection flow); full
+suite green. Saved searches/saved AI conversations
+(also named in Phase 14's original scope) are still out - Collections
+was the concrete, well-scoped first piece, same milestone-scoping
+discipline as every other phase this project has shipped.
+
 ## Quick-ask AI box in Search's empty detail pane
 
 Repeatedly reported: the detail pane before selecting a result used to

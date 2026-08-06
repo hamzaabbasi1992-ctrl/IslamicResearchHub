@@ -8,10 +8,14 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QSettings, Qt  # noqa: E402
 from PySide6.QtGui import QGuiApplication  # noqa: E402
+from PySide6.QtWidgets import QInputDialog, QMessageBox  # noqa: E402
 
 from islamic_research_hub.domain.models.book import Book, Chapter, Page  # noqa: E402
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
     MasterBookRepository,
+)
+from islamic_research_hub.infrastructure.persistence.migration_runner import (  # noqa: E402
+    MigrationRunner,
 )
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator  # noqa: E402
 from islamic_research_hub.interfaces.desktop_app.icons import (  # noqa: E402
@@ -628,6 +632,81 @@ def _install_fake_translation(
         None if unavailable else PageTranslationService(fake)
     )
     return fake
+
+
+def _migrated_database(tmp_path: Path) -> Path:
+    """A real, fully-migrated database with one real book (BookID 1) -
+    `CollectionRepository` degrades to a silent no-op on a pre-migration
+    database, so real Collections tests need this instead of `_seed_database`."""
+    import sqlite3
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    return database_path
+
+
+def test_add_to_collection_creates_a_new_collection_and_adds_the_page(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    new_option = screen._translator.tr("collections-add-item-new-option")
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *a, **k: (new_option, True))
+    )
+    monkeypatch.setattr(
+        QInputDialog, "getText", staticmethod(lambda *a, **k: ("Zakat research", True))
+    )
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: None))
+
+    screen._on_add_to_collection_clicked()
+
+    collections = screen._collections.list_collections()
+    assert len(collections) == 1
+    assert collections[0].name == "Zakat research"
+    items = screen._collections.list_items(collections[0].collection_id)
+    assert len(items) == 1
+    assert items[0].book_id == 1
+    assert items[0].page_number == 1
+
+
+def test_add_to_collection_adds_to_an_existing_collection(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    collection_id = screen._collections.create_collection("Zakat research")
+    monkeypatch.setattr(
+        QInputDialog, "getItem", staticmethod(lambda *a, **k: ("Zakat research", True))
+    )
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: None))
+
+    screen._on_add_to_collection_clicked()
+
+    items = screen._collections.list_items(collection_id)
+    assert len(items) == 1
+    assert items[0].book_id == 1
+    assert items[0].page_number == 1
+
+
+def test_add_to_collection_does_nothing_when_dialog_is_cancelled(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(lambda *a, **k: ("", False)))
+
+    screen._on_add_to_collection_clicked()
+
+    assert screen._collections.list_collections() == ()
 
 
 def test_translate_menu_item_offered_for_a_supported_language_when_enabled(

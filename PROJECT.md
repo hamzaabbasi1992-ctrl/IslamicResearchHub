@@ -1131,13 +1131,29 @@ conversational-loop verification (tool-calling against the actual
 corpus) is still pending final confirmation once the key restriction
 fix takes effect.
 
-### Phase 14 — Personal research workspace: **scheduled after Phase 13, not started**
+### Phase 14 — Personal research workspace: **Milestone 1 done**
 
 Folders, collections, saved searches, saved AI conversations, and
 export tools, built on top of Phase 5's existing bookmarks/recent-books
 tables rather than replacing them. Real new scope: organizing
 bookmarks/notes into named research projects and exporting a
 collection (with real citations) as a document.
+
+**Milestone 1 (done)**: real named Collections, additive on top of
+Phase 5's bookmark schema rather than replacing it (migration 17:
+`Collections`/`CollectionItems`, deliberately no foreign key to
+`BookBookmarks` - a page can join a collection without first being
+separately bookmarked). New `CollectionRepository` (create/rename/
+delete/list collections, add/remove/list real items), a new
+`CollectionsScreen` (create/rename/delete, view a collection's real
+items, remove an item, open one in the Viewer), a real "Add to
+Collection" button in the Viewer's toolbar (pick an existing collection
+or create one inline), and a real .docx export
+(`research_notes/collection_export.py`, reusing the same python-docx
+dependency `docx_writer.py` already uses) with each item's real page
+content and citation. Saved searches and saved AI conversations are
+still out of scope for this milestone, not missed - Collections was the
+concrete, well-scoped first piece.
 
 ### Phase 15 — Educational features: **scheduled after Phase 14, not started**
 

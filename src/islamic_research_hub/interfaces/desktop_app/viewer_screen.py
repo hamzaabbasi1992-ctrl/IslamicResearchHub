@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -39,6 +40,10 @@ from islamic_research_hub.application.text_translation import (
 from islamic_research_hub.domain.models.book import Chapter
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
+)
+from islamic_research_hub.infrastructure.persistence.collection_repository import (
+    CollectionNameTakenError,
+    CollectionRepository,
 )
 from islamic_research_hub.interfaces.desktop_app.animations import animate_splitter_size
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
@@ -104,6 +109,7 @@ class ViewerScreen(QWidget):
         database_path: Path,
         translator: Translator,
         browser: BookBrowserRepository | None = None,
+        collections: CollectionRepository | None = None,
         initial_font_px: float | None = None,
         initial_font_family: str | None = None,
         enable_lazy_tts: bool = False,
@@ -114,6 +120,7 @@ class ViewerScreen(QWidget):
         super().__init__(parent)
         self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
+        self._collections = collections or CollectionRepository(database_path)
         self._enable_lazy_ai_agent = enable_lazy_ai_agent
         self._toc_placeholder_shown = False
         self._research_notes_placeholder_shown = False
@@ -265,6 +272,15 @@ class ViewerScreen(QWidget):
         self._bookmark_button.setToolTip(self._translator.tr("common-bookmark-this-page"))
         self._bookmark_button.clicked.connect(self.toggle_bookmark)
         toolbar.addWidget(self._bookmark_button)
+
+        self._add_to_collection_button = QPushButton()
+        self._add_to_collection_button.setIcon(button_icon("collections"))
+        self._add_to_collection_button.setIconSize(button_icon_size())
+        self._add_to_collection_button.setToolTip(
+            self._translator.tr("collections-add-to-collection")
+        )
+        self._add_to_collection_button.clicked.connect(self._on_add_to_collection_clicked)
+        toolbar.addWidget(self._add_to_collection_button)
 
         self._play_pause_button = QPushButton()
         self._play_pause_button.setIcon(button_icon("play"))
@@ -421,6 +437,9 @@ class ViewerScreen(QWidget):
         self._prev_button.setToolTip(self._translator.tr("viewer-prev-tooltip"))
         self._next_button.setToolTip(self._translator.tr("viewer-next-tooltip"))
         self._bookmark_button.setToolTip(self._translator.tr("common-bookmark-this-page"))
+        self._add_to_collection_button.setToolTip(
+            self._translator.tr("collections-add-to-collection")
+        )
         self._play_pause_button.setToolTip(
             self._translator.tr("viewer-tts-unavailable-tooltip")
             if self._tts_tooltip_unavailable
@@ -887,6 +906,54 @@ class ViewerScreen(QWidget):
         self._update_bookmark_button()
         self._reload_bookmarks_list()
         self.bookmark_toggled.emit(self._current_book_id, page_number, now_bookmarked)
+
+    def _on_add_to_collection_clicked(self) -> None:
+        """Add the current real page to a real collection (Phase 14
+        Milestone 1) - picked from existing ones, or a brand-new one
+        created inline. Local database access only (no cloud service),
+        so this stays entirely self-contained here, unlike Explain This
+        Passage which routes up to MainWindow for the real AI Agent."""
+        page_number = self.current_page_number()
+        if self._current_book_id is None or page_number is None:
+            return
+        collections = self._collections.list_collections()
+        new_option = self._translator.tr("collections-add-item-new-option")
+        choices = [collection.name for collection in collections] + [new_option]
+        choice, confirmed = QInputDialog.getItem(
+            self,
+            self._translator.tr("collections-add-to-collection"),
+            self._translator.tr("collections-add-item-prompt"),
+            choices,
+            editable=False,
+        )
+        if not confirmed:
+            return
+        if choice == new_option:
+            name, confirmed = QInputDialog.getText(
+                self,
+                self._translator.tr("collections-new"),
+                self._translator.tr("collections-name-prompt"),
+            )
+            if not confirmed or not name.strip():
+                return
+            try:
+                collection_id = self._collections.create_collection(name)
+            except CollectionNameTakenError as error:
+                QMessageBox.warning(self, self._translator.tr("collections-new"), str(error))
+                return
+            collection_name = name.strip()
+        else:
+            matching = next((c for c in collections if c.name == choice), None)
+            if matching is None:
+                return
+            collection_id = matching.collection_id
+            collection_name = matching.name
+        self._collections.add_item(collection_id, self._current_book_id, page_number)
+        QMessageBox.information(
+            self,
+            self._translator.tr("collections-add-to-collection"),
+            self._translator.tr("collections-add-item-done").format(name=collection_name),
+        )
 
     def _on_extract_events_clicked(self) -> None:
         """Ask upstream (MainWindow) to run event extraction for the

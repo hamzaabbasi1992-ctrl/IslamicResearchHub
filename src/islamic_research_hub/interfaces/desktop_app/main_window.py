@@ -50,6 +50,7 @@ from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
 from islamic_research_hub.interfaces.desktop_app.citation_manager_screen import (
     CitationManagerScreen,
 )
+from islamic_research_hub.interfaces.desktop_app.collections_screen import CollectionsScreen
 from islamic_research_hub.interfaces.desktop_app.duplicate_manager_screen import (
     DuplicateManagerScreen,
 )
@@ -126,6 +127,7 @@ _RAIL_KEYS = (
     "rail-narrators",
     "rail-knowledge-gaps",
     "rail-preservation",
+    "rail-collections",
     "rail-logs",
     "rail-settings",
 )
@@ -140,6 +142,7 @@ _RAIL_ICON_NAMES = (
     "narrators",
     "knowledge-gaps",
     "preservation",
+    "collections",
     "logs",
     "settings",
 )
@@ -343,6 +346,10 @@ class MainWindow(QMainWindow):
             preservation_report_screen.review_duplicates_requested.connect(
                 lambda: self._show_screen(_DUPLICATE_MANAGER_STACK_INDEX)
             )
+            collections_screen = CollectionsScreen(
+                database_path, self._translator, browser=self._browser
+            )
+            collections_screen.open_in_viewer_requested.connect(self._open_in_viewer)
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -361,6 +368,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(narrator_manager_screen)
             self._stack.addWidget(knowledge_gap_screen)
             self._stack.addWidget(preservation_report_screen)
+            self._stack.addWidget(collections_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)

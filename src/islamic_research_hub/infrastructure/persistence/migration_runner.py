@@ -784,6 +784,39 @@ def _drop_unused_paragraphs_search_index(connection: sqlite3.Connection) -> None
     )
 
 
+def _add_collections(connection: sqlite3.Connection) -> None:
+    """Add Collections and CollectionItems tables (Phase 14 Milestone 1:
+    personal research workspace), additive and empty.
+
+    Deliberately decoupled from `BookBookmarks` (no foreign key against
+    it) - a collection item is just a real book/page reference, letting
+    the reader add a page to a collection without first needing to have
+    separately starred it as a bookmark. `AddedAt` (not just `CreatedAt`
+    on `Collections`) tracks when each item joined its collection,
+    independent of the collection's own age.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS Collections (
+            CollectionID INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_collections_name ON Collections(Name);
+
+        CREATE TABLE IF NOT EXISTS CollectionItems (
+            CollectionID INTEGER NOT NULL REFERENCES Collections(CollectionID),
+            BookID INTEGER NOT NULL REFERENCES Books(BookID),
+            PageNo INTEGER NOT NULL,
+            AddedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (CollectionID, BookID, PageNo)
+        );
+        CREATE INDEX IF NOT EXISTS idx_collection_items_collection
+            ON CollectionItems(CollectionID);
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -800,6 +833,7 @@ PARAGRAPHS_VERSION = 13
 HADEES_AND_AYAH_NUMBERS_VERSION = 14
 BOOKS_SEARCH_INDEX_VERSION = 15
 DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION = 16
+COLLECTIONS_VERSION = 17
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -901,6 +935,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "any real search path) - real dead storage found at the "
         "104,865-book scale. Paragraphs itself is untouched.",
         _drop_unused_paragraphs_search_index,
+    ),
+    Migration(
+        COLLECTIONS_VERSION,
+        "Add Collections and CollectionItems tables (Phase 14 Milestone "
+        "1: personal research workspace), additive and empty.",
+        _add_collections,
     ),
 )
 
