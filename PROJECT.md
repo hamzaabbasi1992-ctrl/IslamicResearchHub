@@ -1199,19 +1199,33 @@ types (lecture notes, khutbah outlines, comparison tables, etc.) -
 those remain open within this phase, not missed; this milestone proved
 the export path end-to-end on the simplest real case first.
 
-### Phase 17 — Multimedia generation: **scheduled after Phase 16, not started**
+### Phase 17 — Multimedia generation: **Milestone 1 done**
 
 **Scope narrowed by explicit user decision (2026-08-06): no video, no
 animation.** Originally proposed whiteboard-style animated explanations
 and timeline videos alongside narrated podcasts and slide decks - the
 user ruled out both video formats outright, not just deprioritized
-them, so this phase is no longer "check feasibility of four formats"
-but two real, buildable-now pieces: narrated podcasts (script text from
-the existing AI Agent, read aloud by the already-shipped local MMS TTS
-- both pieces of infrastructure already exist, this is composition, not
-new engineering) and auto-generated slide decks (`python-pptx`, same
-build-a-document-then-save-it shape as the existing `.docx` exporters
-in `research_notes/`). Not yet scoped into a Milestone 1.
+them, so this phase is scoped to two real, buildable pieces: narrated
+podcasts (script text from the existing AI Agent, read aloud by the
+already-shipped local MMS TTS) and auto-generated slide decks.
+
+**Milestone 1 (done)**: real AI-generated slide-deck content from one
+book's real page content, mirroring Extract Events/Narrators/Flashcards'
+exact chunked-generation shape - `AiAgentService.generate_slide_deck()`
+(own system prompt, strict JSON array output: title + bullets per
+slide), `application/slide_deck_extraction.py::parse_extracted_slides()`
+(same fence-stripping/partial-failure discipline), a new
+`SlideDeckGenerationWorker` that collects slides across chunks in
+memory rather than a DB candidate table - a generated slide is a
+formatted restatement of real content, not an asserted fact needing
+explicit human confirmation, so it skips the review-screen architecture
+Events/Narrators/Flashcards use. Exports straight to a real `.pptx` via
+`research_notes/slide_deck_export.py` (`python-pptx`, same
+build-then-save shape as the existing `.docx` exporters), a new
+"Generate Slide Deck" button in the Viewer's toolbar. Narrated podcasts
+remain open within this phase, not missed - slide decks were the
+concrete, well-scoped first piece (no new audio-file-export engineering
+needed to prove the pattern).
 
 ### Phase 18 — Mobile companion app: **scheduled after Phase 17, not started**
 

@@ -1,5 +1,44 @@
 # Changelog
 
+## Phase 17: Multimedia generation - Milestone 1, plus a real Settings fix
+
+Scope narrowed by explicit user decision: no video, no animation - this
+phase is now narrated podcasts + slide decks only.
+
+New: `AiAgentService.generate_slide_deck()` + its own system prompt
+(title/bullets per slide, strict JSON array, only real substantive
+content). `application/slide_deck_extraction.py`
+(`parse_extracted_slides()`, same markdown-fence-stripping/partial-
+failure-is-not-fatal discipline as `event_extraction.py`/
+`flashcard_extraction.py`). `interfaces/desktop_app/slide_deck_worker.py`
+(`SlideDeckGenerationWorker`, off-GUI-thread, mirrors
+`FlashcardExtractionWorker`'s chunk-cancellation shape - the one real
+difference: slides are collected in memory across chunks and handed
+back as one ordered deck, not persisted as reviewable DB candidates,
+since a slide restates real content rather than asserting a fact an LLM
+could hallucinate). `research_notes/slide_deck_export.py`
+(`build_slide_deck()`/`export_slide_deck_to_pptx()`, new `python-pptx`
+dependency, same build-then-save shape as the existing `.docx`
+exporters). New "Generate Slide Deck" button in the Viewer's toolbar
+(same pre-flight-check/cost-estimate/background-worker shape as Extract
+Events/Narrators/Generate Flashcards), saving straight to a user-chosen
+`.pptx` file via the same `QFileDialog`/`QMessageBox` pattern as
+Collections' export. 35 new tests.
+
+**Also fixed, found while investigating a real user report** ("the PDF
+viewer option disappeared"): the Maktaba Al-Maknoon PDF Archive folder
+path was hardcoded in `__main__.py` (`DEFAULT_MAKNOON_PDF_FOLDER`,
+pointing at an `F:\` path) with no way to change it short of editing
+source - broke silently the moment that drive/folder moved on a machine
+migration, exactly what happened. New Settings block ("Library Paths")
+with a real folder-picker (`QFileDialog.getExistingDirectory`), backed
+by a new `MAKNOON_PDF_FOLDER_KEY` in `QSettings` and a
+`resolve_maknoon_pdf_folder()` free function (mirrors
+`resolve_ai_agent_api_key()`'s "usable before `MainWindow` exists"
+shape) - the old hardcoded path is now only the one-time fallback
+default for a user who has never opened the picker. Takes effect after
+an app restart, same as this app's other Settings-gated toggles.
+
 ## Phase 16: AI content generator - Milestone 1
 
 Export a real, already-answered AI Assistant question (Phase 11's

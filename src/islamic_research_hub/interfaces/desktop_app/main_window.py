@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -91,6 +92,9 @@ from islamic_research_hub.interfaces.desktop_app.preservation_report_screen impo
 from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
+from islamic_research_hub.interfaces.desktop_app.slide_deck_worker import (
+    SlideDeckGenerationWorker,
+)
 from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     AI_AGENT_ENABLED_KEY,
     AI_AGENT_PROVIDER_KEY,
@@ -103,6 +107,7 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     VOICE_SEARCH_ENABLED_KEY,
     SettingsScreen,
     resolve_ai_agent_api_key,
+    resolve_maknoon_pdf_folder,
 )
 from islamic_research_hub.interfaces.desktop_app.shortcuts import install_shortcuts
 from islamic_research_hub.interfaces.desktop_app.taxonomy_browser_screen import (
@@ -115,6 +120,7 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
     ViewerScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.workspace_screen import WorkspaceScreen
+from islamic_research_hub.research_notes.slide_deck_export import export_slide_deck_to_pptx
 
 RAIL_WIDTH = 112
 """Real bug fixed here: at the old 84px, English labels like "Preservation"
@@ -211,7 +217,8 @@ class MainWindow(QMainWindow):
 
         self._stack = QStackedWidget()
         self._header_bar: HeaderBar | None = None
-        self._maknoon_pdf_folder = maknoon_pdf_folder
+        self._default_maknoon_pdf_folder = maknoon_pdf_folder
+        self._maknoon_pdf_folder = resolve_maknoon_pdf_folder(self._settings, maknoon_pdf_folder)
         self._browser: BookBrowserRepository | None = None
         self._bookmarks: BookmarkRepository | None = None
         self._recent_books: RecentBookRepository | None = None
@@ -231,6 +238,7 @@ class MainWindow(QMainWindow):
         self._narrator_extraction_worker: NarratorExtractionWorker | None = None
         self._explain_worker: AiAgentWorker | None = None
         self._flashcard_extraction_worker: FlashcardExtractionWorker | None = None
+        self._slide_deck_worker: SlideDeckGenerationWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -313,6 +321,9 @@ class MainWindow(QMainWindow):
             self._viewer_screen.generate_flashcards_requested.connect(
                 self._on_generate_flashcards_requested
             )
+            self._viewer_screen.generate_slide_deck_requested.connect(
+                self._on_generate_slide_deck_requested
+            )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
@@ -390,7 +401,12 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(flashcard_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
-                SettingsScreen(database_path, self._settings, self._translator)
+                SettingsScreen(
+                    database_path,
+                    self._settings,
+                    self._translator,
+                    default_maknoon_pdf_folder=self._default_maknoon_pdf_folder,
+                )
             )
         else:
             missing_database_message = (
@@ -818,6 +834,97 @@ class MainWindow(QMainWindow):
             self,
             "Generate Flashcards",
             f"{count} flashcard(s) generated - review them in the Flashcards screen.",
+        )
+
+    def _on_generate_slide_deck_requested(self, book_id: int) -> None:
+        """Generate real slide-deck content for one book (Phase 17
+        Milestone 1: multimedia generation, scope narrowed to slide
+        decks + podcasts only per direct instruction) - same pre-flight
+        check, chunk/cost estimate, and background-worker shape as
+        `_on_generate_flashcards_requested`. The one real difference:
+        there's no candidate-review screen here - a slide is a formatted
+        restatement of real content, not an asserted fact, so generated
+        slides go straight to a real .pptx export instead of a DB table."""
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Generate Slide Deck", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Generate Slide Deck", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Generate Slide Deck", "This book has no real page content to generate from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Generate Slide Deck",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        worker = SlideDeckGenerationWorker(
+            self._ai_panel.get_or_build_ai_agent_service, book_id, chunks, self
+        )
+        worker.generation_finished.connect(
+            lambda slides, title=metadata.title: self._on_slide_deck_generation_finished(title, slides)
+        )
+        worker.generation_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Generate Slide Deck", reason)
+        )
+        self._slide_deck_worker = worker
+        worker.start()
+
+    def _on_slide_deck_generation_finished(self, book_title: str, slides: tuple) -> None:
+        if not slides:
+            QMessageBox.information(
+                self,
+                "Generate Slide Deck",
+                "No real slide-worthy content was found in this book.",
+            )
+            return
+        default_path = str(Path.home() / "Documents" / f"{book_title[:60]}.pptx")
+        output_path_str, _filter = QFileDialog.getSaveFileName(
+            self, "Generate Slide Deck", default_path, "PowerPoint Presentation (*.pptx)"
+        )
+        if not output_path_str:
+            return
+        export_slide_deck_to_pptx(book_title, slides, Path(output_path_str))
+        QMessageBox.information(
+            self,
+            "Generate Slide Deck",
+            f"{len(slides)} slide(s) generated and saved to {output_path_str}.",
         )
 
     def _on_explain_selection_requested(self, selected_text: str) -> None:

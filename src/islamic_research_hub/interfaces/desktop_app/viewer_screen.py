@@ -104,6 +104,7 @@ class ViewerScreen(QWidget):
     extract_narrators_requested = Signal(int)  # book_id
     explain_selection_requested = Signal(str)  # selected_text
     generate_flashcards_requested = Signal(int)  # book_id
+    generate_slide_deck_requested = Signal(int)  # book_id
 
     def __init__(
         self,
@@ -362,6 +363,19 @@ class ViewerScreen(QWidget):
         self._generate_flashcards_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_flashcards_button.clicked.connect(self._on_generate_flashcards_clicked)
         toolbar.addWidget(self._generate_flashcards_button)
+
+        self._generate_slide_deck_button = QPushButton(
+            self._translator.tr("viewer-generate-slide-deck")
+        )
+        self._generate_slide_deck_button.setToolTip(
+            self._translator.tr("viewer-generate-slide-deck-tooltip")
+        )
+        # Same visible-only-when-enabled philosophy as Extract Events/
+        # Narrators/Generate Flashcards - real paid API calls, opt-in via
+        # the same AI Agent Settings toggle.
+        self._generate_slide_deck_button.setVisible(self._enable_lazy_ai_agent)
+        self._generate_slide_deck_button.clicked.connect(self._on_generate_slide_deck_clicked)
+        toolbar.addWidget(self._generate_slide_deck_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -474,6 +488,10 @@ class ViewerScreen(QWidget):
         self._generate_flashcards_button.setText(self._translator.tr("viewer-generate-flashcards"))
         self._generate_flashcards_button.setToolTip(
             self._translator.tr("viewer-generate-flashcards-tooltip")
+        )
+        self._generate_slide_deck_button.setText(self._translator.tr("viewer-generate-slide-deck"))
+        self._generate_slide_deck_button.setToolTip(
+            self._translator.tr("viewer-generate-slide-deck-tooltip")
         )
         self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
         self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
@@ -999,6 +1017,14 @@ class ViewerScreen(QWidget):
         if self._current_book_id is None:
             return
         self.generate_flashcards_requested.emit(self._current_book_id)
+
+    def _on_generate_slide_deck_clicked(self) -> None:
+        """Ask upstream (MainWindow) to generate slide-deck content for
+        the current book (Phase 17 Milestone 1) - same minimal-here,
+        real-work-upstream reasoning as `_on_extract_events_clicked`."""
+        if self._current_book_id is None:
+            return
+        self.generate_slide_deck_requested.emit(self._current_book_id)
 
     def _update_bookmark_button(self) -> None:
         page_number = self.current_page_number()

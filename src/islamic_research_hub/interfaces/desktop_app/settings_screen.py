@@ -6,10 +6,12 @@ from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -41,6 +43,14 @@ TRANSLATION_ENABLED_KEY = "translation/enabled"
 VOICE_SEARCH_ENABLED_KEY = "voice_search/enabled"
 AI_AGENT_ENABLED_KEY = "ai_agent/enabled"
 AI_AGENT_PROVIDER_KEY = "ai_agent/provider"
+MAKNOON_PDF_FOLDER_KEY = "library/maknoon_pdf_folder"
+"""Real bug found and fixed 2026-08-06: this path used to be hardcoded in
+`__main__.py`, silently breaking every "Open PDF" resolution for the
+Maktaba Al-Maknoon text library the moment the drive it pointed at moved
+or was renamed (confirmed: the user's own machine migration did exactly
+this). Settings-backed instead, with the old hardcoded value still used
+as the one-time default for a user who has never opened this picker -
+see `_build_library_paths_block()` below."""
 AI_AGENT_PROVIDERS: tuple[str, ...] = ("anthropic", "openai", "gemini")
 AI_AGENT_PROVIDER_LABELS: dict[str, str] = {
     "anthropic": "Claude (Anthropic)",
@@ -74,6 +84,7 @@ class SettingsScreen(QWidget):
         settings: QSettings,
         translator: Translator,
         browser: BookBrowserRepository | None = None,
+        default_maknoon_pdf_folder: Path | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -81,6 +92,7 @@ class SettingsScreen(QWidget):
         self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
         self._database_path = database_path
+        self._default_maknoon_pdf_folder = default_maknoon_pdf_folder or Path()
         self._theme_controller = ThemeController(settings)
 
         outer = QVBoxLayout(self)
@@ -121,6 +133,7 @@ class SettingsScreen(QWidget):
         layout.addWidget(self._build_reading_block())
         layout.addWidget(self._build_appearance_block())
         layout.addWidget(self._build_ai_agent_block())
+        layout.addWidget(self._build_library_paths_block())
         layout.addWidget(self._build_shortcuts_block())
         layout.addWidget(self._build_about_block())
         layout.addStretch(1)
@@ -154,6 +167,12 @@ class SettingsScreen(QWidget):
         self._ai_agent_provider_label.setText(self._translator.tr("settings-ai-agent-provider"))
         self._ai_agent_api_key_label.setText(self._translator.tr("settings-ai-agent-api-key"))
         self._ai_agent_disclosure_label.setText(self._translator.tr("settings-ai-agent-disclosure"))
+        self._library_paths_heading.setText(self._translator.tr("settings-library-paths"))
+        self._maknoon_pdf_folder_label.setText(self._translator.tr("settings-maknoon-pdf-folder"))
+        self._maknoon_pdf_folder_browse_button.setText(self._translator.tr("settings-browse"))
+        self._maknoon_pdf_folder_note_label.setText(
+            self._translator.tr("settings-maknoon-pdf-folder-note")
+        )
         self._shortcuts_heading.setText(self._translator.tr("settings-shortcuts"))
         self._about_heading.setText(self._translator.tr("settings-about"))
 
@@ -344,6 +363,44 @@ class SettingsScreen(QWidget):
         block_layout.addWidget(self._ai_agent_disclosure_label)
         return block
 
+    def _build_library_paths_block(self) -> QFrame:
+        block = _block()
+        block_layout = QVBoxLayout(block)
+        block_layout.setContentsMargins(14, 12, 14, 14)
+        block_layout.setSpacing(6)
+        self._library_paths_heading = QLabel(self._translator.tr("settings-library-paths"))
+        self._library_paths_heading.setStyleSheet(f"font-weight: 700; font-size: {Type.BODY_LG}px;")
+        block_layout.addWidget(self._library_paths_heading)
+
+        self._maknoon_pdf_folder_label = QLabel(
+            self._translator.tr("settings-maknoon-pdf-folder")
+        )
+        block_layout.addWidget(self._maknoon_pdf_folder_label)
+
+        folder_row = QHBoxLayout()
+        self._maknoon_pdf_folder_edit = QLineEdit()
+        self._maknoon_pdf_folder_edit.setReadOnly(True)
+        self._maknoon_pdf_folder_edit.setText(str(self.maknoon_pdf_folder()))
+        folder_row.addWidget(self._maknoon_pdf_folder_edit, stretch=1)
+        self._maknoon_pdf_folder_browse_button = QPushButton(
+            self._translator.tr("settings-browse")
+        )
+        self._maknoon_pdf_folder_browse_button.clicked.connect(
+            self._on_maknoon_pdf_folder_browse_clicked
+        )
+        folder_row.addWidget(self._maknoon_pdf_folder_browse_button)
+        block_layout.addLayout(folder_row)
+
+        self._maknoon_pdf_folder_note_label = QLabel(
+            self._translator.tr("settings-maknoon-pdf-folder-note")
+        )
+        self._maknoon_pdf_folder_note_label.setStyleSheet(
+            f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;"
+        )
+        self._maknoon_pdf_folder_note_label.setWordWrap(True)
+        block_layout.addWidget(self._maknoon_pdf_folder_note_label)
+        return block
+
     def _build_shortcuts_block(self) -> QFrame:
         block = _block()
         block_layout = QVBoxLayout(block)
@@ -420,6 +477,22 @@ class SettingsScreen(QWidget):
         return str(
             self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
         )
+
+    def maknoon_pdf_folder(self) -> Path:
+        """Return the real Maknoon PDF Archive folder currently in
+        effect - whatever the user picked here, or the app's own
+        hardcoded default if they never have (see `resolve_maknoon_pdf_folder()`)."""
+        return resolve_maknoon_pdf_folder(self._settings, self._default_maknoon_pdf_folder)
+
+    def _on_maknoon_pdf_folder_browse_clicked(self) -> None:
+        chosen = QFileDialog.getExistingDirectory(
+            self, self._translator.tr("settings-maknoon-pdf-folder"), str(self.maknoon_pdf_folder())
+        )
+        if not chosen:
+            return
+        self._settings.setValue(MAKNOON_PDF_FOLDER_KEY, chosen)
+        self._maknoon_pdf_folder_edit.setText(chosen)
+        self._flash_saved()
 
     def _stored_api_key_for(self, provider: str) -> str:
         return str(self._settings.value(_ai_agent_api_key_settings_key(provider), "", type=str))
@@ -515,6 +588,19 @@ def resolve_ai_agent_api_key(settings: QSettings, provider: str) -> str | None:
         settings.value(_ai_agent_api_key_settings_key(provider), "", type=str)
     ).strip()
     return settings_value or None
+
+
+def resolve_maknoon_pdf_folder(settings: QSettings, default: Path) -> Path:
+    """Return the real Maknoon PDF Archive folder to use: whatever the
+    user has picked via Settings, or `default` (the app entry point's
+    own hardcoded fallback) if they've never opened the picker.
+
+    Called from `__main__.py` before `MainWindow` exists, same reason
+    `resolve_ai_agent_api_key()` is a free function here rather than a
+    `SettingsScreen` instance method.
+    """
+    stored = str(settings.value(MAKNOON_PDF_FOLDER_KEY, "", type=str)).strip()
+    return Path(stored) if stored else default
 
 
 def _block() -> QFrame:

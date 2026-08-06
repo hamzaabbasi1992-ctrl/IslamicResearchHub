@@ -17,8 +17,10 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (  # noq
     AI_AGENT_API_KEY_ENV_VARS,
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
+    MAKNOON_PDF_FOLDER_KEY,
     SettingsScreen,
     resolve_ai_agent_api_key,
+    resolve_maknoon_pdf_folder,
 )
 from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FONT_PX  # noqa: E402
 
@@ -377,3 +379,75 @@ def test_resolve_api_key_returns_none_when_nothing_is_set(tmp_path: Path) -> Non
     settings = _isolated_settings(tmp_path)
 
     assert resolve_ai_agent_api_key(settings, "anthropic") is None
+
+
+def test_maknoon_pdf_folder_falls_back_to_the_default_when_nothing_is_stored(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    default_folder = tmp_path / "default-pdfs"
+    screen = SettingsScreen(
+        database_path, settings, Translator(settings), default_maknoon_pdf_folder=default_folder
+    )
+    qtbot.addWidget(screen)
+
+    assert screen.maknoon_pdf_folder() == default_folder
+    assert screen._maknoon_pdf_folder_edit.text() == str(default_folder)
+
+
+def test_browsing_to_a_new_maknoon_pdf_folder_persists_and_updates_the_field(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from PySide6.QtWidgets import QFileDialog
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    chosen_folder = tmp_path / "moved-pdfs"
+    monkeypatch.setattr(
+        QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: str(chosen_folder))
+    )
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._on_maknoon_pdf_folder_browse_clicked()
+
+    assert screen.maknoon_pdf_folder() == chosen_folder
+    assert screen._maknoon_pdf_folder_edit.text() == str(chosen_folder)
+    assert settings.value(MAKNOON_PDF_FOLDER_KEY) == str(chosen_folder)
+
+
+def test_cancelling_the_folder_picker_leaves_the_stored_value_unchanged(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from PySide6.QtWidgets import QFileDialog
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    default_folder = tmp_path / "default-pdfs"
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: ""))
+    screen = SettingsScreen(
+        database_path, settings, Translator(settings), default_maknoon_pdf_folder=default_folder
+    )
+    qtbot.addWidget(screen)
+
+    screen._on_maknoon_pdf_folder_browse_clicked()
+
+    assert screen.maknoon_pdf_folder() == default_folder
+    assert settings.value(MAKNOON_PDF_FOLDER_KEY, None) is None
+
+
+def test_resolve_maknoon_pdf_folder_prefers_the_stored_value(tmp_path: Path) -> None:
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(MAKNOON_PDF_FOLDER_KEY, str(tmp_path / "stored"))
+
+    assert resolve_maknoon_pdf_folder(settings, tmp_path / "default") == tmp_path / "stored"
+
+
+def test_resolve_maknoon_pdf_folder_falls_back_when_nothing_is_stored(tmp_path: Path) -> None:
+    settings = _isolated_settings(tmp_path)
+
+    assert resolve_maknoon_pdf_folder(settings, tmp_path / "default") == tmp_path / "default"

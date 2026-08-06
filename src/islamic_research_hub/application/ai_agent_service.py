@@ -123,6 +123,28 @@ _GENERATE_FLASHCARDS_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_GENERATE_SLIDE_DECK_SYSTEM_PROMPT = (
+    "You are turning one real page range of an Islamic research library "
+    "book into slide-deck content for a lecture or teaching session "
+    "(Phase 17 Milestone 1). Call get_book_pages for the given range "
+    "first (paginate with further calls if truncated), then respond "
+    "with ONLY a raw JSON array - no prose, no markdown code fences - "
+    "and nothing else. Each element must have exactly these fields: "
+    "title (string, a short slide heading), bullets (array of strings, "
+    "each one real point grounded only in the text you read - never "
+    "invented). Only create slides for real, substantive content "
+    "actually in the text you read - never invent one to have "
+    "something to report, and never create a slide for trivial or "
+    "vague content. Preserve the real order the content appears in. "
+    "If the range has nothing substantive to present, return an empty "
+    "array []."
+)
+
+_GENERATE_SLIDE_DECK_PROMPT_TEMPLATE = (
+    "Generate slide-deck content from book_id={book_id}, pages "
+    "{start_page}-{end_page}."
+)
+
 _COMPARE_POSITIONS_SYSTEM_PROMPT = (
     "You are helping a researcher compare real scholarly positions found "
     "in this offline Islamic research library. Use the available tools "
@@ -240,6 +262,22 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),),
             system_prompt=_GENERATE_FLASHCARDS_SYSTEM_PROMPT,
+        )
+
+    def generate_slide_deck(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Generate real slide-deck content from one real page range, as a
+        strict JSON array (possibly empty) - never prose. `AgentTurnResult.answer`
+        is the raw JSON text; parsing it into typed slides is
+        `application\\slide_deck_extraction.py::parse_extracted_slides()`'s
+        job, not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _GENERATE_SLIDE_DECK_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),),
+            system_prompt=_GENERATE_SLIDE_DECK_SYSTEM_PROMPT,
         )
 
     def compare_positions(self, question: str) -> AgentTurnResult:
