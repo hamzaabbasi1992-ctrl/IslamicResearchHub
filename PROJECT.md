@@ -1201,13 +1201,17 @@ the export path end-to-end on the simplest real case first.
 
 ### Phase 17 — Multimedia generation: **scheduled after Phase 16, not started**
 
-Extends Phase 9's audio-overview stretch goal into a full multimedia
-set: narrated podcasts, whiteboard-style animated explanations,
-auto-generated slide decks, and timeline videos. Real AI-generated
-*video* (as opposed to audio, already covered by Phase 9's TTS) is a
-materially larger, separate engineering undertaking - each output
-format in this phase needs its own feasibility check before being
-committed to, not assumed to work at the same effort level as the rest.
+**Scope narrowed by explicit user decision (2026-08-06): no video, no
+animation.** Originally proposed whiteboard-style animated explanations
+and timeline videos alongside narrated podcasts and slide decks - the
+user ruled out both video formats outright, not just deprioritized
+them, so this phase is no longer "check feasibility of four formats"
+but two real, buildable-now pieces: narrated podcasts (script text from
+the existing AI Agent, read aloud by the already-shipped local MMS TTS
+- both pieces of infrastructure already exist, this is composition, not
+new engineering) and auto-generated slide decks (`python-pptx`, same
+build-a-document-then-save-it shape as the existing `.docx` exporters
+in `research_notes/`). Not yet scoped into a Milestone 1.
 
 ### Phase 18 — Mobile companion app: **scheduled after Phase 17, not started**
 
