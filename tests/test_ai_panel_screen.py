@@ -165,6 +165,74 @@ def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path:
     assert panel._ask_button.isEnabled()
 
 
+def test_export_answer_button_hidden_until_a_real_answer_arrives(qtbot, tmp_path: Path) -> None:
+    """Phase 16 Milestone 1: exporting only makes sense once there's a
+    real answer on screen - hidden before that, and hidden again the
+    moment a new question is asked."""
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    assert panel._export_answer_button.isHidden()
+    _install_fake_ai_agent(panel, answer="Real grounded answer.")
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert not panel._export_answer_button.isHidden()
+
+    panel._question_edit.setText("A second question")
+    panel._on_ask_clicked()
+
+    assert panel._export_answer_button.isHidden()
+
+
+def test_export_answer_button_writes_a_real_docx(qtbot, tmp_path: Path, monkeypatch) -> None:
+    from docx import Document
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel, answer="Real grounded answer with a citation.")
+    panel._question_edit.setText("What does this library say about patience?")
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+    output_path = tmp_path / "answer.docx"
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(output_path), ""))
+    )
+    monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **k: None))
+
+    panel._on_export_answer_clicked()
+
+    assert output_path.is_file()
+    document = Document(output_path)
+    all_text = "\n".join(p.text for p in document.paragraphs)
+    assert "What does this library say about patience?" in all_text
+    assert "Real grounded answer with a citation." in all_text
+
+
+def test_export_answer_button_does_nothing_when_cancelled(qtbot, tmp_path: Path, monkeypatch) -> None:
+    from PySide6.QtWidgets import QFileDialog
+
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel, answer="Real grounded answer.")
+    panel._question_edit.setText("A question")
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: ("", "")))
+
+    panel._on_export_answer_clicked()  # no exception, no file written
+
+    assert not (tmp_path / "answer.docx").exists()
+
+
 def test_ask_public_method_sets_the_question_and_runs_a_real_turn(qtbot, tmp_path: Path) -> None:
     """`ask()` is the public seam other screens (the Search screen's
     quick-ask box) use to start a real conversation here without
@@ -356,5 +424,6 @@ def test_switching_language_retranslates_the_panel(qtbot, tmp_path: Path) -> Non
 
     assert panel._title_label.text() == "اسسٹنٹ"
     assert panel._ask_button.text() == "پوچھیں"
+    assert panel._export_answer_button.text() == "جواب برآمد کریں"
     assert panel._notes_heading.text() == "نوٹس"
     assert panel._compare_mode_checkbox.text() == "علمی آراء کا موازنہ کریں"

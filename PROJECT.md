@@ -1177,7 +1177,7 @@ plans, and "teaching mode" are still open within this same phase, not
 missed - flashcard generation was the concrete, well-scoped first
 piece.
 
-### Phase 16 — AI content generator: **scheduled after Phase 15, not started**
+### Phase 16 — AI content generator: **Milestone 1 done**
 
 Produces structured output documents - lecture notes, khutbah outlines,
 research-paper drafts, book reviews, comparison tables, citation lists
@@ -1185,6 +1185,19 @@ research-paper drafts, book reviews, comparison tables, citation lists
 phase is the "turn evidence into a formatted document" layer; it
 depends on Phase 11 for the underlying evidence-gathering rather than
 duplicating it.
+
+**Milestone 1 (done)**: export a real, already-answered AI Assistant
+question (Phase 11's `converse()`/`compare_positions()`) as a real
+.docx document - `research_notes/ai_answer_export.py`
+(`build_answer_document()`/`export_answer_to_docx()`, same shape as
+`collection_export.py`), a new "Export Answer" button in the AI panel
+that appears once a real answer is on screen and disappears again on a
+new question, using the same `QFileDialog.getSaveFileName()` ->
+export -> `QMessageBox.information()` pattern as Collections' export.
+Deliberately does not gather any new evidence or add new document
+types (lecture notes, khutbah outlines, comparison tables, etc.) -
+those remain open within this phase, not missed; this milestone proved
+the export path end-to-end on the simplest real case first.
 
 ### Phase 17 — Multimedia generation: **scheduled after Phase 16, not started**
 

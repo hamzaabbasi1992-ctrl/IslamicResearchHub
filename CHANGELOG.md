@@ -1,5 +1,34 @@
 # Changelog
 
+## Phase 16: AI content generator - Milestone 1
+
+Export a real, already-answered AI Assistant question (Phase 11's
+`converse()`/`compare_positions()`) as a real, shareable .docx document.
+Deliberately reuses the existing answer as-is rather than gathering new
+evidence - this milestone proves the export path end-to-end on the
+simplest real case first.
+
+New: `research_notes/ai_answer_export.py`
+(`build_answer_document()`/`export_answer_to_docx()`, same shape as
+Phase 14's `collection_export.py` - question as heading, date, the real
+answer body with its own inline citations, and an honest disclaimer
+that it's not a substitute for verifying those citations or for
+qualified scholarly guidance). `interfaces/desktop_app/
+ai_panel_screen.py` gained a new "Export Answer" button that appears
+only once a real answer is showing and hides again the moment a new
+question is asked, using the same `QFileDialog.getSaveFileName()` ->
+export -> `QMessageBox.information()` confirmation pattern as
+Collections' export. New `"ai-panel-export-answer"` i18n key across all
+3 languages, reuses the existing `"collections-export-done"` key for
+the success message rather than duplicating it.
+
+7 new tests (`test_ai_answer_export.py` plus 3 in
+`test_ai_panel_screen.py` covering button visibility, a real write, and
+a cancelled save doing nothing). Other document types named in this
+phase's original scope (lecture notes, khutbah outlines, research-paper
+drafts, book reviews, comparison tables, citation lists) are still open
+within this phase, not missed.
+
 ## Phase 15: Educational features - Milestone 1
 
 Real flashcard generation from one book's real page content, mirroring

@@ -20,9 +20,11 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QTextBrowser,
     QVBoxLayout,
@@ -38,6 +40,7 @@ from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLa
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
 from islamic_research_hub.interfaces.desktop_app.theme import MUTED_LABEL_STYLE, Type
+from islamic_research_hub.research_notes.ai_answer_export import export_answer_to_docx
 
 LOGGER = logging.getLogger(__name__)
 
@@ -77,6 +80,8 @@ class AiAssistantPanel(QWidget):
         self._ai_agent_service: AiAgentService | None = None
         self._ai_agent_attempted = False
         self._ai_agent_worker: AiAgentWorker | None = None
+        self._last_question: str | None = None
+        self._last_answer: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -127,6 +132,14 @@ class AiAssistantPanel(QWidget):
         self._answer_area.setVisible(False)
         layout.addWidget(self._answer_area)
 
+        # Phase 16 Milestone 1 (AI content generator): reuses this real
+        # Phase 11 answer as-is rather than gathering new evidence - just
+        # formats it into a real, shareable document.
+        self._export_answer_button = QPushButton(self._translator.tr("ai-panel-export-answer"))
+        self._export_answer_button.setVisible(False)
+        self._export_answer_button.clicked.connect(self._on_export_answer_clicked)
+        layout.addWidget(self._export_answer_button)
+
         # Honest placeholders (Reader Redesign): real section headings so
         # the panel's future shape is visible now, disabled/labeled
         # "coming soon" rather than faked - no Notes/References backend
@@ -160,6 +173,7 @@ class AiAssistantPanel(QWidget):
         self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
         self._body_label.setText(self._translator.tr("ai-panel-placeholder-body"))
         self._ask_button.setText(self._translator.tr("ai-panel-ask"))
+        self._export_answer_button.setText(self._translator.tr("ai-panel-export-answer"))
         self._compare_mode_checkbox.setText(self._translator.tr("ai-panel-compare-mode"))
         self._compare_mode_checkbox.setToolTip(self._translator.tr("ai-panel-compare-mode-tooltip"))
         self._notes_heading.setText(self._translator.tr("ai-panel-notes-heading"))
@@ -221,6 +235,8 @@ class AiAssistantPanel(QWidget):
         question = self._question_edit.text().strip()
         if not question:
             return
+        self._last_question = question
+        self._export_answer_button.setVisible(False)
         self._set_busy(True)
         mode = "compare" if self._compare_mode_checkbox.isChecked() else "converse"
         worker = AiAgentWorker(self.get_or_build_ai_agent_service, question, mode, self)
@@ -239,6 +255,8 @@ class AiAssistantPanel(QWidget):
         self._set_busy(False)
         self._answer_area.setPlainText(answer)
         self._answer_area.setVisible(True)
+        self._last_answer = answer
+        self._export_answer_button.setVisible(True)
         calls = tuple(tool_calls_made) if tool_calls_made else ()
         if calls:
             self._tool_calls_label.setText(
@@ -256,6 +274,25 @@ class AiAssistantPanel(QWidget):
 
     def _on_answer_unavailable(self, reason: str) -> None:
         show_ai_unavailable_dialog(self, "AI Agent", reason)
+
+    def _on_export_answer_clicked(self) -> None:
+        """Export the real, currently-shown answer as a real .docx
+        document (Phase 16 Milestone 1) - reuses this Phase 11 answer
+        as-is, no new evidence gathered here."""
+        if self._last_question is None or self._last_answer is None:
+            return
+        default_path = str(Path.home() / "Documents" / f"{self._last_question[:60]}.docx")
+        output_path_str, _filter = QFileDialog.getSaveFileName(
+            self, self._translator.tr("ai-panel-export-answer"), default_path, "Word Document (*.docx)"
+        )
+        if not output_path_str:
+            return
+        export_answer_to_docx(self._last_question, self._last_answer, Path(output_path_str))
+        QMessageBox.information(
+            self,
+            self._translator.tr("ai-panel-export-answer"),
+            self._translator.tr("collections-export-done").format(path=output_path_str),
+        )
 
     def get_or_build_ai_agent_service(self) -> AiAgentService | None:
         """Return the cached AI Agent service, building it at most once.
