@@ -1,5 +1,20 @@
 # Changelog
 
+## Real bug fix: Gemini provider's default model didn't exist
+
+Found via the first real live-key test of the AI Agent against Gemini
+(see Phase 13 changes below): `DEFAULT_MODEL = "gemini-3-pro"` in
+`gemini_llm_provider.py` isn't a real model - confirmed directly against
+a real key's own `client.models.list()` output (404 NOT_FOUND on every
+real call). Replaced with `"gemini-pro-latest"`, Google's own maintained
+alias for their current stable "pro" tier (auto-updates as the
+underlying model rotates, avoiding this exact staleness recurring),
+confirmed to actually resolve for real against the same key (reached
+billing, not a 404). The only remaining blocker for a full live-key
+verification is billing on the user's own Google AI Studio account
+(`429 RESOURCE_EXHAUSTED - prepayment credits depleted`), unrelated to
+this codebase.
+
 ## Phase 13: AI reading assistant - Milestone 1
 
 "Explain this passage" - select real text while reading, right-click,

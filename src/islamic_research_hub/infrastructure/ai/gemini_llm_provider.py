@@ -28,7 +28,14 @@ from islamic_research_hub.application.llm_provider import (
 
 LOGGER = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-3-pro"
+DEFAULT_MODEL = "gemini-pro-latest"
+"""Real bug found and fixed: "gemini-3-pro" (no such model) - confirmed
+directly against a real key's own `client.models.list()` output, not
+assumed. "gemini-pro-latest" is Google's own maintained alias for their
+current stable "pro" tier (auto-updates as Google rotates the underlying
+model), avoiding the same staleness recurring as specific dated model
+names get deprecated - confirmed to actually resolve for real (reached
+billing, not a 404) against a real key."""
 DEFAULT_MAX_OUTPUT_TOKENS = 4096
 
 
