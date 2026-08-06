@@ -8,6 +8,7 @@ from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -138,7 +139,10 @@ and "Knowledge Gaps" didn't fit even wrapped to two lines, so Qt's own
 tool-button layout silently mid-word-elided them ("Kno...aps") - real,
 reported UI text loss, not a cosmetic nit. Widened so every real rail
 label (English is the widest of the three supported languages) fits
-without elision."""
+without elision. Still the right width for the grouped-tab redesign
+below: the group tabs are full-width text buttons (same text-fitting
+need as before), and a 2-column icon grid needs far less width per
+icon than one text-under-icon column did."""
 # "rail-viewer" is gone: the reader no longer has its own destination - it
 # opens inline inside the Search/Workspace screen (see WorkspaceScreen).
 _RAIL_KEYS = (
@@ -175,6 +179,31 @@ _RAIL_ICON_NAMES = (
     "logs",
     "settings",
 )
+_RAIL_GROUPS: tuple[tuple[str, tuple[int, ...]], ...] = (
+    ("rail-group-browse", (0, 1, 2)),
+    ("rail-group-research", (3, 4, 5, 6, 7, 8, 9, 10)),
+    ("rail-group-study", (11, 12)),
+    ("rail-group-system", (13, 14)),
+)
+"""Real fix for a real reported problem: 15 rail entries in one long
+single-column strip meant scrolling/overflow on typical window heights.
+Grouped into 4 real categories (by what each screen is *for*, not just
+import order) shown as a vertical tab strip; only the active group's
+icons render, in a 2-column grid instead of one long column - each
+number here is a real index into `_RAIL_KEYS`/`_RAIL_ICON_NAMES`/
+`self._rail_buttons`, which stay flat and index-addressable exactly as
+before (Quick Open, the header breadcrumb, and `_show_screen()` all
+still work by plain index - only the *visual* arrangement changed)."""
+
+
+def _rail_group_index_for(rail_index: int) -> int:
+    """Return which `_RAIL_GROUPS` entry owns a given flat rail index."""
+    for group_index, (_key, member_indices) in enumerate(_RAIL_GROUPS):
+        if rail_index in member_indices:
+            return group_index
+    raise ValueError(f"Rail index {rail_index} is not in any _RAIL_GROUPS entry.")
+
+
 _PLACEHOLDER_TITLES = (
     "Database not found",
     "Search",
@@ -499,20 +528,70 @@ class MainWindow(QMainWindow):
         rail_layout.setContentsMargins(8, 14, 8, 14)
         rail_layout.setSpacing(4)
 
-        self._rail_buttons: list[QToolButton] = []
-        for index, (key, icon_name) in enumerate(zip(_RAIL_KEYS, _RAIL_ICON_NAMES, strict=True)):
-            button = QToolButton()
-            button.setText(self._translator.tr(key))
-            button.setIcon(rail_icon(icon_name))
-            button.setIconSize(QSize(20, 20))
-            button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
-            button.setCheckable(True)
-            button.setChecked(index == 0)
-            button.clicked.connect(lambda _checked, i=index: self._show_screen(i))
-            rail_layout.addWidget(button)
-            self._rail_buttons.append(button)
+        self._rail_group_buttons: list[QToolButton] = []
+        for group_index, (group_key, _member_indices) in enumerate(_RAIL_GROUPS):
+            group_button = QToolButton()
+            group_button.setText(self._translator.tr(group_key))
+            group_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+            group_button.setCheckable(True)
+            group_button.setChecked(group_index == 0)
+            group_button.clicked.connect(
+                lambda _checked, g=group_index: self._show_rail_group(g)
+            )
+            rail_layout.addWidget(group_button)
+            self._rail_group_buttons.append(group_button)
+
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        rail_layout.addWidget(divider)
+
+        # Flat, index-addressable in `_RAIL_KEYS` order regardless of which
+        # group widget a button actually lives in - Quick Open, the header
+        # breadcrumb, and `_show_screen()` all still index into this list
+        # directly, unchanged from before the grouped-tab redesign.
+        rail_buttons_by_index: list[QToolButton | None] = [None] * len(_RAIL_KEYS)
+        self._rail_group_widgets: list[QWidget] = []
+        for group_index, (_group_key, member_indices) in enumerate(_RAIL_GROUPS):
+            group_widget = QWidget()
+            group_grid = QGridLayout(group_widget)
+            group_grid.setContentsMargins(0, 0, 0, 0)
+            group_grid.setSpacing(4)
+            for position, rail_index in enumerate(member_indices):
+                key = _RAIL_KEYS[rail_index]
+                icon_name = _RAIL_ICON_NAMES[rail_index]
+                button = QToolButton()
+                button.setText(self._translator.tr(key))
+                button.setToolTip(self._translator.tr(key))
+                button.setIcon(rail_icon(icon_name))
+                button.setIconSize(QSize(20, 20))
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+                button.setCheckable(True)
+                button.setChecked(rail_index == 0)
+                button.clicked.connect(
+                    lambda _checked, i=rail_index: self._show_screen(i)
+                )
+                row, column = divmod(position, 2)
+                group_grid.addWidget(button, row, column)
+                rail_buttons_by_index[rail_index] = button
+            rail_layout.addWidget(group_widget)
+            self._rail_group_widgets.append(group_widget)
+        assert all(button is not None for button in rail_buttons_by_index), (
+            "Every _RAIL_KEYS index must appear in exactly one _RAIL_GROUPS entry."
+        )
+        self._rail_buttons = rail_buttons_by_index
+
         rail_layout.addStretch(1)
+        self._show_rail_group(0)
         return rail
+
+    def _show_rail_group(self, group_index: int) -> None:
+        """Show only the given group's icon grid, hide the rest - real
+        fix for 15 rail entries no longer fitting one column without
+        scrolling/overflow (see `_RAIL_GROUPS`)."""
+        for index, widget in enumerate(self._rail_group_widgets):
+            widget.setVisible(index == group_index)
+        for index, button in enumerate(self._rail_group_buttons):
+            button.setChecked(index == group_index)
 
     def open_quick_open(self) -> None:
         """Show the Quick Open dialog (also reachable via Ctrl+P) - a
@@ -527,6 +606,8 @@ class MainWindow(QMainWindow):
 
     def _show_screen(self, index: int) -> None:
         self._stack.setCurrentIndex(index)
+        if 0 <= index < len(_RAIL_KEYS):
+            self._show_rail_group(_rail_group_index_for(index))
         for button_index, button in enumerate(self._rail_buttons):
             button.setChecked(button_index == index)
         if self._header_bar is not None and 0 <= index < len(self._rail_buttons):
@@ -1270,6 +1351,11 @@ class MainWindow(QMainWindow):
         """Update rail labels and mirror the whole app's layout for the new language."""
         for key, button in zip(_RAIL_KEYS, self._rail_buttons, strict=True):
             button.setText(self._translator.tr(key))
+            button.setToolTip(self._translator.tr(key))
+        for (group_key, _member_indices), button in zip(
+            _RAIL_GROUPS, self._rail_group_buttons, strict=True
+        ):
+            button.setText(self._translator.tr(group_key))
         self._apply_layout_direction()
 
     def _apply_layout_direction(self) -> None:

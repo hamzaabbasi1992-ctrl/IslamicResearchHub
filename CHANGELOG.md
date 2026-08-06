@@ -1,5 +1,32 @@
 # Changelog
 
+## Real UX fix: navigation rail regrouped into tabs (15 icons was too many)
+
+Reported directly by the user: the left navigation rail had grown to 15
+entries in one long single-column strip (Home through the new MCQs
+screen), overflowing typical window heights. Real fix, not just a
+cosmetic tweak - regrouped into 4 real categories by what each screen
+is *for*: **Browse** (Home/Search/Libraries), **Research Tools**
+(Duplicates/Taxonomy/Citations/Events/Narrators/Knowledge Gaps/
+Preservation/Collections), **Study** (Flashcards/MCQs), **System**
+(Logs/Settings) - shown as a vertical tab strip at the top of the
+rail; only the active group's icons render, in a 2-column grid instead
+of one long column, so the worst-case group (Research Tools, 8 items)
+is 4 rows instead of 8.
+
+`self._rail_buttons` stays a flat, index-addressable list in the exact
+same `_RAIL_KEYS` order as before the redesign - Quick Open, the
+header breadcrumb, and `_show_screen()` all still work by plain index,
+unchanged. `_show_screen()` now also auto-switches to whichever group
+owns the target index first, so navigating to a screen in a currently-
+hidden group (e.g. via Quick Open or a cross-screen button) always
+reveals its real rail button rather than leaving it invisible with no
+visible "you are here" indicator. Icon buttons switched from icon+
+text-under-icon to icon-only with a tooltip (2-column grid has much
+less width per button than the old single column did); group tabs
+themselves stay text-only, reusing the exact rail-label-fitting width
+this project already tuned for real text. 6 new tests.
+
 ## Phase 15: Educational features - Milestone 2 (MCQ generation + real Quiz mode)
 
 Completes the deferred MCQ item from Phase 15's original scope

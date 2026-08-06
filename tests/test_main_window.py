@@ -16,7 +16,12 @@ from islamic_research_hub.infrastructure.persistence.master_book_repository impo
 from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_repository import (  # noqa: E402
     PdfMatchCandidateRepository,
 )
-from islamic_research_hub.interfaces.desktop_app.main_window import MainWindow  # noqa: E402
+from islamic_research_hub.interfaces.desktop_app.main_window import (  # noqa: E402
+    MainWindow,
+    _RAIL_GROUPS,
+    _RAIL_KEYS,
+    _rail_group_index_for,
+)
 
 # A hand-crafted minimal one-page PDF - real-world PDFs always have a correct
 # xref table, but Qt's QPdfDocument parses this looser form fine, and it
@@ -99,6 +104,67 @@ def test_rail_buttons_switch_the_visible_screen(qtbot, tmp_path: Path) -> None:
     assert window._stack.currentIndex() == 2
     assert libraries_button.isChecked()
     assert not window._rail_buttons[0].isChecked()
+
+
+def test_rail_group_index_for_finds_the_right_group() -> None:
+    assert _rail_group_index_for(0) == 0  # Home -> Browse
+    assert _rail_group_index_for(11) == 2  # Flashcards -> Study
+    assert _rail_group_index_for(14) == 3  # Settings -> System
+
+
+def test_every_real_rail_key_belongs_to_exactly_one_group() -> None:
+    """Real safety guard: a rail entry silently missing from every group
+    would be unreachable via _show_screen's auto-group-switch."""
+    covered = [index for _key, member_indices in _RAIL_GROUPS for index in member_indices]
+
+    assert sorted(covered) == list(range(len(_RAIL_KEYS)))
+
+
+def test_rail_starts_with_only_the_browse_group_visible(qtbot, tmp_path: Path) -> None:
+    """Real fix for 15 rail entries no longer fitting one column: grouped
+    into tabs, only one group's icons show at a time."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    assert window._rail_group_widgets[0].isHidden() is False
+    for widget in window._rail_group_widgets[1:]:
+        assert widget.isHidden() is True
+    assert window._rail_group_buttons[0].isChecked()
+
+
+def test_clicking_a_group_tab_switches_which_icons_are_visible(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._show_rail_group(2)  # "Study" group: Flashcards, MCQs
+
+    assert window._rail_group_widgets[2].isHidden() is False
+    assert window._rail_group_widgets[0].isHidden() is True
+    assert window._rail_group_buttons[2].isChecked()
+    assert not window._rail_group_buttons[0].isChecked()
+
+
+def test_selecting_a_screen_outside_the_current_group_switches_groups_automatically(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real safety guard: navigating to a screen (e.g. via Quick Open)
+    whose icon lives in a currently-hidden group must reveal that group,
+    or the active screen's own rail button would be invisible with no
+    way to tell which group it's in."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._show_screen(11)  # Flashcards - lives in the "Study" group, index 2
+
+    assert window._rail_group_widgets[2].isHidden() is False
+    assert window._rail_group_buttons[2].isChecked()
+    assert window._rail_buttons[11].isChecked()
 
 
 def test_header_shows_a_real_current_location_breadcrumb(qtbot, tmp_path: Path) -> None:
