@@ -241,6 +241,8 @@ class MainWindow(QMainWindow):
         self._event_extraction_worker: EventExtractionWorker | None = None
         self._narrator_extraction_worker: NarratorExtractionWorker | None = None
         self._explain_worker: AiAgentWorker | None = None
+        self._summarize_passage_worker: AiAgentWorker | None = None
+        self._compare_passage_worker: AiAgentWorker | None = None
         self._flashcard_extraction_worker: FlashcardExtractionWorker | None = None
         self._slide_deck_worker: SlideDeckGenerationWorker | None = None
         self._podcast_worker: PodcastGenerationWorker | None = None
@@ -322,6 +324,12 @@ class MainWindow(QMainWindow):
             )
             self._viewer_screen.explain_selection_requested.connect(
                 self._on_explain_selection_requested
+            )
+            self._viewer_screen.summarize_selection_requested.connect(
+                self._on_summarize_selection_requested
+            )
+            self._viewer_screen.compare_selection_requested.connect(
+                self._on_compare_selection_requested
             )
             self._viewer_screen.generate_flashcards_requested.connect(
                 self._on_generate_flashcards_requested
@@ -1079,6 +1087,85 @@ class MainWindow(QMainWindow):
     def _on_explain_answer_ready(self, passage: str, answer: str) -> None:
         if self._viewer_screen is not None:
             self._viewer_screen.show_explanation(passage, answer)
+
+    def _on_summarize_selection_requested(self, selected_text: str) -> None:
+        """Summarize one real passage the reader selected (Phase 13
+        deferred scope, shipped later) - identical pre-flight/worker
+        shape to `_on_explain_selection_requested`, only the worker
+        mode and feature label differ."""
+        if self._viewer_screen is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Summarize this passage", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Summarize this passage", f"No API key is set for {provider_label}."
+            )
+            return
+
+        worker = AiAgentWorker(
+            self._ai_panel.get_or_build_ai_agent_service, selected_text, "summarize_passage", self
+        )
+        worker.answer_ready.connect(
+            lambda answer, _tool_calls: self._on_summarize_answer_ready(selected_text, answer)
+        )
+        worker.answer_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Summarize this passage", reason)
+        )
+        self._summarize_passage_worker = worker
+        worker.start()
+
+    def _on_summarize_answer_ready(self, passage: str, answer: str) -> None:
+        if self._viewer_screen is not None:
+            self._viewer_screen.show_summary(passage, answer)
+
+    def _on_compare_selection_requested(self, selected_text: str) -> None:
+        """Compare one real passage the reader selected against other
+        real scholarly discussion elsewhere in the library (Phase 13
+        deferred scope, shipped later) - identical pre-flight/worker
+        shape to `_on_explain_selection_requested`, only the worker
+        mode and feature label differ."""
+        if self._viewer_screen is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Compare this passage", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Compare this passage", f"No API key is set for {provider_label}."
+            )
+            return
+
+        worker = AiAgentWorker(
+            self._ai_panel.get_or_build_ai_agent_service, selected_text, "compare_passage", self
+        )
+        worker.answer_ready.connect(
+            lambda answer, _tool_calls: self._on_compare_answer_ready(selected_text, answer)
+        )
+        worker.answer_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Compare this passage", reason)
+        )
+        self._compare_passage_worker = worker
+        worker.start()
+
+    def _on_compare_answer_ready(self, passage: str, answer: str) -> None:
+        if self._viewer_screen is not None:
+            self._viewer_screen.show_comparison(passage, answer)
 
     def _on_ai_quick_ask_requested(self, question: str) -> None:
         """A real question asked from the Search screen's empty detail

@@ -201,6 +201,41 @@ _EXPLAIN_PASSAGE_SYSTEM_PROMPT = (
     "so honestly instead of inventing an explanation."
 )
 
+_SUMMARIZE_PASSAGE_SYSTEM_PROMPT = (
+    "You are summarizing one specific passage a researcher selected "
+    "while reading, from this offline Islamic research library. Write "
+    "a concise, accurate summary of the real content in this passage - "
+    "grounded only in what's given, never adding claims the passage "
+    "itself doesn't make. You are not required to call any tool - a "
+    "passage can usually be summarized directly from what's given - "
+    "but you may use the available tools if genuinely useful for real "
+    "background, citing anything you bring in from a tool result using "
+    "its own \"citation\" field verbatim, never invented. If the "
+    "passage is too short or already just a summary itself, say so "
+    "honestly instead of padding a trivial restatement."
+)
+
+_COMPARE_PASSAGE_SYSTEM_PROMPT = (
+    "You are helping a researcher see how one specific passage they "
+    "selected while reading relates to other real scholarly discussion "
+    "in this offline Islamic research library. Use the available tools "
+    "(prefer semantic_search_books for conceptual matches, search_books "
+    "for exact terms) to find genuinely related or differing positions "
+    "on the same topic elsewhere in the corpus - different madhhabs, "
+    "different scholars, or different real opinions actually present. "
+    "For each distinct real position you find: state it clearly, name "
+    "the source (school/scholar/book) if the text itself identifies "
+    "one, and cite it using that result's own \"citation\" field "
+    "verbatim - never invent a citation. Present the selected passage "
+    "alongside what you found, neutrally, as real evidence gathered "
+    "from the library. Never state which position is correct, more "
+    "authoritative, or preferable - your job is evidence-gathering and "
+    "organizing, not rendering a verdict on scholarly disagreement. If "
+    "you can't find any real related discussion elsewhere in the "
+    "corpus, say so honestly instead of inventing a comparison that "
+    "isn't really there."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTurnResult:
@@ -342,6 +377,35 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=normalized_text),),
             system_prompt=_EXPLAIN_PASSAGE_SYSTEM_PROMPT,
+        )
+
+    def summarize_passage(self, text: str) -> AgentTurnResult:
+        """Summarize one real passage the reader selected (Phase 13
+        deferred scope, shipped later) - same seed shape as
+        `explain_passage()`; the real difference is entirely in the
+        system prompt."""
+        normalized_text = text.strip()
+        if not normalized_text:
+            raise ValueError("Text must not be empty.")
+        return self._run_loop(
+            (LLMMessage(role="user", text=normalized_text),),
+            system_prompt=_SUMMARIZE_PASSAGE_SYSTEM_PROMPT,
+        )
+
+    def compare_passage(self, text: str) -> AgentTurnResult:
+        """Compare one real passage the reader selected against other
+        real scholarly discussion elsewhere in this library (Phase 13
+        deferred scope, shipped later) - never the model's own verdict
+        on which position is correct, same evidence-not-judgment
+        discipline as `compare_positions()`. Same seed shape as
+        `explain_passage()`; the real difference is entirely in the
+        system prompt."""
+        normalized_text = text.strip()
+        if not normalized_text:
+            raise ValueError("Text must not be empty.")
+        return self._run_loop(
+            (LLMMessage(role="user", text=normalized_text),),
+            system_prompt=_COMPARE_PASSAGE_SYSTEM_PROMPT,
         )
 
     def _run_loop(

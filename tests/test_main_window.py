@@ -463,6 +463,100 @@ def test_explain_selection_with_no_api_key_shows_the_unavailable_dialog(
     assert window._explain_worker is None
 
 
+def test_summarize_selection_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._on_summarize_selection_requested("A real selected passage.")
+
+    assert len(popup_calls) == 1
+    assert popup_calls[0][0] == "Summarize this passage"
+    assert "not enabled" in popup_calls[0][1].lower()
+    assert window._summarize_passage_worker is None
+
+
+def test_summarize_selection_with_no_api_key_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_ENABLED_KEY,
+    )
+
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
+    qtbot.addWidget(window)
+
+    window._on_summarize_selection_requested("A real selected passage.")
+
+    assert len(popup_calls) == 1
+    assert "No API key is set" in popup_calls[0][1]
+    assert window._summarize_passage_worker is None
+
+
+def test_compare_selection_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._on_compare_selection_requested("A real selected passage.")
+
+    assert len(popup_calls) == 1
+    assert popup_calls[0][0] == "Compare this passage"
+    assert "not enabled" in popup_calls[0][1].lower()
+    assert window._compare_passage_worker is None
+
+
+def test_compare_selection_with_no_api_key_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_ENABLED_KEY,
+    )
+
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
+    qtbot.addWidget(window)
+
+    window._on_compare_selection_requested("A real selected passage.")
+
+    assert len(popup_calls) == 1
+    assert "No API key is set" in popup_calls[0][1]
+    assert window._compare_passage_worker is None
+
+
 def test_generate_flashcards_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
     qtbot, tmp_path: Path, monkeypatch
 ) -> None:

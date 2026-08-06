@@ -1,5 +1,34 @@
 # Changelog
 
+## Phase 13: AI reading assistant - Milestone 2 (Summarize/Compare passage)
+
+Completes the deferred scope from Phase 13 Milestone 1 (Explain
+shipped already): "Summarize this passage" and "Compare this passage"
+as real in-reader context-menu actions, alongside Explain.
+
+New: `AiAgentService.summarize_passage()` and `.compare_passage()`,
+each with its own system prompt, same single-text seed shape as
+`explain_passage()`. Compare mirrors `compare_positions()`'s
+evidence-not-judgment discipline - it searches the library for real
+related/differing scholarly positions on the passage's topic and
+presents them side by side, citing each with that result's own real
+citation, never declaring one position correct. `AiAgentWorker` gained
+two new `mode` values (`"summarize_passage"`, `"compare_passage"`).
+
+`ViewerScreen` gained `summarize_selection_requested`/
+`compare_selection_requested` signals, two new context-menu items
+(visible whenever AI Agent is enabled, same as Explain), and public
+`show_summary()`/`show_comparison()` methods. Refactored the three
+passage-action dialogs (Explain/Summarize/Compare) to share one
+generic `_show_ai_passage_dialog()` builder instead of three
+near-duplicate `QDialog`-building functions - each action is now a
+thin wrapper supplying its own three i18n keys (dialog title, result
+heading, disclaimer) rather than duplicating layout code.
+`MainWindow` gained two new handlers mirroring
+`_on_explain_selection_requested` exactly (same pre-flight check, no
+chunking/cost-estimate - a single real API call, same reasoning as
+Explain). 26 new tests.
+
 ## Cross-language semantic search fix (real, confirmed bug)
 
 Phase 10's cross-language search item was checked for real this session

@@ -970,6 +970,98 @@ def test_show_explanation_opens_a_real_dialog_with_save_to_notes(
     assert saved_text == "a real explanation"
 
 
+def test_summarize_action_emits_the_real_selected_text(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    received = []
+    screen.summarize_selection_requested.connect(received.append)
+    screen._handle_context_menu_action("summarize", "a real selected passage")
+
+    assert received == ["a real selected passage"]
+
+
+def test_show_summary_opens_a_real_dialog_with_save_to_notes(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "_show_summary_dialog", lambda *args: calls.append(args)
+    )
+
+    screen.show_summary("a real passage", "a real summary")
+
+    assert len(calls) == 1
+    _parent, _translator_arg, passage, summary, on_save = calls[0]
+    assert passage == "a real passage"
+    assert summary == "a real summary"
+
+    notes_calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "show_save_to_notes_dialog", lambda *args: notes_calls.append(args)
+    )
+    on_save("a real summary")
+
+    assert len(notes_calls) == 1
+    assert notes_calls[0][5] == "a real summary"
+
+
+def test_compare_action_emits_the_real_selected_text(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    received = []
+    screen.compare_selection_requested.connect(received.append)
+    screen._handle_context_menu_action("compare", "a real selected passage")
+
+    assert received == ["a real selected passage"]
+
+
+def test_show_comparison_opens_a_real_dialog_with_save_to_notes(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "_show_comparison_dialog", lambda *args: calls.append(args)
+    )
+
+    screen.show_comparison("a real passage", "a real comparison")
+
+    assert len(calls) == 1
+    _parent, _translator_arg, passage, comparison, on_save = calls[0]
+    assert passage == "a real passage"
+    assert comparison == "a real comparison"
+
+    notes_calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "show_save_to_notes_dialog", lambda *args: notes_calls.append(args)
+    )
+    on_save("a real comparison")
+
+    assert len(notes_calls) == 1
+    assert notes_calls[0][5] == "a real comparison"
+
+
 def test_translating_a_selection_shows_a_real_translation_dialog(
     qtbot, tmp_path: Path, monkeypatch
 ) -> None:

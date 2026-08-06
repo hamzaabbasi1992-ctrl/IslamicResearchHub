@@ -1108,7 +1108,7 @@ built and automated-tested (fake translator, same technique as
 proved out for real; the actual ~300MB-per-language download and real
 translation quality haven't been checked by a human yet.
 
-### Phase 13 — AI reading assistant: **Milestone 1 done**
+### Phase 13 — AI reading assistant: **Milestone 2 done**
 
 The in-reader interaction layer: highlight text while reading, then
 ask the AI to explain, compare, translate (Phase 12), or summarize it,
@@ -1126,14 +1126,29 @@ tool-calling `AiAgentService` as Phase 11, with its own system prompt
 exact shape) that explicitly forbids presenting the explanation as a
 fatwa or authoritative ruling - a reading aid, not scholarly guidance.
 Translate (Phase 12) already existed as its own context-menu item;
-"Compare"/"Summarize" from the passage above and "save as a bookmark"
-are still out of scope for this milestone - "save as a note" is in
+"save as a bookmark" is still out of scope - "save as a note" is in
 (the result dialog's "Save to Research Notes" button reuses the exact
 same `show_save_to_notes_dialog` flow the reader's own text-selection
 menu already used). Routed through `MainWindow` (owns the real AI
 Agent service/pre-flight check, same split as Extract Events/
 Narrators), not handled locally in `ViewerScreen` like TTS/translation
 are, since those use their own separate local models.
+
+**Milestone 2 (done)**: "Summarize this passage" and "Compare this
+passage" - the other two deferred in-reader passage actions, each its
+own `AiAgentService` method/system prompt
+(`summarize_passage()`/`compare_passage()`, same seed shape as
+`explain_passage()`). Compare reuses `compare_positions()`'s
+evidence-not-judgment discipline exactly - it searches the library for
+genuinely related/differing scholarly positions on the passage's
+topic and presents them side by side, never declaring one correct.
+The three passage-action dialogs (Explain/Summarize/Compare) now share
+one generic `_show_ai_passage_dialog()` builder in `viewer_screen.py`
+instead of three near-duplicate QDialog-building functions - each
+action is a thin wrapper supplying its own three i18n keys (dialog
+title, result heading, disclaimer). "Save as a bookmark" for an AI
+answer remains the one item from this phase's original scope still
+open.
 
 **Real live-key verification, 2026-08-06**: while building this
 milestone, the user's real Gemini API key was tested end-to-end for

@@ -44,9 +44,11 @@ class AiAgentWorker(QThread):
         self._question = question
         self._mode = mode
         """"converse" (default, grounded Q&A), "compare" (Phase 11's
-        multi-position comparative research mode), or "explain" (Phase
-        13's in-reader "explain this passage" mode) - selects which real
-        AiAgentService method/system prompt runs, nothing else differs."""
+        multi-position comparative research mode), "explain" (Phase 13's
+        in-reader "explain this passage" mode), "summarize_passage", or
+        "compare_passage" (Phase 13's other two in-reader passage
+        actions) - selects which real AiAgentService method/system
+        prompt runs, nothing else differs."""
 
     def run(self) -> None:
         try:
@@ -59,6 +61,10 @@ class AiAgentWorker(QThread):
                 result = service.compare_positions(self._question)
             elif self._mode == "explain":
                 result = service.explain_passage(self._question)
+            elif self._mode == "summarize_passage":
+                result = service.summarize_passage(self._question)
+            elif self._mode == "compare_passage":
+                result = service.compare_passage(self._question)
             else:
                 result = service.converse(self._question)
         except Exception:

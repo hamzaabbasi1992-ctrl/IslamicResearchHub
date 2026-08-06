@@ -103,6 +103,8 @@ class ViewerScreen(QWidget):
     extract_events_requested = Signal(int)  # book_id
     extract_narrators_requested = Signal(int)  # book_id
     explain_selection_requested = Signal(str)  # selected_text
+    summarize_selection_requested = Signal(str)  # selected_text
+    compare_selection_requested = Signal(str)  # selected_text
     generate_flashcards_requested = Signal(int)  # book_id
     generate_slide_deck_requested = Signal(int)  # book_id
     generate_podcast_requested = Signal(int)  # book_id
@@ -721,6 +723,12 @@ class ViewerScreen(QWidget):
             explain_action = menu.addAction(self._translator.tr("viewer-explain-selection"))
             explain_action.setEnabled(bool(selected_text))
             actions["explain"] = explain_action
+            summarize_action = menu.addAction(self._translator.tr("viewer-summarize-selection"))
+            summarize_action.setEnabled(bool(selected_text))
+            actions["summarize"] = summarize_action
+            compare_action = menu.addAction(self._translator.tr("viewer-compare-selection"))
+            compare_action.setEnabled(bool(selected_text))
+            actions["compare"] = compare_action
         menu.addSeparator()
         actions["open_notes"] = menu.addAction(self._translator.tr("viewer-open-notes"))
 
@@ -747,6 +755,10 @@ class ViewerScreen(QWidget):
             self._translate_selection(selected_text)
         elif action == "explain":
             self.explain_selection_requested.emit(selected_text)
+        elif action == "summarize":
+            self.summarize_selection_requested.emit(selected_text)
+        elif action == "compare":
+            self.compare_selection_requested.emit(selected_text)
 
     def _copy_selection_with_citation(self, selected_text: str) -> None:
         page_number = self.current_page_number()
@@ -798,6 +810,44 @@ class ViewerScreen(QWidget):
             self._current_title,
             page_number,
             explanation,
+        )
+
+    def show_summary(self, passage: str, summary: str) -> None:
+        """Show a real AI summary of a passage the reader selected
+        (Phase 13 deferred scope, shipped later) - same split/ownership
+        shape as `show_explanation()`."""
+        _show_summary_dialog(
+            self, self._translator, passage, summary, self._on_save_summary_to_notes
+        )
+
+    def _on_save_summary_to_notes(self, summary: str) -> None:
+        page_number = self.current_page_number()
+        if self._current_book_id is None or self._current_title is None or page_number is None:
+            return
+        show_save_to_notes_dialog(
+            self, self._browser, self._current_book_id, self._current_title, page_number, summary
+        )
+
+    def show_comparison(self, passage: str, comparison: str) -> None:
+        """Show a real AI comparison of a passage the reader selected
+        against other real scholarly discussion elsewhere in the
+        library (Phase 13 deferred scope, shipped later) - same
+        split/ownership shape as `show_explanation()`."""
+        _show_comparison_dialog(
+            self, self._translator, passage, comparison, self._on_save_comparison_to_notes
+        )
+
+    def _on_save_comparison_to_notes(self, comparison: str) -> None:
+        page_number = self.current_page_number()
+        if self._current_book_id is None or self._current_title is None or page_number is None:
+            return
+        show_save_to_notes_dialog(
+            self,
+            self._browser,
+            self._current_book_id,
+            self._current_title,
+            page_number,
+            comparison,
         )
 
     def _translate_selection(self, selected_text: str) -> None:
@@ -1370,18 +1420,23 @@ def _show_translation_dialog(
     dialog.exec()
 
 
-def _show_explanation_dialog(
+def _show_ai_passage_dialog(
     parent: QWidget,
     translator: Translator,
     passage: str,
-    explanation: str,
+    result: str,
     on_save_to_notes: Callable[[str], None],
+    dialog_title_key: str,
+    result_heading_key: str,
+    disclaimer_key: str,
 ) -> None:
-    """A real, read-only dialog showing the selected passage alongside its
-    AI-generated explanation, plus an honest disclaimer - a reading aid,
-    not a fatwa or authoritative religious ruling."""
+    """A real, read-only dialog showing the selected passage alongside
+    one real AI-generated result, plus an honest disclaimer - shared by
+    the reader's Explain/Summarize/Compare passage actions, which only
+    ever differ in which real AI method produced `result` and which
+    three i18n keys describe it."""
     dialog = QDialog(parent)
-    dialog.setWindowTitle(translator.tr("viewer-explain-dialog-title"))
+    dialog.setWindowTitle(translator.tr(dialog_title_key))
     dialog.resize(560, 480)
     layout = QVBoxLayout(dialog)
 
@@ -1395,16 +1450,16 @@ def _show_explanation_dialog(
     passage_label.setStyleSheet(RTL_TEXT_STYLE)
     layout.addWidget(passage_label)
 
-    explanation_heading = QLabel(translator.tr("viewer-explain-explanation-heading"))
-    explanation_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
-    layout.addWidget(explanation_heading)
-    explanation_label = QLabel(explanation)
-    explanation_label.setWordWrap(True)
-    explanation_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    layout.addWidget(explanation_label)
+    result_heading = QLabel(translator.tr(result_heading_key))
+    result_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
+    layout.addWidget(result_heading)
+    result_label = QLabel(result)
+    result_label.setWordWrap(True)
+    result_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    layout.addWidget(result_label)
     layout.addStretch(1)
 
-    disclaimer = QLabel(translator.tr("viewer-explain-disclaimer"))
+    disclaimer = QLabel(translator.tr(disclaimer_key))
     disclaimer.setWordWrap(True)
     disclaimer.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
     layout.addWidget(disclaimer)
@@ -1412,7 +1467,7 @@ def _show_explanation_dialog(
     button_row = QHBoxLayout()
     button_row.addStretch(1)
     save_button = QPushButton(translator.tr("viewer-explain-save-to-notes"))
-    save_button.clicked.connect(lambda: on_save_to_notes(explanation))
+    save_button.clicked.connect(lambda: on_save_to_notes(result))
     button_row.addWidget(save_button)
     close_button = QPushButton(translator.tr("common-close"))
     close_button.clicked.connect(dialog.close)
@@ -1420,6 +1475,72 @@ def _show_explanation_dialog(
     layout.addLayout(button_row)
 
     dialog.exec()
+
+
+def _show_explanation_dialog(
+    parent: QWidget,
+    translator: Translator,
+    passage: str,
+    explanation: str,
+    on_save_to_notes: Callable[[str], None],
+) -> None:
+    """A real, read-only dialog showing the selected passage alongside its
+    AI-generated explanation, plus an honest disclaimer - a reading aid,
+    not a fatwa or authoritative religious ruling."""
+    _show_ai_passage_dialog(
+        parent,
+        translator,
+        passage,
+        explanation,
+        on_save_to_notes,
+        "viewer-explain-dialog-title",
+        "viewer-explain-explanation-heading",
+        "viewer-explain-disclaimer",
+    )
+
+
+def _show_summary_dialog(
+    parent: QWidget,
+    translator: Translator,
+    passage: str,
+    summary: str,
+    on_save_to_notes: Callable[[str], None],
+) -> None:
+    """A real, read-only dialog showing the selected passage alongside its
+    AI-generated summary, plus an honest disclaimer."""
+    _show_ai_passage_dialog(
+        parent,
+        translator,
+        passage,
+        summary,
+        on_save_to_notes,
+        "viewer-summarize-dialog-title",
+        "viewer-summarize-summary-heading",
+        "viewer-summarize-disclaimer",
+    )
+
+
+def _show_comparison_dialog(
+    parent: QWidget,
+    translator: Translator,
+    passage: str,
+    comparison: str,
+    on_save_to_notes: Callable[[str], None],
+) -> None:
+    """A real, read-only dialog showing the selected passage alongside
+    real related/differing scholarly positions found elsewhere in the
+    library, plus an honest disclaimer that this is evidence, not a
+    verdict on which position is correct."""
+    _show_ai_passage_dialog(
+        parent,
+        translator,
+        passage,
+        comparison,
+        on_save_to_notes,
+        "viewer-compare-dialog-title",
+        "viewer-compare-comparison-heading",
+        "viewer-compare-disclaimer",
+    )
 
 
 def _toolbar_separator() -> QFrame:

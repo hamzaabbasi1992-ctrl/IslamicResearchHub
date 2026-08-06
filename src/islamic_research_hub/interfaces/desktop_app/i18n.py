@@ -278,6 +278,20 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "a substitute for qualified scholarly guidance."
         ),
         "viewer-explain-save-to-notes": "Save to Research Notes",
+        "viewer-summarize-selection": "Summarize this passage (AI)",
+        "viewer-summarize-dialog-title": "Summary",
+        "viewer-summarize-summary-heading": "Summary",
+        "viewer-summarize-disclaimer": (
+            "AI-generated summary - a reading aid, meant to save time, not a "
+            "substitute for reading the real passage above in full."
+        ),
+        "viewer-compare-selection": "Compare this passage (AI)",
+        "viewer-compare-dialog-title": "Comparison",
+        "viewer-compare-comparison-heading": "Related and Differing Positions",
+        "viewer-compare-disclaimer": (
+            "AI-gathered evidence from real books in this library, presented "
+            "side by side - never a verdict on which position is correct."
+        ),
         "viewer-translation-dialog-title": "Translation",
         "viewer-translation-original-heading": "Original",
         "viewer-translation-english-heading": "English",
@@ -696,6 +710,20 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "یہ صرف متن سمجھنے میں مدد کے لیے ہے، مستند علمی رہنمائی کا متبادل نہیں۔"
         ),
         "viewer-explain-save-to-notes": "ریسرچ نوٹس میں محفوظ کریں",
+        "viewer-summarize-selection": "اس عبارت کا خلاصہ بنائیں (AI)",
+        "viewer-summarize-dialog-title": "خلاصہ",
+        "viewer-summarize-summary-heading": "خلاصہ",
+        "viewer-summarize-disclaimer": (
+            "یہ AI کی جانب سے تیار کردہ خلاصہ ہے - وقت بچانے میں مدد کے لیے، اصل عبارت "
+            "مکمل پڑھنے کا متبادل نہیں۔"
+        ),
+        "viewer-compare-selection": "اس عبارت کا موازنہ کریں (AI)",
+        "viewer-compare-dialog-title": "موازنہ",
+        "viewer-compare-comparison-heading": "متعلقہ اور مختلف آراء",
+        "viewer-compare-disclaimer": (
+            "یہ اس لائبریری کی حقیقی کتابوں سے AI کے ذریعے اکٹھا کیا گیا شواہد ہے، "
+            "ساتھ ساتھ پیش کیا گیا ہے - یہ کبھی بھی کسی رائے کے درست ہونے کا فیصلہ نہیں۔"
+        ),
         "viewer-translation-dialog-title": "ترجمہ",
         "viewer-translation-original-heading": "اصل متن",
         "viewer-translation-english-heading": "انگریزی",
@@ -1111,6 +1139,20 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
             "أداة لمساعدتك على فهم النص، لا بديلاً عن إرشاد علمي مؤهل."
         ),
         "viewer-explain-save-to-notes": "حفظ في ملاحظات البحث",
+        "viewer-summarize-selection": "تلخيص هذا المقطع (AI)",
+        "viewer-summarize-dialog-title": "الملخص",
+        "viewer-summarize-summary-heading": "الملخص",
+        "viewer-summarize-disclaimer": (
+            "ملخص من إنشاء الذكاء الاصطناعي - أداة لتوفير الوقت، وليست بديلاً عن "
+            "قراءة المقطع الحقيقي أعلاه كاملاً."
+        ),
+        "viewer-compare-selection": "مقارنة هذا المقطع (AI)",
+        "viewer-compare-dialog-title": "المقارنة",
+        "viewer-compare-comparison-heading": "مواقف ذات صلة ومختلفة",
+        "viewer-compare-disclaimer": (
+            "أدلة جُمعت بواسطة الذكاء الاصطناعي من كتب حقيقية في هذه المكتبة، معروضة "
+            "جنبًا إلى جنب - وليست أبدًا حكمًا على أي موقف هو الصحيح."
+        ),
         "viewer-translation-dialog-title": "الترجمة",
         "viewer-translation-original-heading": "النص الأصلي",
         "viewer-translation-english-heading": "الإنجليزية",

@@ -355,3 +355,65 @@ def test_explain_passage_uses_its_own_system_prompt_forbidding_a_fatwa() -> None
     lowered = system_prompt.lower()
     assert "never" in lowered
     assert "fatwa" in lowered or "ruling" in lowered or "verdict" in lowered
+
+
+def test_summarize_passage_rejects_blank_text() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.summarize_passage("   ")
+
+
+def test_summarize_passage_seeds_the_real_selected_text() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="A concise summary.", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.summarize_passage("إنما الأعمال بالنيات")
+
+    assert result.answer == "A concise summary."
+    _system_prompt, messages = provider.calls[0]
+    assert "إنما الأعمال بالنيات" in messages[0].text
+
+
+def test_summarize_passage_uses_its_own_system_prompt() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="answer", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.summarize_passage("A real passage.")
+
+    system_prompt, _messages = provider.calls[0]
+    assert "summar" in system_prompt.lower()
+
+
+def test_compare_passage_rejects_blank_text() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.compare_passage("   ")
+
+
+def test_compare_passage_seeds_the_real_selected_text() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="Position A vs Position B.", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.compare_passage("إنما الأعمال بالنيات")
+
+    assert result.answer == "Position A vs Position B."
+    _system_prompt, messages = provider.calls[0]
+    assert "إنما الأعمال بالنيات" in messages[0].text
+
+
+def test_compare_passage_uses_its_own_system_prompt_forbidding_a_verdict() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="answer", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.compare_passage("A real passage.")
+
+    system_prompt, _messages = provider.calls[0]
+    lowered = system_prompt.lower()
+    assert "never" in lowered
+    assert "correct" in lowered or "verdict" in lowered
