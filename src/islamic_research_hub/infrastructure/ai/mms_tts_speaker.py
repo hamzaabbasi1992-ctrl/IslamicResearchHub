@@ -8,6 +8,8 @@ import logging
 import torch
 from transformers import AutoTokenizer, VitsModel
 
+from islamic_research_hub.infrastructure.ai.huggingface_loading import load_offline_or_download
+
 LOGGER = logging.getLogger(__name__)
 
 CHECKPOINTS_BY_LANGUAGE = {
@@ -77,12 +79,10 @@ def _load_offline_or_download(checkpoint: str) -> tuple[VitsModel, object]:
     this process (`FasterWhisperTranscriber` also lives in this package -
     a global env var would have silently affected it too).
     """
-    try:
-        model = VitsModel.from_pretrained(checkpoint, local_files_only=True)
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint, local_files_only=True)
+
+    def _load(name: str, local_only: bool) -> tuple[VitsModel, object]:
+        model = VitsModel.from_pretrained(name, local_files_only=local_only)
+        tokenizer = AutoTokenizer.from_pretrained(name, local_files_only=local_only)
         return model, tokenizer
-    except Exception:
-        LOGGER.info("TTS checkpoint %s not cached yet - downloading (first use only).", checkpoint)
-        model = VitsModel.from_pretrained(checkpoint)
-        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-        return model, tokenizer
+
+    return load_offline_or_download(checkpoint, _load)

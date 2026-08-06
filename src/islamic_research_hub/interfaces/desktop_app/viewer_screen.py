@@ -10,6 +10,7 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -29,6 +31,10 @@ from PySide6.QtWidgets import (
 )
 
 from islamic_research_hub.application.page_narration import PageNarrationService
+from islamic_research_hub.application.text_translation import (
+    SUPPORTED_SOURCE_LANGUAGES,
+    PageTranslationService,
+)
 from islamic_research_hub.domain.models.book import Chapter
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
@@ -49,6 +55,7 @@ from islamic_research_hub.interfaces.desktop_app.theme import (
     Spacing,
     Type,
 )
+from islamic_research_hub.interfaces.desktop_app.translation_worker import TranslationWorker
 from islamic_research_hub.interfaces.desktop_app.tts_worker import TtsWorker
 from islamic_research_hub.research_notes.docx_writer import LocalDocxStorage
 from islamic_research_hub.research_notes.notes_dialog import (
@@ -100,6 +107,7 @@ class ViewerScreen(QWidget):
         initial_font_family: str | None = None,
         enable_lazy_tts: bool = False,
         enable_lazy_ai_agent: bool = False,
+        enable_lazy_translation: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -138,6 +146,15 @@ class ViewerScreen(QWidget):
         self._tts_is_last_chunk_playing = False
         self._tts_no_more_chunks_expected = False  # narration_finished has arrived
         self._tts_paused_while_waiting = False  # user paused during the "awaiting" gap
+
+        # Translation: same lazy-build-at-most-once-behind-a-lock pattern
+        # as TTS above (see `_get_or_build_translation_service`).
+        self._enable_lazy_translation = enable_lazy_translation
+        self._translation_lock = threading.Lock()
+        self._translation_service: PageTranslationService | None = None
+        self._translation_attempted = False
+        self._translation_worker: TranslationWorker | None = None
+
         self._media_player = QMediaPlayer(self)
         self._media_player.setPlaybackRate(_TTS_SPEED_CHOICES[_TTS_DEFAULT_SPEED_INDEX][1])
         self._tts_audio_output = QAudioOutput(self)
@@ -609,6 +626,17 @@ class ViewerScreen(QWidget):
         )
         QGuiApplication.clipboard().setText(citation)
 
+    def _translation_offered(self) -> bool:
+        """Whether the context menu's Translate item should appear at all -
+        only when translation is enabled and this book's real language is
+        one Milestone 1 actually supports (Arabic/Urdu -> English), never
+        a dead menu item promising a capability that isn't there. A
+        separate, directly-testable method rather than inline in
+        `_show_content_context_menu` - a real `QMenu` popup has no place
+        in a headless test (see `_handle_context_menu_action`'s own
+        docstring), so this is the seam tests use instead."""
+        return self._enable_lazy_translation and self._current_language in SUPPORTED_SOURCE_LANGUAGES
+
     def _show_content_context_menu(self, position) -> None:
         selected_text = self._content_label.selectedText()
         menu = QMenu(self)
@@ -619,6 +647,10 @@ class ViewerScreen(QWidget):
         }
         for action in actions.values():
             action.setEnabled(bool(selected_text))
+        if self._translation_offered():
+            translate_action = menu.addAction(self._translator.tr("viewer-translate-selection"))
+            translate_action.setEnabled(bool(selected_text))
+            actions["translate"] = translate_action
         menu.addSeparator()
         actions["open_notes"] = menu.addAction(self._translator.tr("viewer-open-notes"))
 
@@ -641,6 +673,8 @@ class ViewerScreen(QWidget):
             self._save_selection_to_research_notes(selected_text)
         elif action == "open_notes":
             open_current_notes(self)
+        elif action == "translate":
+            self._translate_selection(selected_text)
 
     def _copy_selection_with_citation(self, selected_text: str) -> None:
         page_number = self.current_page_number()
@@ -665,6 +699,48 @@ class ViewerScreen(QWidget):
             self._current_title,
             page_number,
             selected_text,
+        )
+
+    def _translate_selection(self, selected_text: str) -> None:
+        if not selected_text or self._current_language not in SUPPORTED_SOURCE_LANGUAGES:
+            return
+        request_key = self._current_narration_key()
+        worker = TranslationWorker(
+            self._get_or_build_translation_service,
+            selected_text,
+            self._current_language,
+            request_key,
+            self,
+        )
+        worker.translation_ready.connect(
+            lambda translated, key: self._on_translation_ready(selected_text, translated, key)
+        )
+        worker.translation_failed.connect(self._on_translation_failed)
+        worker.translation_unavailable.connect(self._on_translation_unavailable)
+        self._translation_worker = worker
+        worker.start()
+
+    def _on_translation_ready(self, original_text: str, translated_text: str, request_key: object) -> None:
+        if request_key != self._current_narration_key():
+            return  # stale - the reader turned the page while this was translating
+        _show_translation_dialog(self, self._translator, original_text, translated_text)
+
+    def _on_translation_failed(self, request_key: object) -> None:
+        if request_key != self._current_narration_key():
+            return
+        QMessageBox.warning(
+            self,
+            self._translator.tr("viewer-translation-failed-title"),
+            self._translator.tr("viewer-translation-failed-message"),
+        )
+
+    def _on_translation_unavailable(self, request_key: object) -> None:
+        if request_key != self._current_narration_key():
+            return
+        QMessageBox.warning(
+            self,
+            self._translator.tr("viewer-translation-unavailable-title"),
+            self._translator.tr("viewer-translation-unavailable-message"),
         )
 
     def load_book(self, book_id: int, bookmarked_pages: set[int] | None = None) -> bool:
@@ -933,6 +1009,34 @@ class ViewerScreen(QWidget):
             LOGGER.exception("Text-to-speech unavailable.")
             return None
 
+    def _get_or_build_translation_service(self) -> PageTranslationService | None:
+        """Return the cached translation service, building it at most once.
+
+        Runs on the worker thread - guarded by a lock so two overlapping
+        translate requests can't both attempt the real model load at once.
+        Mirrors `_get_or_build_tts_narration_service` exactly.
+        """
+        with self._translation_lock:
+            if self._translation_service is None and self._enable_lazy_translation:
+                if not self._translation_attempted:
+                    self._translation_attempted = True
+                    self._translation_service = self._build_real_translation_service()
+            return self._translation_service
+
+    def _build_real_translation_service(self) -> PageTranslationService | None:
+        """Build the real local MarianMT translation service, or None on
+        any failure - the optional "translation" extra
+        (`transformers`/`torch`/`sentencepiece`) may not be installed, or
+        model loading may fail for other reasons. Either way,
+        reading/navigation must keep working unaffected."""
+        try:
+            from islamic_research_hub.infrastructure.ai.marian_translator import MarianTranslator
+
+            return PageTranslationService(MarianTranslator())
+        except Exception:
+            LOGGER.exception("Translation unavailable.")
+            return None
+
     def _on_chunk_ready(self, wav_path: str, chunk_index: int, is_last: bool, request_key: object) -> None:
         if request_key != self._current_narration_key():
             Path(wav_path).unlink(missing_ok=True)  # stale - page changed while synthesizing
@@ -1040,6 +1144,55 @@ class ViewerScreen(QWidget):
             chunk_dir.rmdir()  # only succeeds once empty
         except OSError:
             pass
+
+
+def _show_translation_dialog(
+    parent: QWidget, translator: Translator, original_text: str, translated_text: str
+) -> None:
+    """A real, read-only dialog showing the original selection alongside
+    its English translation, plus an honest disclaimer - local machine
+    translation, not a substitute for a qualified human translator,
+    especially for anything touching a real ruling or legal question."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(translator.tr("viewer-translation-dialog-title"))
+    dialog.resize(560, 480)
+    layout = QVBoxLayout(dialog)
+
+    original_heading = QLabel(translator.tr("viewer-translation-original-heading"))
+    original_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
+    layout.addWidget(original_heading)
+    original_label = QLabel(original_text)
+    original_label.setWordWrap(True)
+    original_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    original_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    original_label.setStyleSheet(RTL_TEXT_STYLE)
+    layout.addWidget(original_label)
+
+    translated_heading = QLabel(translator.tr("viewer-translation-english-heading"))
+    translated_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
+    layout.addWidget(translated_heading)
+    translated_label = QLabel(translated_text)
+    translated_label.setWordWrap(True)
+    translated_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    layout.addWidget(translated_label)
+    layout.addStretch(1)
+
+    disclaimer = QLabel(translator.tr("viewer-translation-disclaimer"))
+    disclaimer.setWordWrap(True)
+    disclaimer.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
+    layout.addWidget(disclaimer)
+
+    button_row = QHBoxLayout()
+    button_row.addStretch(1)
+    copy_button = QPushButton(translator.tr("viewer-translation-copy"))
+    copy_button.clicked.connect(lambda: QGuiApplication.clipboard().setText(translated_text))
+    button_row.addWidget(copy_button)
+    close_button = QPushButton(translator.tr("common-close"))
+    close_button.clicked.connect(dialog.close)
+    button_row.addWidget(close_button)
+    layout.addLayout(button_row)
+
+    dialog.exec()
 
 
 def _toolbar_separator() -> QFrame:

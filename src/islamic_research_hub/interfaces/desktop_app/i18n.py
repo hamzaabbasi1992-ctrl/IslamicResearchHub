@@ -36,6 +36,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-default-font-family": "Default reading font",
         "settings-tts-enabled": "Read pages aloud",
         "settings-voice-search-enabled": "Search by speaking",
+        "settings-translation-enabled": "Translate to English (downloads a local model)",
         "settings-appearance": "Appearance",
         "settings-ai-agent": "AI Agent",
         "settings-ai-agent-enabled": "Enable AI Agent (uses a paid cloud API)",
@@ -240,6 +241,26 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "Copy with Citation",
         "viewer-save-to-notes": "Save to Research Notes",
         "viewer-open-notes": "Open Current Notes",
+        "viewer-translate-selection": "Translate to English",
+        "viewer-translation-dialog-title": "Translation",
+        "viewer-translation-original-heading": "Original",
+        "viewer-translation-english-heading": "English",
+        "viewer-translation-copy": "Copy translation",
+        "viewer-translation-disclaimer": (
+            "Machine-translated locally on this device - a real, honest first "
+            "pass, not a substitute for a qualified human translator, "
+            "especially for anything touching a legal or religious ruling."
+        ),
+        "viewer-translation-failed-title": "Translation failed",
+        "viewer-translation-failed-message": (
+            "This passage could not be translated. Try again, or with a "
+            "shorter selection."
+        ),
+        "viewer-translation-unavailable-title": "Translation unavailable",
+        "viewer-translation-unavailable-message": (
+            "The local translation model could not be loaded. Make sure the "
+            "optional \"translation\" component is installed, then restart the app."
+        ),
         "viewer-no-content": "(no content)",
         "search-tab-recent": "Recent",
         "search-filter-placeholder": "Filter...",
@@ -373,6 +394,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-default-font-family": "ڈیفالٹ پڑھنے کا فونٹ",
         "settings-tts-enabled": "صفحہ بلند آواز میں پڑھیں",
         "settings-voice-search-enabled": "آواز سے تلاش کریں",
+        "settings-translation-enabled": "انگریزی میں ترجمہ کریں (ایک مقامی ماڈل ڈاؤن لوڈ کرتا ہے)",
         "settings-appearance": "ظاہری شکل",
         "settings-ai-agent": "اے آئی ایجنٹ",
         "settings-ai-agent-enabled": "اے آئی ایجنٹ فعال کریں (ادا شدہ کلاؤڈ اے پی آئی استعمال کرتا ہے)",
@@ -577,6 +599,25 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "حوالے کے ساتھ کاپی کریں",
         "viewer-save-to-notes": "ریسرچ نوٹس میں محفوظ کریں",
         "viewer-open-notes": "موجودہ نوٹس کھولیں",
+        "viewer-translate-selection": "انگریزی میں ترجمہ کریں",
+        "viewer-translation-dialog-title": "ترجمہ",
+        "viewer-translation-original-heading": "اصل متن",
+        "viewer-translation-english-heading": "انگریزی",
+        "viewer-translation-copy": "ترجمہ کاپی کریں",
+        "viewer-translation-disclaimer": (
+            "اس ڈیوائس پر مقامی طور پر مشینی ترجمہ کیا گیا ہے - ایک حقیقی، ایماندار پہلا "
+            "قدم، کسی مستند انسانی مترجم کا متبادل نہیں، خاص طور پر کسی شرعی یا قانونی "
+            "مسئلے کے حوالے سے۔"
+        ),
+        "viewer-translation-failed-title": "ترجمہ ناکام ہو گیا",
+        "viewer-translation-failed-message": (
+            "اس عبارت کا ترجمہ نہیں ہو سکا۔ دوبارہ کوشش کریں، یا مختصر حصہ منتخب کریں۔"
+        ),
+        "viewer-translation-unavailable-title": "ترجمہ دستیاب نہیں",
+        "viewer-translation-unavailable-message": (
+            "مقامی ترجمہ ماڈل لوڈ نہیں ہو سکا۔ یقینی بنائیں کہ اختیاری \"translation\" جزو "
+            "انسٹال ہے، پھر ایپ دوبارہ شروع کریں۔"
+        ),
         "viewer-no-content": "(کوئی مواد نہیں)",
         "search-tab-recent": "حالیہ",
         "search-filter-placeholder": "فلٹر...",
@@ -709,6 +750,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-default-font-family": "خط القراءة الافتراضي",
         "settings-tts-enabled": "قراءة الصفحات بصوت عالٍ",
         "settings-voice-search-enabled": "البحث بالصوت",
+        "settings-translation-enabled": "الترجمة إلى الإنجليزية (يُنزّل نموذجًا محليًا)",
         "settings-appearance": "المظهر",
         "settings-ai-agent": "الوكيل الذكي",
         "settings-ai-agent-enabled": "تفعيل الوكيل الذكي (يستخدم واجهة برمجة سحابية مدفوعة)",
@@ -913,6 +955,24 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "نسخ مع الاستشهاد",
         "viewer-save-to-notes": "حفظ في ملاحظات البحث",
         "viewer-open-notes": "فتح الملاحظات الحالية",
+        "viewer-translate-selection": "ترجمة إلى الإنجليزية",
+        "viewer-translation-dialog-title": "الترجمة",
+        "viewer-translation-original-heading": "النص الأصلي",
+        "viewer-translation-english-heading": "الإنجليزية",
+        "viewer-translation-copy": "نسخ الترجمة",
+        "viewer-translation-disclaimer": (
+            "تُرجم آليًا محليًا على هذا الجهاز - خطوة أولى حقيقية وصادقة، وليست بديلاً "
+            "عن مترجم بشري مؤهل، خاصة فيما يتعلق بأي مسألة شرعية أو قانونية."
+        ),
+        "viewer-translation-failed-title": "فشلت الترجمة",
+        "viewer-translation-failed-message": (
+            "تعذّرت ترجمة هذا المقطع. حاول مرة أخرى، أو اختر نصًا أقصر."
+        ),
+        "viewer-translation-unavailable-title": "الترجمة غير متاحة",
+        "viewer-translation-unavailable-message": (
+            "تعذّر تحميل نموذج الترجمة المحلي. تأكد من تثبيت مكوّن \"translation\" "
+            "الاختياري، ثم أعد تشغيل التطبيق."
+        ),
         "viewer-no-content": "(لا يوجد محتوى)",
         "search-tab-recent": "الأخيرة",
         "search-filter-placeholder": "تصفية...",

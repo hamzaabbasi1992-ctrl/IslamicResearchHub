@@ -1061,7 +1061,7 @@ not just prose in the existing answer area) - a real, separate
 follow-up once the underlying comparison quality itself is verified
 against a real provider.
 
-### Phase 12 — Translation engine: **scheduled after Phase 11, not started**
+### Phase 12 — Translation engine: **Milestone 1 done**
 
 Real per-paragraph translation chain: original Arabic → Urdu → English,
 plus word-by-word breakdown, grammar notes, and root-word analysis
@@ -1069,6 +1069,30 @@ plus word-by-word breakdown, grammar notes, and root-word analysis
 by default, cloud upgrade optional, per the Architecture policy above;
 quality/accuracy needs a real check before this is presented as
 authoritative either way, same caveat as Phase 11.
+
+**Milestone 1 (done)**: "Translate to English" for a selected passage,
+scoped down deliberately from the full chain above - a real, working
+Arabic/Urdu → English path on real local models first, before layering
+on Urdu as a target, word-by-word breakdown, or grammar notes. Local by
+default per the Architecture policy: `MarianTranslator`
+(`Helsinki-NLP/opus-mt-ar-en` / `opus-mt-ur-en`, one small ~300MB model
+loaded lazily per source language, mirrors `MmsTtsSpeaker`'s exact
+lazy-load shape) behind a new `TextTranslator` Protocol
+(`PageTranslationService`). No direct Arabic↔Urdu pair exists in
+Helsinki-NLP's catalog - pivoting through English (ar→en→ur) would
+compound translation error and isn't a real, evaluated capability yet,
+so Urdu-as-target is explicitly out of scope for this milestone, not a
+missed case. New "Translate to English" context-menu item in the Viewer
+(gated by a real Settings toggle, `TRANSLATION_ENABLED_KEY`, same
+opt-in-because-it's-a-model-download reasoning as TTS/voice search),
+shows a real read-only dialog (original + translation + an honest
+disclaimer that this is a real local-machine translation, not a
+substitute for a qualified human translator on anything touching a
+legal/religious ruling). **Not yet live-tested with the real model** -
+built and automated-tested (fake translator, same technique as
+`_FakeTtsSpeaker`) against the exact same architecture MMS-TTS already
+proved out for real; the actual ~300MB-per-language download and real
+translation quality haven't been checked by a human yet.
 
 ### Phase 13 — AI reading assistant: **scheduled after Phase 12, not started**
 

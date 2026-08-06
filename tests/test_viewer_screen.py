@@ -584,6 +584,131 @@ def test_auto_continue_unchecked_stops_at_the_end_of_the_page(qtbot, tmp_path: P
     assert _icon_matches(screen._play_pause_button, "play")
 
 
+def _seed_database_with_language(database_path: Path, language: str) -> None:
+    """Import one real, single-page book with a real recorded language -
+    the translation context-menu item only ever offers itself for a book
+    whose language is one Milestone 1 actually supports."""
+    book = Book(
+        information={"Name": "Arabic Book", "Language": language},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "النص العربي", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "source.mjbz",)
+    )
+
+
+class _FakeTranslator:
+    """Translator returning a fixed string, recording what it was asked
+    to translate - mirrors `_FakeTtsSpeaker`'s shape."""
+
+    def __init__(self, raise_on_translate: bool = False) -> None:
+        self.raise_on_translate = raise_on_translate
+        self.last_text: str | None = None
+        self.last_source_language: str | None = None
+
+    def translate_to_english(self, text: str, source_language: str) -> str:
+        if self.raise_on_translate:
+            raise RuntimeError("translation failed")
+        self.last_text = text
+        self.last_source_language = source_language
+        return f"[EN] {text}"
+
+
+def _install_fake_translation(
+    screen: "ViewerScreen", unavailable: bool = False, raise_on_translate: bool = False
+) -> _FakeTranslator:
+    """Inject a fake translator in place of the real MarianTranslator,
+    mirroring `_install_fake_tts`."""
+    from islamic_research_hub.application.text_translation import PageTranslationService
+
+    fake = _FakeTranslator(raise_on_translate=raise_on_translate)
+    screen._build_real_translation_service = lambda: (
+        None if unavailable else PageTranslationService(fake)
+    )
+    return fake
+
+
+def test_translate_menu_item_offered_for_a_supported_language_when_enabled(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    assert screen._translation_offered() is True
+
+
+def test_translate_menu_item_hidden_when_translation_disabled(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path))  # enable_lazy_translation defaults False
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    assert screen._translation_offered() is False
+
+
+def test_translate_menu_item_hidden_for_an_unsupported_language(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "English")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    assert screen._translation_offered() is False
+
+
+def test_translating_a_selection_shows_a_real_translation_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    fake = _install_fake_translation(screen)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module,
+        "_show_translation_dialog",
+        lambda *args: calls.append(args),
+    )
+
+    screen._handle_context_menu_action("translate", "بسم الله")
+    with qtbot.waitSignal(screen._translation_worker.finished, timeout=5000):
+        pass
+
+    assert fake.last_text == "بسم الله"
+    assert fake.last_source_language == "Arabic"
+    assert len(calls) == 1
+    _parent, _translator_arg, original, translated = calls[0]
+    assert original == "بسم الله"
+    assert translated == "[EN] بسم الله"
+
+
+def test_translation_unavailable_shows_a_warning_not_a_crash(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_translation(screen, unavailable=True)
+
+    warnings = []
+    screen._on_translation_unavailable = lambda key: warnings.append(key)
+    screen._handle_context_menu_action("translate", "بسم الله")
+    with qtbot.waitSignal(screen._translation_worker.finished, timeout=5000):
+        pass
+
+    assert len(warnings) == 1
+
+
 def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Path) -> None:
     """Real bug this guards against: turning the page mid-playback used to
     have no cleanup path at all - the toolbar's page-change funnel

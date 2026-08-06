@@ -87,6 +87,7 @@ from islamic_research_hub.interfaces.desktop_app.settings_screen import (
     AI_AGENT_PROVIDERS,
     FONT_FAMILY_KEY,
     FONT_SIZE_KEY,
+    TRANSLATION_ENABLED_KEY,
     TTS_ENABLED_KEY,
     VOICE_SEARCH_ENABLED_KEY,
     SettingsScreen,
@@ -272,6 +273,13 @@ class MainWindow(QMainWindow):
                 # both make real paid API calls through the same service.
                 enable_lazy_ai_agent=bool(
                     self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool)
+                ),
+                # Gates the reader's "Translate to English" context-menu
+                # item - same real Settings-toggle opt-in as TTS above
+                # (TRANSLATION_ENABLED_KEY), since it implies an optional
+                # local MarianMT model download.
+                enable_lazy_translation=bool(
+                    self._settings.value(TRANSLATION_ENABLED_KEY, False, type=bool)
                 ),
             )
             self._viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)

@@ -37,6 +37,7 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import DEFAULT_FO
 FONT_SIZE_KEY = "viewer/font_size"
 FONT_FAMILY_KEY = "viewer/font_family"
 TTS_ENABLED_KEY = "tts/enabled"
+TRANSLATION_ENABLED_KEY = "translation/enabled"
 VOICE_SEARCH_ENABLED_KEY = "voice_search/enabled"
 AI_AGENT_ENABLED_KEY = "ai_agent/enabled"
 AI_AGENT_PROVIDER_KEY = "ai_agent/provider"
@@ -139,6 +140,9 @@ class SettingsScreen(QWidget):
         self._voice_search_enabled_checkbox.setText(
             self._translator.tr("settings-voice-search-enabled")
         )
+        self._translation_enabled_checkbox.setText(
+            self._translator.tr("settings-translation-enabled")
+        )
         self._appearance_heading.setText(self._translator.tr("settings-appearance"))
         self._theme_label.setText(self._translator.tr("settings-theme"))
         self._font_scale_label.setText(self._translator.tr("settings-font-scale"))
@@ -228,6 +232,15 @@ class SettingsScreen(QWidget):
             self._on_voice_search_enabled_changed
         )
         block_layout.addWidget(self._voice_search_enabled_checkbox)
+
+        self._translation_enabled_checkbox = QCheckBox(
+            self._translator.tr("settings-translation-enabled")
+        )
+        self._translation_enabled_checkbox.setChecked(self.translation_enabled())
+        self._translation_enabled_checkbox.toggled.connect(
+            self._on_translation_enabled_changed
+        )
+        block_layout.addWidget(self._translation_enabled_checkbox)
         return block
 
     def _build_appearance_block(self) -> QFrame:
@@ -390,6 +403,12 @@ class SettingsScreen(QWidget):
         download, not something to start silently)."""
         return bool(self._settings.value(VOICE_SEARCH_ENABLED_KEY, False, type=bool))
 
+    def translation_enabled(self) -> bool:
+        """Return whether the user has turned on Translate to English (off
+        by default - same reasoning as `tts_enabled()`: an optional local
+        model download, not something to start silently)."""
+        return bool(self._settings.value(TRANSLATION_ENABLED_KEY, False, type=bool))
+
     def ai_agent_enabled(self) -> bool:
         """Return whether the user has turned on the AI Agent (off by
         default - it's the app's first feature making a paid external API
@@ -431,6 +450,10 @@ class SettingsScreen(QWidget):
 
     def _on_voice_search_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(VOICE_SEARCH_ENABLED_KEY, checked)
+        self._flash_saved()
+
+    def _on_translation_enabled_changed(self, checked: bool) -> None:
+        self._settings.setValue(TRANSLATION_ENABLED_KEY, checked)
         self._flash_saved()
 
     def _on_ai_agent_enabled_changed(self, checked: bool) -> None:

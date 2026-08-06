@@ -1,5 +1,47 @@
 # Changelog
 
+## Phase 12: Translation engine - Milestone 1
+
+"Translate to English" for a selected passage in the Viewer, on a real
+local model - deliberately scoped down from the full "Arabic → Urdu →
+English chain, plus word-by-word breakdown, grammar notes, and root-word
+analysis" in PROJECT.md, same milestone-scoping discipline as every
+other phase this project has shipped.
+
+New: `infrastructure/ai/huggingface_loading.py` (the cache-first-then-
+download loading recipe, extracted out of `mms_tts_speaker.py` so
+`marian_translator.py` doesn't duplicate it - `mms_tts_speaker.py`'s own
+behavior is unchanged, just refactored onto the shared helper).
+`infrastructure/ai/marian_translator.py` (`MarianTranslator`, one small
+Helsinki-NLP MarianMT model - `opus-mt-ar-en`/`opus-mt-ur-en` - loaded
+lazily per source language). `application/text_translation.py`
+(`TextTranslator` Protocol + `PageTranslationService`, validates
+input/supported-language before delegating). `interfaces/desktop_app/
+translation_worker.py` (`TranslationWorker`, off-GUI-thread, mirrors
+`TtsWorker`'s lazy-build pattern for a single request/response instead
+of chunked streaming). `ViewerScreen` gained a real "Translate to
+English" context-menu item (only offered when enabled and the book's
+real language is Arabic/Urdu - `_translation_offered()`, a directly-
+testable seam rather than inline in the menu-building method, since a
+real `QMenu` popup has no place in a headless test) and a read-only
+result dialog (original + translation + an honest disclaimer). New
+Settings toggle (`TRANSLATION_ENABLED_KEY`, off by default - same
+opt-in-because-it's-a-model-download reasoning as TTS/voice search) and
+`translation` optional dependency group (`transformers`/`torch`/
+`sentencepiece`).
+
+Arabic↔Urdu isn't offered - Helsinki-NLP has no direct pair, and
+pivoting through English would compound translation error without ever
+having been evaluated as a real capability. 9 new tests (4 application-
+layer, 5 desktop - a fake-translator-backed suite, same technique as
+`_FakeTtsSpeaker`); full suite 984 passed. **Not yet live-tested with
+the real model** -
+same honest caveat as every other AI-backed milestone this session
+(Comparative Research Assistant, Waqiat extraction): built and
+automated-tested against the same architecture MMS-TTS already proved
+out for real, but the actual download and translation quality haven't
+been checked by a human yet.
+
 ## Live UI/UX bug-fixing pass (real-usage feedback)
 
 A round of real bugs found by actually using the running app, not code
