@@ -846,6 +846,29 @@ def _add_saved_searches(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_saved_conversations(connection: sqlite3.Connection) -> None:
+    """Add a SavedConversations table (Phase 14's other deferred piece:
+    saved AI conversations), additive and empty.
+
+    Stores the real question and the real answer text as they were
+    returned - not a reference to re-run later, since the same question
+    asked again could get a different answer from the underlying LLM.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS SavedConversations (
+            SavedConversationID INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL,
+            Question TEXT NOT NULL,
+            Answer TEXT NOT NULL,
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_conversations_name
+            ON SavedConversations(Name);
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -864,6 +887,7 @@ BOOKS_SEARCH_INDEX_VERSION = 15
 DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION = 16
 COLLECTIONS_VERSION = 17
 SAVED_SEARCHES_VERSION = 18
+SAVED_CONVERSATIONS_VERSION = 19
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -977,6 +1001,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add a SavedSearches table (Phase 14 deferred scope: saved "
         "searches), additive and empty.",
         _add_saved_searches,
+    ),
+    Migration(
+        SAVED_CONVERSATIONS_VERSION,
+        "Add a SavedConversations table (Phase 14 deferred scope: saved "
+        "AI conversations), additive and empty.",
+        _add_saved_conversations,
     ),
 )
 

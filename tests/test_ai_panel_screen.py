@@ -1,5 +1,6 @@
 """Tests for the desktop app's collapsible AI-assistant panel."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,13 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtCore import QSettings  # noqa: E402
 
+from islamic_research_hub.domain.models.book import Book, Page  # noqa: E402
+from islamic_research_hub.infrastructure.persistence.master_book_repository import (  # noqa: E402
+    MasterBookRepository,
+)
+from islamic_research_hub.infrastructure.persistence.migration_runner import (  # noqa: E402
+    MigrationRunner,
+)
 from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import (  # noqa: E402
     COLLAPSED_KEY,
     AiAssistantPanel,
@@ -21,6 +29,25 @@ def _isolated_settings(tmp_path: Path) -> QSettings:
 
 def _translator(tmp_path: Path) -> Translator:
     return Translator(_isolated_settings(tmp_path))
+
+
+def _migrated_database(tmp_path: Path) -> Path:
+    """A real, fully-migrated database - content doesn't matter here,
+    only that SavedConversations exists so the repository isn't stuck
+    in its honest pre-migration no-op mode."""
+    database_path = tmp_path / "books.db"
+    book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Content", "Plain"),),
+    )
+    MasterBookRepository().import_books(
+        database_path, (book,), (database_path.parent / "one.mjbz",)
+    )
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    return database_path
 
 
 def test_defaults_to_expanded_when_nothing_is_stored(qtbot, tmp_path: Path) -> None:
@@ -427,3 +454,195 @@ def test_switching_language_retranslates_the_panel(qtbot, tmp_path: Path) -> Non
     assert panel._export_answer_button.text() == "جواب برآمد کریں"
     assert panel._notes_heading.text() == "نوٹس"
     assert panel._compare_mode_checkbox.text() == "علمی آراء کا موازنہ کریں"
+
+
+def test_saved_conversations_button_disabled_without_a_database(qtbot, tmp_path: Path) -> None:
+    """No database means no `SavedConversationRepository` to talk to -
+    the button is disabled rather than crashing on click."""
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
+    qtbot.addWidget(panel)
+
+    assert panel._saved_conversations is None
+    assert not panel._saved_conversations_button.isEnabled()
+
+
+def test_save_conversation_button_hidden_until_a_real_answer_arrives(qtbot, tmp_path: Path) -> None:
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    assert panel._save_conversation_button.isHidden()
+    _install_fake_ai_agent(panel, answer="Real grounded answer.")
+    panel._question_edit.setText("A question")
+
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert not panel._save_conversation_button.isHidden()
+
+    panel._question_edit.setText("A second question")
+    panel._on_ask_clicked()
+
+    assert panel._save_conversation_button.isHidden()
+
+
+def test_saving_a_conversation_persists_the_real_question_and_answer(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.infrastructure.persistence.saved_conversation_repository import (
+        SavedConversationRepository,
+    )
+
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    _install_fake_ai_agent(panel, answer="Real grounded answer.")
+    panel._question_edit.setText("What does this library say about patience?")
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QInputDialog.getText",
+        staticmethod(lambda *a, **k: ("Patience answer", True)),
+    )
+
+    panel._on_save_conversation_clicked()
+
+    saved = SavedConversationRepository(database_path).list_conversations()
+    assert len(saved) == 1
+    assert saved[0].name == "Patience answer"
+    assert saved[0].question == "What does this library say about patience?"
+    assert saved[0].answer == "Real grounded answer."
+
+
+def test_saving_a_conversation_with_a_taken_name_shows_a_warning(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    panel._saved_conversations.save_conversation("Taken name", "Question one", "Answer one")
+    _install_fake_ai_agent(panel, answer="Real grounded answer.")
+    panel._question_edit.setText("A question")
+    panel._on_ask_clicked()
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QInputDialog.getText",
+        staticmethod(lambda *a, **k: ("Taken name", True)),
+    )
+    warning_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QMessageBox.warning",
+        staticmethod(lambda *a, **k: warning_calls.append(a)),
+    )
+
+    panel._on_save_conversation_clicked()
+
+    assert len(warning_calls) == 1
+
+
+def test_saved_conversations_dialog_shows_the_real_empty_state(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from PySide6.QtWidgets import QLabel
+
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+
+    panel._on_view_saved_conversations_clicked()
+
+    assert len(shown_dialogs) == 1
+    labels = [label.text() for label in shown_dialogs[0].findChildren(QLabel)]
+    assert any("No saved conversations yet" in text for text in labels)
+
+
+def test_saved_conversations_dialog_opens_a_real_saved_conversation(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from PySide6.QtWidgets import QPushButton
+
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    panel._saved_conversations.save_conversation(
+        "Patience answer", "What does this library say about patience?", "A saved answer."
+    )
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+    panel._on_view_saved_conversations_clicked()
+    open_button = next(
+        b for b in shown_dialogs[0].findChildren(QPushButton) if b.text() == "Run"
+    )
+
+    open_button.click()
+
+    assert panel._question_edit.text() == "What does this library say about patience?"
+    assert panel._answer_area.toPlainText() == "A saved answer."
+    assert not panel._answer_area.isHidden()
+
+
+def test_deleting_a_saved_conversation_from_the_dialog_removes_it(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from PySide6.QtWidgets import QPushButton
+
+    database_path = _migrated_database(tmp_path)
+    panel = AiAssistantPanel(
+        _isolated_settings(tmp_path),
+        _translator(tmp_path),
+        database_path=database_path,
+        enable_lazy_ai_agent=True,
+    )
+    qtbot.addWidget(panel)
+    panel._saved_conversations.save_conversation("Patience answer", "Question", "Answer")
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.ai_panel_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+    panel._on_view_saved_conversations_clicked()
+    delete_button = next(
+        b for b in shown_dialogs[0].findChildren(QPushButton) if b.text() == "Delete"
+    )
+
+    delete_button.click()
+
+    assert panel._saved_conversations.list_conversations() == ()

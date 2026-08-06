@@ -1160,7 +1160,7 @@ conversational-loop verification (tool-calling against the actual
 corpus) is still pending final confirmation once the key restriction
 fix takes effect.
 
-### Phase 14 — Personal research workspace: **Milestone 2 done**
+### Phase 14 — Personal research workspace: **complete (Milestones 1-3)**
 
 Folders, collections, saved searches, saved AI conversations, and
 export tools, built on top of Phase 5's existing bookmarks/recent-books
@@ -1200,6 +1200,22 @@ once - restoring filters blocks each widget's own auto-rerun signal
 first, so re-populating five filters doesn't fire five redundant
 searches. Saved AI conversations remain open within this phase, not
 missed - saved searches was the next concrete, well-scoped piece.
+
+**Milestone 3 (done)**: real named Saved Conversations for the AI
+panel - the last piece of Phase 14's original scope. Migration 19
+adds `SavedConversations` (unique `Name` index, no foreign keys - a
+saved conversation is a frozen snapshot of one real question/answer
+pair, not a reference to re-run, since asking the same question again
+could get a different answer from the underlying LLM). New
+`SavedConversationRepository` mirrors `SavedSearchRepository`'s exact
+shape. The AI panel gained a Save Conversation button (visible once a
+real answer is shown, same visibility rule as Export Answer) and a
+Saved Conversations button in the panel header (clock icon, always
+enabled when a real database is attached) opening a dialog with
+Open/Delete actions. Opening a saved conversation is purely local
+playback - no new worker, no new LLM call - it just redisplays the
+exact original question and answer. This closes out Phase 14 as
+originally scoped in PROJECT.md.
 
 ### Phase 15 — Educational features: **Milestone 2 done**
 

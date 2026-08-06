@@ -1,5 +1,26 @@
 # Changelog
 
+## Phase 14, Milestone 3: Saved AI conversations (Phase 14 complete)
+
+AI panel can now save a real question/answer pair under a name and
+reopen it later - closing out Phase 14 as originally scoped. Migration
+19 adds `SavedConversations` (unique `Name` index, no foreign keys - a
+frozen snapshot, not a reference to re-run, since the same question
+asked again could get a different answer from the LLM). New
+`SavedConversationRepository` mirrors `SavedSearchRepository`'s exact
+shape, including the honest no-op degrade on a pre-migration database.
+
+New Save Conversation button (visible once a real answer is shown,
+same rule as Export Answer) and a Saved Conversations button in the AI
+panel's header (always enabled once a real database is attached)
+opening a dialog with Open/Delete. Opening a saved conversation is
+purely local playback - no worker, no new LLM call - it just
+redisplays the exact original exchange.
+
+7 new UI tests (`test_ai_panel_screen.py`) plus 9 new repository tests
+and the existing 41 migration tests (updated for migration 19). Full
+suite: 1240 passed, no regressions.
+
 ## Phase 14, Milestone 2: Saved searches
 
 Search screen can now save a real named search - the query plus every

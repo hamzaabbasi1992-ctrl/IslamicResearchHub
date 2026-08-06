@@ -20,18 +20,26 @@ from pathlib import Path
 from PySide6.QtCore import QSettings, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDialog,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
 
 from islamic_research_hub.application.ai_agent_service import AiAgentService
+from islamic_research_hub.domain.models.saved_conversation import SavedConversation
+from islamic_research_hub.infrastructure.persistence.saved_conversation_repository import (
+    SavedConversationNameTakenError,
+    SavedConversationRepository,
+)
 from islamic_research_hub.interfaces.desktop_app.ai_agent_worker import AiAgentWorker
 from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
     show_ai_unavailable_dialog,
@@ -63,6 +71,7 @@ class AiAssistantPanel(QWidget):
         translator: Translator,
         database_path: Path | None = None,
         enable_lazy_ai_agent: bool = False,
+        saved_conversations: SavedConversationRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -72,6 +81,13 @@ class AiAssistantPanel(QWidget):
         self._database_path = database_path
         self._enable_lazy_ai_agent = enable_lazy_ai_agent
         self._collapsed = bool(settings.value(COLLAPSED_KEY, False, type=bool))
+        # Phase 14 deferred scope: saved AI conversations. None only when
+        # this panel is built with no real database at all (never true in
+        # the live app) - every button that touches it is itself gated on
+        # `self._saved_conversations is not None`.
+        self._saved_conversations = saved_conversations or (
+            SavedConversationRepository(database_path) if database_path is not None else None
+        )
 
         # AI Agent: same lazy-build-at-most-once-behind-a-lock pattern as
         # every other AI feature in this app (see
@@ -99,6 +115,16 @@ class AiAssistantPanel(QWidget):
         self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
         self._maximize_button.clicked.connect(self.maximize_clicked)
         header.addWidget(self._maximize_button)
+        self._saved_conversations_button = QPushButton()
+        self._saved_conversations_button.setFlat(True)
+        self._saved_conversations_button.setIcon(button_icon("clock"))
+        self._saved_conversations_button.setIconSize(button_icon_size())
+        self._saved_conversations_button.setToolTip(
+            self._translator.tr("ai-panel-saved-conversations")
+        )
+        self._saved_conversations_button.setEnabled(self._saved_conversations is not None)
+        self._saved_conversations_button.clicked.connect(self._on_view_saved_conversations_clicked)
+        header.addWidget(self._saved_conversations_button)
         self._collapse_button = QPushButton()
         self._collapse_button.setFlat(True)
         self._collapse_button.setIconSize(button_icon_size())
@@ -140,6 +166,16 @@ class AiAssistantPanel(QWidget):
         self._export_answer_button.clicked.connect(self._on_export_answer_clicked)
         layout.addWidget(self._export_answer_button)
 
+        # Phase 14 deferred scope: save the real question/answer shown
+        # above under a name, to reopen later without asking again (the
+        # same question re-asked could get a different answer).
+        self._save_conversation_button = QPushButton(
+            self._translator.tr("ai-panel-save-conversation")
+        )
+        self._save_conversation_button.setVisible(False)
+        self._save_conversation_button.clicked.connect(self._on_save_conversation_clicked)
+        layout.addWidget(self._save_conversation_button)
+
         # Honest placeholders (Reader Redesign): real section headings so
         # the panel's future shape is visible now, disabled/labeled
         # "coming soon" rather than faked - no Notes/References backend
@@ -171,9 +207,15 @@ class AiAssistantPanel(QWidget):
         """Update this panel's own labels after the app language changes."""
         self._title_label.setText(self._translator.tr("ai-panel-title"))
         self._maximize_button.setToolTip(self._translator.tr("ai-panel-maximize-tooltip"))
+        self._saved_conversations_button.setToolTip(
+            self._translator.tr("ai-panel-saved-conversations")
+        )
         self._body_label.setText(self._translator.tr("ai-panel-placeholder-body"))
         self._ask_button.setText(self._translator.tr("ai-panel-ask"))
         self._export_answer_button.setText(self._translator.tr("ai-panel-export-answer"))
+        self._save_conversation_button.setText(
+            self._translator.tr("ai-panel-save-conversation")
+        )
         self._compare_mode_checkbox.setText(self._translator.tr("ai-panel-compare-mode"))
         self._compare_mode_checkbox.setToolTip(self._translator.tr("ai-panel-compare-mode-tooltip"))
         self._notes_heading.setText(self._translator.tr("ai-panel-notes-heading"))
@@ -237,6 +279,7 @@ class AiAssistantPanel(QWidget):
             return
         self._last_question = question
         self._export_answer_button.setVisible(False)
+        self._save_conversation_button.setVisible(False)
         self._set_busy(True)
         mode = "compare" if self._compare_mode_checkbox.isChecked() else "converse"
         worker = AiAgentWorker(self.get_or_build_ai_agent_service, question, mode, self)
@@ -257,6 +300,7 @@ class AiAssistantPanel(QWidget):
         self._answer_area.setVisible(True)
         self._last_answer = answer
         self._export_answer_button.setVisible(True)
+        self._save_conversation_button.setVisible(self._saved_conversations is not None)
         calls = tuple(tool_calls_made) if tool_calls_made else ()
         if calls:
             self._tool_calls_label.setText(
@@ -293,6 +337,82 @@ class AiAssistantPanel(QWidget):
             self._translator.tr("ai-panel-export-answer"),
             self._translator.tr("collections-export-done").format(path=output_path_str),
         )
+
+    def _on_save_conversation_clicked(self) -> None:
+        """Save the real, currently-shown question/answer pair under a
+        name - reopening it later shows this exact exchange, not a
+        re-run (which could get a different answer from the LLM)."""
+        if self._saved_conversations is None or self._last_question is None:
+            return
+        if self._last_answer is None:
+            return
+        name, confirmed = QInputDialog.getText(
+            self,
+            self._translator.tr("ai-panel-save-conversation"),
+            self._translator.tr("ai-panel-save-conversation-name-prompt"),
+        )
+        if not confirmed or not name.strip():
+            return
+        try:
+            self._saved_conversations.save_conversation(
+                name, self._last_question, self._last_answer
+            )
+        except SavedConversationNameTakenError as error:
+            QMessageBox.warning(
+                self, self._translator.tr("ai-panel-save-conversation"), str(error)
+            )
+
+    def _on_view_saved_conversations_clicked(self) -> None:
+        if self._saved_conversations is None:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._translator.tr("ai-panel-saved-conversations"))
+        dialog.resize(420, 360)
+        layout = QVBoxLayout(dialog)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        layout.addWidget(scroll_area, stretch=1)
+        close_button = QPushButton(self._translator.tr("common-close"))
+        close_button.clicked.connect(dialog.close)
+        layout.addWidget(close_button)
+
+        def _refresh() -> None:
+            content = QWidget()
+            content_layout = QVBoxLayout(content)
+            saved_conversations = self._saved_conversations.list_conversations()
+            if not saved_conversations:
+                content_layout.addWidget(
+                    QLabel(self._translator.tr("ai-panel-saved-conversations-empty"))
+                )
+            for saved in saved_conversations:
+                content_layout.addWidget(
+                    _build_saved_conversation_row(saved, self._translator, _open, _delete)
+                )
+            content_layout.addStretch(1)
+            scroll_area.setWidget(content)
+
+        def _open(saved: SavedConversation) -> None:
+            dialog.close()
+            self._show_saved_conversation(saved)
+
+        def _delete(saved_conversation_id: int) -> None:
+            self._saved_conversations.delete_conversation(saved_conversation_id)
+            _refresh()
+
+        _refresh()
+        dialog.exec()
+
+    def _show_saved_conversation(self, saved: SavedConversation) -> None:
+        """Display a real saved question/answer pair exactly as saved -
+        no worker, no new LLM call, purely local playback."""
+        self._question_edit.setText(saved.question)
+        self._last_question = saved.question
+        self._last_answer = saved.answer
+        self._answer_area.setPlainText(saved.answer)
+        self._answer_area.setVisible(True)
+        self._tool_calls_label.setVisible(False)
+        self._export_answer_button.setVisible(True)
+        self._save_conversation_button.setVisible(True)
 
     def get_or_build_ai_agent_service(self) -> AiAgentService | None:
         """Return the cached AI Agent service, building it at most once.
@@ -406,3 +526,26 @@ class AiAssistantPanel(QWidget):
                 "Semantic search unavailable for AI Agent tools - continuing keyword-only."
             )
             return None
+
+
+def _build_saved_conversation_row(
+    saved: SavedConversation,
+    translator: Translator,
+    on_open,
+    on_delete,
+) -> QWidget:
+    """One real saved conversation's row in the Saved Conversations
+    dialog - its name, an Open action, and a Delete action."""
+    row = QWidget()
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    name_label = QLabel(saved.name)
+    name_label.setWordWrap(True)
+    layout.addWidget(name_label, stretch=1)
+    open_button = QPushButton(translator.tr("common-run"))
+    open_button.clicked.connect(lambda: on_open(saved))
+    layout.addWidget(open_button)
+    delete_button = QPushButton(translator.tr("common-delete"))
+    delete_button.clicked.connect(lambda: on_delete(saved.saved_conversation_id))
+    layout.addWidget(delete_button)
+    return row
