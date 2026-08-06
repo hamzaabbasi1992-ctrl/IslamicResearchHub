@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -24,6 +25,7 @@ from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
 )
 from islamic_research_hub.interfaces.desktop_app.shortcuts import SHORTCUTS
 from islamic_research_hub.interfaces.desktop_app.theme import (
+    ACCENT,
     DENSITY_COMFORTABLE,
     DENSITY_COMPACT,
     MUTED_LABEL_STYLE,
@@ -80,7 +82,36 @@ class SettingsScreen(QWidget):
         self._database_path = database_path
         self._theme_controller = ThemeController(settings)
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        # Every field on this screen already auto-saves the instant it
+        # changes (QSettings.setValue in each _on_*_changed handler below)
+        # - there was just never any visible confirmation that it actually
+        # happened, which read as "is there a Save button I'm missing?"
+        # especially for the API key field. A real, transient confirmation
+        # instead of a new save-then-forget button, since the underlying
+        # live-save behavior is already correct and safer (nothing to lose
+        # by navigating away without remembering to click Save).
+        self._save_status_label = QLabel("")
+        self._save_status_label.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
+        self._save_status_label.setContentsMargins(16, 6, 16, 0)
+        outer.addWidget(self._save_status_label)
+        self._save_status_timer = QTimer(self)
+        self._save_status_timer.setSingleShot(True)
+        self._save_status_timer.setInterval(1600)
+        self._save_status_timer.timeout.connect(lambda: self._save_status_label.setText(""))
+
+        # Real bug fixed here: this screen had no QScrollArea at all (every
+        # other block-stacked screen in this app does) - on a real window,
+        # the Keyboard Shortcuts list plus the About block below it pushed
+        # the total content past the visible height with no way to reach
+        # the rest, reading as "shortcuts are hidden, no way to scroll."
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -92,6 +123,8 @@ class SettingsScreen(QWidget):
         layout.addWidget(self._build_shortcuts_block())
         layout.addWidget(self._build_about_block())
         layout.addStretch(1)
+        scroll_area.setWidget(content)
+        outer.addWidget(scroll_area)
 
         self._translator.language_changed.connect(self._retranslate)
 
@@ -376,21 +409,33 @@ class SettingsScreen(QWidget):
         code = self._language_combo.currentData()
         self._translator.set_language(code)
 
+    def _flash_saved(self) -> None:
+        """Show a brief, real confirmation that a change was actually
+        persisted - every field on this screen already auto-saves, this
+        just makes that visible instead of silent."""
+        self._save_status_label.setText(self._translator.tr("settings-saved"))
+        self._save_status_timer.start()
+
     def _on_font_size_changed(self, _index: int) -> None:
         size = self._font_size_combo.currentData()
         self._settings.setValue(FONT_SIZE_KEY, size)
+        self._flash_saved()
 
     def _on_font_family_changed(self, display_name: str) -> None:
         self._settings.setValue(FONT_FAMILY_KEY, display_name)
+        self._flash_saved()
 
     def _on_tts_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(TTS_ENABLED_KEY, checked)
+        self._flash_saved()
 
     def _on_voice_search_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(VOICE_SEARCH_ENABLED_KEY, checked)
+        self._flash_saved()
 
     def _on_ai_agent_enabled_changed(self, checked: bool) -> None:
         self._settings.setValue(AI_AGENT_ENABLED_KEY, checked)
+        self._flash_saved()
 
     def _on_ai_agent_provider_changed(self, _index: int) -> None:
         provider = self._ai_agent_provider_combo.currentData()
@@ -399,24 +444,29 @@ class SettingsScreen(QWidget):
         # each provider keeps its own real key, switching never loses or
         # overwrites another provider's already-entered key.
         self._ai_agent_api_key_edit.setText(self._stored_api_key_for(provider))
+        self._flash_saved()
 
     def _on_ai_agent_api_key_changed(self) -> None:
         provider = self._ai_agent_provider_combo.currentData()
         self._settings.setValue(
             _ai_agent_api_key_settings_key(provider), self._ai_agent_api_key_edit.text()
         )
+        self._flash_saved()
 
     def _on_theme_changed(self, _index: int) -> None:
         theme_name = self._theme_combo.currentData()
         self._theme_controller.set_theme(theme_name)
+        self._flash_saved()
 
     def _on_font_scale_changed(self, _index: int) -> None:
         font_scale = self._font_scale_combo.currentData()
         self._theme_controller.set_font_scale(font_scale)
+        self._flash_saved()
 
     def _on_density_changed(self, _index: int) -> None:
         density = self._density_combo.currentData()
         self._theme_controller.set_density(density)
+        self._flash_saved()
 
 
 def _ai_agent_api_key_settings_key(provider: str) -> str:

@@ -516,6 +516,74 @@ def test_clicking_play_synthesizes_and_writes_a_real_wav_file(qtbot, tmp_path: P
     assert screen._play_pause_button.isEnabled()
 
 
+def test_volume_slider_sets_real_audio_output_volume(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+
+    screen._tts_volume_slider.setValue(40)
+
+    assert screen._tts_audio_output.volume() == pytest.approx(0.4)
+
+
+def test_speed_combo_sets_real_media_player_playback_rate(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+
+    index_1_5x = screen._tts_speed_combo.findText("1.5x")
+    screen._tts_speed_combo.setCurrentIndex(index_1_5x)
+
+    assert screen._media_player.playbackRate() == pytest.approx(1.5)
+
+
+def test_auto_continue_checked_advances_to_next_page_and_keeps_reading(
+    qtbot, tmp_path: Path
+) -> None:
+    """"Keep reading until I pause it" - the real reported behavior:
+    finishing one page's real narration, with auto-continue on, must
+    advance the page and start a fresh narration for it, not just stop."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    speaker = _install_fake_tts(screen)
+    screen._tts_auto_continue_checkbox.setChecked(True)
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    screen._finish_narration_playback()
+
+    assert screen._current_index == 1
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    assert speaker.last_text == "Second page content"
+
+
+def test_auto_continue_unchecked_stops_at_the_end_of_the_page(qtbot, tmp_path: Path) -> None:
+    """Regression guard: auto-continue is opt-in - the existing single-page
+    stop behavior must be unchanged when the box isn't checked."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_tts=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_tts(screen)
+    assert screen._tts_auto_continue_checkbox.isChecked() is False
+
+    screen._on_play_pause_clicked()
+    with qtbot.waitSignal(screen._tts_worker.finished, timeout=5000):
+        pass
+    screen._finish_narration_playback()
+
+    assert screen._current_index == 0
+    assert _icon_matches(screen._play_pause_button, "play")
+
+
 def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Path) -> None:
     """Real bug this guards against: turning the page mid-playback used to
     have no cleanup path at all - the toolbar's page-change funnel

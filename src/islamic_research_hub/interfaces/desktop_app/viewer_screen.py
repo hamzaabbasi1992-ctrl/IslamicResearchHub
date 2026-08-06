@@ -8,6 +8,7 @@ from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSlider,
     QSplitter,
     QTreeWidget,
     QTreeWidgetItem,
@@ -70,6 +72,15 @@ MAX_READING_COLUMN_WIDTH = 820
 """Caps reading-content width to a real typeset column (Acrobat/Zotero
 convention) instead of text filling the whole width of a wide monitor."""
 NAV_PANEL_WIDTH = 240
+_TTS_SPEED_CHOICES: tuple[tuple[str, float], ...] = (
+    ("0.75x", 0.75),
+    ("1x", 1.0),
+    ("1.25x", 1.25),
+    ("1.5x", 1.5),
+    ("2x", 2.0),
+)
+_TTS_DEFAULT_SPEED_INDEX = 1  # "1x"
+_TTS_DEFAULT_VOLUME_PERCENT = 100
 
 
 class ViewerScreen(QWidget):
@@ -128,7 +139,9 @@ class ViewerScreen(QWidget):
         self._tts_no_more_chunks_expected = False  # narration_finished has arrived
         self._tts_paused_while_waiting = False  # user paused during the "awaiting" gap
         self._media_player = QMediaPlayer(self)
+        self._media_player.setPlaybackRate(_TTS_SPEED_CHOICES[_TTS_DEFAULT_SPEED_INDEX][1])
         self._tts_audio_output = QAudioOutput(self)
+        self._tts_audio_output.setVolume(_TTS_DEFAULT_VOLUME_PERCENT / 100)
         self._media_player.setAudioOutput(self._tts_audio_output)
         self._media_player.mediaStatusChanged.connect(self._on_media_status_changed)
 
@@ -199,7 +212,6 @@ class ViewerScreen(QWidget):
         toolbar.addWidget(_toolbar_separator())
 
         self._prev_button = QPushButton()
-        self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
         self._prev_button.setToolTip(self._translator.tr("viewer-prev-tooltip"))
         self._prev_button.clicked.connect(self._go_previous)
@@ -215,11 +227,11 @@ class ViewerScreen(QWidget):
         toolbar.addWidget(self._page_count_label)
 
         self._next_button = QPushButton()
-        self._next_button.setIcon(button_icon("next"))
         self._next_button.setIconSize(button_icon_size())
         self._next_button.setToolTip(self._translator.tr("viewer-next-tooltip"))
         self._next_button.clicked.connect(self._go_next)
         toolbar.addWidget(self._next_button)
+        self._apply_navigation_icons()
 
         toolbar.addStretch(1)
 
@@ -244,6 +256,33 @@ class ViewerScreen(QWidget):
         self._play_pause_button.setVisible(self._enable_lazy_tts)
         self._play_pause_button.clicked.connect(self._on_play_pause_clicked)
         toolbar.addWidget(self._play_pause_button)
+
+        self._tts_auto_continue_checkbox = QCheckBox(
+            self._translator.tr("viewer-tts-auto-continue")
+        )
+        self._tts_auto_continue_checkbox.setToolTip(
+            self._translator.tr("viewer-tts-auto-continue-tooltip")
+        )
+        self._tts_auto_continue_checkbox.setVisible(self._enable_lazy_tts)
+        toolbar.addWidget(self._tts_auto_continue_checkbox)
+
+        self._tts_speed_combo = QComboBox()
+        for label, rate in _TTS_SPEED_CHOICES:
+            self._tts_speed_combo.addItem(label, rate)
+        self._tts_speed_combo.setCurrentIndex(_TTS_DEFAULT_SPEED_INDEX)
+        self._tts_speed_combo.setToolTip(self._translator.tr("viewer-tts-speed-tooltip"))
+        self._tts_speed_combo.setVisible(self._enable_lazy_tts)
+        self._tts_speed_combo.currentIndexChanged.connect(self._on_tts_speed_changed)
+        toolbar.addWidget(self._tts_speed_combo)
+
+        self._tts_volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self._tts_volume_slider.setRange(0, 100)
+        self._tts_volume_slider.setValue(_TTS_DEFAULT_VOLUME_PERCENT)
+        self._tts_volume_slider.setFixedWidth(80)
+        self._tts_volume_slider.setToolTip(self._translator.tr("viewer-tts-volume-tooltip"))
+        self._tts_volume_slider.setVisible(self._enable_lazy_tts)
+        self._tts_volume_slider.valueChanged.connect(self._on_tts_volume_changed)
+        toolbar.addWidget(self._tts_volume_slider)
         toolbar.addWidget(_toolbar_separator())
 
         self._copy_citation_button = QPushButton(self._translator.tr("viewer-copy-citation"))
@@ -299,14 +338,15 @@ class ViewerScreen(QWidget):
         # toolbar in its own horizontal-scrolling area means every
         # control keeps its real, full, readable size - narrow windows
         # get a scrollbar instead of missing controls.
-        toolbar_scroll = QScrollArea()
-        toolbar_scroll.setWidget(toolbar_container)
-        toolbar_scroll.setWidgetResizable(True)
-        toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        toolbar_scroll.setFixedHeight(toolbar_container.sizeHint().height())
-        reader_layout.addWidget(toolbar_scroll)
+        self._toolbar_container = toolbar_container
+        self._toolbar_scroll = QScrollArea()
+        self._toolbar_scroll.setWidget(toolbar_container)
+        self._toolbar_scroll.setWidgetResizable(True)
+        self._toolbar_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._toolbar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._toolbar_scroll.setFixedHeight(toolbar_container.sizeHint().height())
+        reader_layout.addWidget(self._toolbar_scroll)
 
         self._body_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._body_splitter.addWidget(self._build_nav_panel())
@@ -338,7 +378,18 @@ class ViewerScreen(QWidget):
 
         self._translator.language_changed.connect(self._retranslate)
 
+    def _apply_navigation_icons(self) -> None:
+        """Set the prev/next chevrons so they always point the real
+        navigational direction - Qt mirrors widget order/text alignment
+        automatically under RTL, but never a QIcon's own pixmap, so the
+        glyphs must be swapped by hand or "next" ends up pointing toward
+        earlier pages once Urdu/Arabic flips the reading direction."""
+        is_rtl = self._translator.layout_direction == Qt.LayoutDirection.RightToLeft
+        self._prev_button.setIcon(button_icon("prev", mirror=is_rtl))
+        self._next_button.setIcon(button_icon("next", mirror=is_rtl))
+
     def _retranslate(self, _language: str) -> None:
+        self._apply_navigation_icons()
         self._empty_label.setText(self._translator.tr("viewer-empty"))
         self._pdf_fallback_label.setText(self._translator.tr("viewer-pdf-fallback-banner"))
         self._pdf_fallback_button.setText(self._translator.tr("viewer-open-scanned-pdf"))
@@ -353,6 +404,12 @@ class ViewerScreen(QWidget):
             if self._tts_tooltip_unavailable
             else self._translator.tr("viewer-play-tooltip")
         )
+        self._tts_auto_continue_checkbox.setText(self._translator.tr("viewer-tts-auto-continue"))
+        self._tts_auto_continue_checkbox.setToolTip(
+            self._translator.tr("viewer-tts-auto-continue-tooltip")
+        )
+        self._tts_speed_combo.setToolTip(self._translator.tr("viewer-tts-speed-tooltip"))
+        self._tts_volume_slider.setToolTip(self._translator.tr("viewer-tts-volume-tooltip"))
         self._copy_citation_button.setText(self._translator.tr("viewer-copy-citation"))
         self._copy_citation_button.setToolTip(self._translator.tr("viewer-copy-citation-tooltip"))
         self._extract_events_button.setText(self._translator.tr("viewer-extract-events"))
@@ -384,29 +441,47 @@ class ViewerScreen(QWidget):
 
         self._contents_heading_label = QLabel(self._translator.tr("viewer-contents"))
         self._contents_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(self._contents_heading_label)
         self._toc_tree = QTreeWidget()
         self._toc_tree.setHeaderHidden(True)
         # Typography fix: real Arabic/Urdu chapter titles need RTL layout
         # direction, matching search_screen.py's category tree.
         self._toc_tree.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self._toc_tree.itemClicked.connect(self._on_toc_item_clicked)
-        layout.addWidget(self._toc_tree, stretch=2)
 
         self._bookmarks_heading_label = QLabel(self._translator.tr("home-card-bookmarks"))
         self._bookmarks_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(self._bookmarks_heading_label)
         self._bookmarks_list = QListWidget()
         self._bookmarks_list.itemClicked.connect(self._on_bookmark_item_clicked)
-        layout.addWidget(self._bookmarks_list, stretch=1)
 
         self._research_notes_heading_label = QLabel(self._translator.tr("viewer-research-notes-heading"))
         self._research_notes_heading_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-weight: 600;")
-        layout.addWidget(self._research_notes_heading_label)
         self._research_notes_list = QListWidget()
         self._research_notes_list.setToolTip(self._translator.tr("viewer-research-notes-tooltip"))
         self._research_notes_list.itemClicked.connect(self._on_research_notes_item_clicked)
-        layout.addWidget(self._research_notes_list, stretch=1)
+
+        # Real bug fixed here: fixed 2:1:1 stretch factors still let the
+        # TOC tree's own (much larger) natural sizeHint claim most of the
+        # real space before stretch ratios ever applied to what was left,
+        # so Research Notes ended up a sliver regardless of how many real
+        # notes existed. A vertical QSplitter instead lets the reader drag
+        # real space to whichever section they actually need right now,
+        # and each section keeps its own internal scrollbar for the rest.
+        sections_splitter = QSplitter(Qt.Orientation.Vertical)
+        sections_splitter.setChildrenCollapsible(False)
+        for heading, body in (
+            (self._contents_heading_label, self._toc_tree),
+            (self._bookmarks_heading_label, self._bookmarks_list),
+            (self._research_notes_heading_label, self._research_notes_list),
+        ):
+            section = QWidget()
+            section_layout = QVBoxLayout(section)
+            section_layout.setContentsMargins(0, 0, 0, 0)
+            section_layout.setSpacing(Spacing.XS)
+            section_layout.addWidget(heading)
+            section_layout.addWidget(body, stretch=1)
+            sections_splitter.addWidget(section)
+        sections_splitter.setSizes([260, 160, 160])
+        layout.addWidget(sections_splitter, stretch=1)
 
         return panel
 
@@ -456,6 +531,9 @@ class ViewerScreen(QWidget):
         untitled_text = self._translator.tr("common-untitled")
         for chapter in chapters:
             self._toc_tree.addTopLevelItem(_chapter_tree_item(chapter, untitled_text))
+        # Expanded by default - a reader opening a book wants to see its
+        # real structure immediately, not an extra click per top-level item.
+        self._toc_tree.expandAll()
 
     def _reload_bookmarks_list(self) -> None:
         self._bookmarks_list.clear()
@@ -659,6 +737,15 @@ class ViewerScreen(QWidget):
             f"padding: 16px 24px; font-size: {self._font_px}px; line-height: 160%; "
             f"font-family: '{resolved_family}';"
         )
+        # Real bug fixed here: the toolbar's height was fixed once at
+        # construction (`setFixedHeight`, needed so the horizontal-scroll
+        # trick above doesn't collapse it vertically) and never
+        # recomputed - repeatedly clicking A-/A+ or switching the reading
+        # font family could leave it a few pixels off from the toolbar's
+        # real current content height, clipping the icon row ("icons are
+        # messed up"). Recomputing here keeps it accurate after every
+        # change that can affect the toolbar's own sizeHint.
+        self._toolbar_scroll.setFixedHeight(self._toolbar_container.sizeHint().height())
 
     def selected_font_family(self) -> str:
         """Return the currently selected reading font's display name."""
@@ -758,6 +845,14 @@ class ViewerScreen(QWidget):
 
     def _current_narration_key(self) -> tuple[int | None, int | None]:
         return (self._current_book_id, self.current_page_number())
+
+    def _on_tts_volume_changed(self, value: int) -> None:
+        self._tts_audio_output.setVolume(value / 100)
+
+    def _on_tts_speed_changed(self, _index: int) -> None:
+        rate = self._tts_speed_combo.currentData()
+        if rate is not None:
+            self._media_player.setPlaybackRate(rate)
 
     def _on_play_pause_clicked(self) -> None:
         if self._tts_awaiting_next_chunk:
@@ -877,6 +972,16 @@ class ViewerScreen(QWidget):
     def _finish_narration_playback(self) -> None:
         self._play_pause_button.setIcon(button_icon("play"))
         self._tts_is_last_chunk_playing = False
+        if (
+            self._tts_auto_continue_checkbox.isChecked()
+            and self._current_index < len(self._pages) - 1
+        ):
+            # Real reading-aloud continuity: rather than stopping at every
+            # page boundary and making the reader click Play again,
+            # advance and immediately start the next page's narration -
+            # "keep reading until I pause it", not "read one page."
+            self._go_next()
+            self._start_narration()
 
     def _on_narration_finished(self, request_key: object, chunks_produced: int) -> None:
         if request_key != self._current_narration_key():

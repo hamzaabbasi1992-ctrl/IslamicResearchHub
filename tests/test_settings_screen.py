@@ -322,6 +322,23 @@ def test_entering_an_api_key_persists_it_for_the_selected_provider(
     assert resolve_ai_agent_api_key(settings, "anthropic") == "sk-ant-real-looking-key"
 
 
+def test_entering_an_api_key_shows_a_real_saved_confirmation(qtbot, tmp_path: Path) -> None:
+    """Every field on this screen already auto-saves - this confirms the
+    previously-invisible save now shows real, visible feedback instead of
+    reading as "is there a Save button I'm missing?"."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+    assert screen._save_status_label.text() == ""
+
+    screen._ai_agent_api_key_edit.setText("sk-ant-real-looking-key")
+    screen._ai_agent_api_key_edit.editingFinished.emit()
+
+    assert screen._save_status_label.text() != ""
+
+
 def test_switching_provider_keeps_each_providers_own_key_separate(
     qtbot, tmp_path: Path
 ) -> None:

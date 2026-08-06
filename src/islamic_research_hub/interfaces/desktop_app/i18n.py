@@ -49,6 +49,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-font-scale": "Interface text size",
         "settings-density": "Layout density",
         "settings-shortcuts": "Keyboard shortcuts",
+        "settings-saved": "✓ Saved",
         "settings-about": "About",
         "tagline": "Master Library",
         "stat-books": "books",
@@ -221,6 +222,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-next-tooltip": "Next page",
         "viewer-play-tooltip": "Read this page aloud",
         "viewer-tts-unavailable-tooltip": "Text-to-speech unavailable",
+        "viewer-tts-auto-continue": "Auto-continue",
+        "viewer-tts-auto-continue-tooltip": "Keep reading the next pages aloud automatically until paused",
+        "viewer-tts-speed-tooltip": "Reading speed",
+        "viewer-tts-volume-tooltip": "Volume",
         "viewer-copy-citation": "Copy citation",
         "viewer-copy-citation-tooltip": "Copy a citation for the current page to the clipboard.",
         "viewer-extract-events": "Extract Events",
@@ -255,6 +260,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-scope-both": "Both",
         "search-scope-tooltip": "When searching book content: main page text, footnotes/commentary only, or both.",
         "search-detail-toggle-tooltip": "Show/hide the details panel",
+        "search-collapse-panel-tooltip": "Collapse/expand the search panel",
         "search-detail-maximize-tooltip": "Maximize the details panel",
         "search-status-idle": "Type a search, or pick a specific category/author/library to browse.",
         "search-status-browse-empty": "{heading}: no books found.",
@@ -286,6 +292,12 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-meta-page": "page {page}",
         "search-meta-footnote-match": "footnote match",
         "search-open-pdf": "Open PDF",
+        "pdf-missing-title": "Book file not found",
+        "pdf-missing-message": (
+            "This book's real file isn't where the library expects it "
+            "(perhaps an external drive isn't connected right now). "
+            "Put the file here to make it openable again:\n\n{path}"
+        ),
         "search-details-button": "Details",
         "search-copy-citation-tooltip": "Copy a citation for this page to the clipboard.",
         "search-detail-empty-state": "Select a result to see its details here.",
@@ -315,6 +327,12 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "narrator-manager-detail-kunya-nasab": "Kunya / nasab",
         "narrator-manager-detail-generation": "Generation (as stated in text)",
         "knowledge-gap-heading": "Knowledge Gaps",
+        "knowledge-gap-intro": (
+            "Finds thinly-covered spots in your library: pick a dimension "
+            "(madhhab, author, subject...) and this lists every real term "
+            "with fewer books than the number below - so you can see where "
+            "your collection is weak, not just what it already has a lot of."
+        ),
         "knowledge-gap-threshold-label": "Show terms with fewer than:",
         "knowledge-gap-no-gaps-found": "No coverage gaps found at this threshold.",
         "knowledge-gap-list-row": "{name} - {count} book(s)",
@@ -368,6 +386,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-font-scale": "انٹرفیس متن کا سائز",
         "settings-density": "ترتیب کی کثافت",
         "settings-shortcuts": "کی بورڈ شارٹ کٹس",
+        "settings-saved": "✓ محفوظ ہو گیا",
         "settings-about": "تفصیلات",
         "tagline": "مرکزی لائبریری",
         "stat-books": "کتابیں",
@@ -540,6 +559,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-next-tooltip": "اگلا صفحہ",
         "viewer-play-tooltip": "یہ صفحہ بلند آواز میں پڑھیں",
         "viewer-tts-unavailable-tooltip": "متن سے آواز دستیاب نہیں",
+        "viewer-tts-auto-continue": "خودکار تسلسل",
+        "viewer-tts-auto-continue-tooltip": "رکنے تک اگلے صفحات خودکار طور پر بلند آواز میں پڑھتے رہیں",
+        "viewer-tts-speed-tooltip": "پڑھنے کی رفتار",
+        "viewer-tts-volume-tooltip": "آواز",
         "viewer-copy-citation": "حوالہ کاپی کریں",
         "viewer-copy-citation-tooltip": "موجودہ صفحے کا حوالہ کلپ بورڈ پر کاپی کریں۔",
         "viewer-extract-events": "واقعات نکالیں",
@@ -574,6 +597,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-scope-both": "دونوں",
         "search-scope-tooltip": "کتاب کا مواد تلاش کرتے وقت: اصل صفحہ متن، صرف حاشیے/تشریح، یا دونوں۔",
         "search-detail-toggle-tooltip": "تفصیلات پینل دکھائیں/چھپائیں",
+        "search-collapse-panel-tooltip": "تلاش پینل کو سکیڑیں/پھیلائیں",
         "search-detail-maximize-tooltip": "تفصیلات پینل کو بڑا کریں",
         "search-status-idle": "تلاش کریں، یا براؤز کرنے کے لیے کوئی مخصوص زمرہ/مصنف/لائبریری منتخب کریں۔",
         "search-status-browse-empty": "{heading}: کوئی کتاب نہیں ملی۔",
@@ -605,6 +629,12 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-meta-page": "صفحہ {page}",
         "search-meta-footnote-match": "حاشیہ مماثلت",
         "search-open-pdf": "پی ڈی ایف کھولیں",
+        "pdf-missing-title": "کتاب کی فائل نہیں ملی",
+        "pdf-missing-message": (
+            "اس کتاب کی اصل فائل وہاں موجود نہیں جہاں لائبریری اسے تلاش کر رہی ہے "
+            "(شاید کوئی بیرونی ڈرائیو اس وقت منسلک نہیں ہے)۔ اسے دوبارہ کھولنے کے قابل "
+            "بنانے کے لیے فائل یہاں رکھیں:\n\n{path}"
+        ),
         "search-details-button": "تفصیلات",
         "search-copy-citation-tooltip": "اس صفحے کا حوالہ کلپ بورڈ پر کاپی کریں۔",
         "search-detail-empty-state": "تفصیلات دیکھنے کے لیے کوئی نتیجہ منتخب کریں۔",
@@ -634,6 +664,11 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "narrator-manager-detail-kunya-nasab": "کنیت / نسب",
         "narrator-manager-detail-generation": "طبقہ (متن میں مذکور کے مطابق)",
         "knowledge-gap-heading": "علمی خلاء",
+        "knowledge-gap-intro": (
+            "آپ کی لائبریری میں کمزور جگہیں تلاش کرتا ہے: ایک قسم منتخب کریں "
+            "(مسلک، مصنف، موضوع...) اور یہ ہر وہ اصطلاح دکھائے گا جس پر نیچے دی گئی "
+            "تعداد سے کم کتابیں موجود ہیں - تاکہ آپ دیکھ سکیں کہ آپ کا ذخیرہ کہاں کمزور ہے۔"
+        ),
         "knowledge-gap-threshold-label": "اس سے کم کتابوں والی اصطلاحات دکھائیں:",
         "knowledge-gap-no-gaps-found": "اس حد پر کوئی خلاء نہیں ملا۔",
         "knowledge-gap-list-row": "{name} - {count} کتاب(یں)",
@@ -687,6 +722,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "settings-font-scale": "حجم نص الواجهة",
         "settings-density": "كثافة التخطيط",
         "settings-shortcuts": "اختصارات لوحة المفاتيح",
+        "settings-saved": "✓ تم الحفظ",
         "settings-about": "حول",
         "tagline": "المكتبة المركزية",
         "stat-books": "كتب",
@@ -859,6 +895,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-next-tooltip": "الصفحة التالية",
         "viewer-play-tooltip": "قراءة هذه الصفحة بصوت عالٍ",
         "viewer-tts-unavailable-tooltip": "تحويل النص إلى كلام غير متاح",
+        "viewer-tts-auto-continue": "متابعة تلقائية",
+        "viewer-tts-auto-continue-tooltip": "الاستمرار في قراءة الصفحات التالية بصوت عالٍ تلقائيًا حتى الإيقاف المؤقت",
+        "viewer-tts-speed-tooltip": "سرعة القراءة",
+        "viewer-tts-volume-tooltip": "مستوى الصوت",
         "viewer-copy-citation": "نسخ الاستشهاد",
         "viewer-copy-citation-tooltip": "نسخ استشهاد للصفحة الحالية إلى الحافظة.",
         "viewer-extract-events": "استخراج الأحداث",
@@ -893,6 +933,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-scope-both": "كلاهما",
         "search-scope-tooltip": "عند البحث في محتوى الكتاب: نص الصفحة الأساسي، الحواشي/التعليقات فقط، أو كلاهما.",
         "search-detail-toggle-tooltip": "إظهار/إخفاء لوحة التفاصيل",
+        "search-collapse-panel-tooltip": "طي/توسيع لوحة البحث",
         "search-detail-maximize-tooltip": "تكبير لوحة التفاصيل",
         "search-status-idle": "اكتب بحثًا، أو اختر فئة/مؤلفًا/مكتبة محددة للتصفح.",
         "search-status-browse-empty": "{heading}: لم يتم العثور على كتب.",
@@ -924,6 +965,12 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "search-meta-page": "صفحة {page}",
         "search-meta-footnote-match": "تطابق في الحاشية",
         "search-open-pdf": "فتح PDF",
+        "pdf-missing-title": "لم يتم العثور على ملف الكتاب",
+        "pdf-missing-message": (
+            "الملف الحقيقي لهذا الكتاب غير موجود في المكان الذي تتوقعه المكتبة "
+            "(ربما محرك أقراص خارجي غير متصل الآن). ضع الملف هنا لتتمكن من فتحه "
+            "مرة أخرى:\n\n{path}"
+        ),
         "search-details-button": "التفاصيل",
         "search-copy-citation-tooltip": "نسخ استشهاد لهذه الصفحة إلى الحافظة.",
         "search-detail-empty-state": "اختر نتيجة لرؤية تفاصيلها هنا.",
@@ -953,6 +1000,11 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "narrator-manager-detail-kunya-nasab": "الكنية / النسب",
         "narrator-manager-detail-generation": "الطبقة (كما ورد في النص)",
         "knowledge-gap-heading": "الثغرات المعرفية",
+        "knowledge-gap-intro": (
+            "يجد النقاط الضعيفة في مكتبتك: اختر بُعدًا (مذهب، مؤلف، موضوع...) "
+            "وستظهر كل مصطلح حقيقي به كتب أقل من العدد أدناه - لترى أين مكتبتك "
+            "ضعيفة، لا فقط ما تملكه بكثرة."
+        ),
         "knowledge-gap-threshold-label": "إظهار المصطلحات التي بها أقل من:",
         "knowledge-gap-no-gaps-found": "لم يتم العثور على ثغرات عند هذا الحد.",
         "knowledge-gap-list-row": "{name} - {count} كتاب",

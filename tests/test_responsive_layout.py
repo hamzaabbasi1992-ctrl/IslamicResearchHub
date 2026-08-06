@@ -134,4 +134,4 @@ def test_rail_width_constant_matches_the_real_fixed_rail(qtbot, tmp_path: Path) 
 
     for width, height in _RESOLUTIONS:
         window.resize(width, height)
-        assert RAIL_WIDTH == 84
+        assert RAIL_WIDTH == 112

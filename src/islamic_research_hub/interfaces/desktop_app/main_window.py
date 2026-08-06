@@ -20,7 +20,10 @@ from PySide6.QtWidgets import (
 
 from islamic_research_hub.application.book_chunking import compute_extraction_chunks
 from islamic_research_hub.application.extraction_cost_estimate import estimate_extraction_cost
-from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
+from islamic_research_hub.application.pdf_source_resolver import (
+    candidate_pdf_path,
+    resolve_pdf_path,
+)
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
@@ -101,7 +104,13 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
 )
 from islamic_research_hub.interfaces.desktop_app.workspace_screen import WorkspaceScreen
 
-RAIL_WIDTH = 84
+RAIL_WIDTH = 112
+"""Real bug fixed here: at the old 84px, English labels like "Preservation"
+and "Knowledge Gaps" didn't fit even wrapped to two lines, so Qt's own
+tool-button layout silently mid-word-elided them ("Kno...aps") - real,
+reported UI text loss, not a cosmetic nit. Widened so every real rail
+label (English is the widest of the three supported languages) fits
+without elision."""
 # "rail-viewer" is gone: the reader no longer has its own destination - it
 # opens inline inside the Search/Workspace screen (see WorkspaceScreen).
 _RAIL_KEYS = (
@@ -468,6 +477,21 @@ class MainWindow(QMainWindow):
         )
         if pdf_path is not None:
             self._open_pdf(pdf_path, book_id, page_number)
+            return
+        # Real bug fixed here: this used to silently do nothing when the
+        # file wasn't found on disk (e.g. an external drive with the real
+        # PDF archive isn't plugged in right now) - "the book doesn't
+        # open and there's no error." A real, expected path is still
+        # computable even though the file's missing, so tell the user
+        # exactly where to put it back instead of failing silently.
+        if source is not None:
+            expected_path = candidate_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
+            if expected_path is not None:
+                QMessageBox.warning(
+                    self,
+                    self._translator.tr("pdf-missing-title"),
+                    self._translator.tr("pdf-missing-message").format(path=expected_path),
+                )
 
     def _offer_pdf_fallback(self, book_id: int) -> None:
         """Show the "scanned PDF available" banner for a stub book, if a PDF can be found.

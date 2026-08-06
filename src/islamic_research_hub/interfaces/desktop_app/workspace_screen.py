@@ -24,6 +24,7 @@ from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 
 _MIN_READER_WIDTH = 320
+_MIN_SEARCH_PANEL_WIDTH = 280
 
 
 class WorkspaceScreen(QWidget):
@@ -37,12 +38,15 @@ class WorkspaceScreen(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self._search_screen = search_screen
         self._reader_stack = reader_stack
         self._ai_panel = ai_panel
         self._last_reader_width = _MIN_READER_WIDTH
         self._last_ai_panel_width = 280
+        self._last_search_width = 600
         self._reader_animation: QVariantAnimation | None = None
         self._ai_panel_animation: QVariantAnimation | None = None
+        self._search_panel_animation: QVariantAnimation | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -68,7 +72,11 @@ class WorkspaceScreen(QWidget):
         self._splitter.setStretchFactor(0, 2)
         self._splitter.setStretchFactor(1, 4)
         self._splitter.setStretchFactor(2, 1)
-        self._splitter.setCollapsible(0, False)
+        # Real bug fixed here: the search segment used to be permanently
+        # uncollapsible ("the search panel can't be minimized") - it now
+        # collapses the same way the AI panel already does, via
+        # `search_screen.collapsed_changed` below.
+        self._splitter.setCollapsible(0, True)
         self._splitter.setCollapsible(1, True)
         self._splitter.setCollapsible(2, True)
         # Real fix: the reader used to start collapsed to 0px (a hidden
@@ -93,6 +101,9 @@ class WorkspaceScreen(QWidget):
         ai_panel.collapsed_changed.connect(self._on_ai_panel_collapsed_changed)
         ai_panel.maximize_clicked.connect(self._on_ai_panel_maximize_clicked)
         self._apply_ai_panel_collapsed(ai_panel.is_collapsed, animated=False)
+
+        search_screen.collapsed_changed.connect(self._on_search_panel_collapsed_changed)
+        self._apply_search_panel_collapsed(search_screen.is_collapsed, animated=False)
 
     def show_reader(self, widget: QWidget | None, animated: bool = True) -> None:
         """Switch the reader to `widget` and expand its segment; `None` collapses it.
@@ -155,3 +166,26 @@ class WorkspaceScreen(QWidget):
         # correctly grows the whole window's minimum size to guarantee
         # room) whenever expanded, relaxed to 0 only while collapsed.
         self._ai_panel.setMinimumWidth(0 if collapsed else MIN_AI_PANEL_WIDTH)
+
+    def _on_search_panel_collapsed_changed(self, collapsed: bool) -> None:
+        self._apply_search_panel_collapsed(collapsed)
+
+    def _apply_search_panel_collapsed(self, collapsed: bool, animated: bool = True) -> None:
+        """Collapse/expand the search segment - mirrors
+        `_apply_ai_panel_collapsed` exactly, including the same
+        toggled-minimum-width recipe (a permanent minimum would block the
+        real collapse-to-0; none at all would let the splitter silently
+        squeeze it to nothing under real space pressure)."""
+        sizes = self._splitter.sizes()
+        if collapsed:
+            if sizes[0] > 0:
+                self._last_search_width = sizes[0]
+            target = 0
+        else:
+            target = sizes[0] if sizes[0] > 0 else self._last_search_width
+        if animated:
+            self._search_panel_animation = animate_splitter_size(self._splitter, index=0, end=target)
+        else:
+            sizes[0] = target
+            self._splitter.setSizes(sizes)
+        self._search_screen.setMinimumWidth(0 if collapsed else _MIN_SEARCH_PANEL_WIDTH)

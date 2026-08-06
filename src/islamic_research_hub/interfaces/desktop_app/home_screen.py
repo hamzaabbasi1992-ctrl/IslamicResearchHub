@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -106,7 +107,19 @@ class HomeScreen(QWidget):
         self._health_report: VerificationReport | None = None
         self._card_headings: dict[str, QLabel] = {}
 
-        outer = QVBoxLayout(self)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        # Real bug fixed here: ~10 real dashboard cards in a grid, with no
+        # QScrollArea anywhere on this screen - on a real (non-huge)
+        # window this clipped the bottom cards with no way to reach them,
+        # the same "hidden content, no way to scroll" bug already fixed on
+        # SettingsScreen.
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        outer = QVBoxLayout(content)
         outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
         outer.setSpacing(Spacing.SM)
 
@@ -138,6 +151,9 @@ class HomeScreen(QWidget):
         self._ai_suggestions_body = self._add_card(
             "home-card-ai-suggestions", initial_text_key="home-placeholder-ai-suggestions"
         )
+
+        scroll_area.setWidget(content)
+        root.addWidget(scroll_area)
 
         self.refresh()
         self._translator.language_changed.connect(self._retranslate)

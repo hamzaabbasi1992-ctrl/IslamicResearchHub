@@ -97,9 +97,14 @@ class ImportScreen(QWidget):
         )
         self._library_table.verticalHeader().setVisible(False)
         self._library_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        layout.addWidget(self._library_table)
-
-        layout.addStretch(1)
+        # Real bug fixed here: the table used to get its own small natural
+        # sizeHint while a trailing `addStretch(1)` pushed all the real
+        # leftover vertical space below it instead of into the table -
+        # "the whole page is empty, I still have to scroll the list" even
+        # though the outer QScrollArea's viewport had plenty of real room.
+        # `stretch=1` here lets the table claim that space and show far
+        # more real rows before its own internal scrollbar is needed.
+        layout.addWidget(self._library_table, stretch=1)
         scroll_area.setWidget(content)
         outer.addWidget(scroll_area)
 

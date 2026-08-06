@@ -109,6 +109,7 @@ class KnowledgeGapScreen(QWidget):
 
     def _retranslate(self, _language: str) -> None:
         self._heading_label.setText(self._translator.tr("knowledge-gap-heading"))
+        self._intro_label.setText(self._translator.tr("knowledge-gap-intro"))
         self._threshold_label.setText(self._translator.tr("knowledge-gap-threshold-label"))
         for code, button in self._dimension_buttons.items():
             button.setText(self._translator.tr(_DIMENSION_KEYS.get(code, code)))
@@ -137,6 +138,11 @@ class KnowledgeGapScreen(QWidget):
 
         self._heading_label = _heading(self._translator.tr("knowledge-gap-heading"))
         layout.addWidget(self._heading_label)
+
+        self._intro_label = QLabel(self._translator.tr("knowledge-gap-intro"))
+        self._intro_label.setStyleSheet(MUTED_LABEL_STYLE)
+        self._intro_label.setWordWrap(True)
+        layout.addWidget(self._intro_label)
 
         layout.addLayout(self._build_dimension_grid())
 

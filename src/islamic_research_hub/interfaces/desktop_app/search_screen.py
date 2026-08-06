@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -27,7 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from islamic_research_hub.application.book_search import BookSearchService
-from islamic_research_hub.application.pdf_source_resolver import resolve_pdf_path
+from islamic_research_hub.application.pdf_source_resolver import candidate_pdf_path
 from islamic_research_hub.application.semantic_book_search import SemanticBookSearchService
 from islamic_research_hub.application.voice_transcription import VoiceSearchService
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
@@ -80,7 +81,11 @@ from islamic_research_hub.shared.excerpt_highlighting import highlight_excerpt_h
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = 30
-LEFT_PANE_WIDTH = 230
+LEFT_PANE_WIDTH = 280
+"""Real bug fixed here: at 230px, the three English tab labels
+("Categories"/"Author"/"Recent") didn't fit side by side and got
+silently clipped ("ategori", "uthor") - English needs more room per word
+than the Urdu/Arabic labels this was originally tuned against."""
 RIGHT_PANE_WIDTH = 220
 """UI Polish Pass 2: narrowed from 260 - the detail panel's real content
 (a handful of label/value rows, a rating dropdown, 1-2 buttons) never
@@ -100,6 +105,11 @@ class SearchScreen(QWidget):
     """Browse categories/authors, search the master database, view a result's details."""
 
     open_in_viewer_requested = Signal(int, int)  # book_id, page_number
+    collapsed_changed = Signal(bool)
+    """This whole screen's collapsed state, as embedded in `WorkspaceScreen`'s
+    outer splitter - mirrors `AiAssistantPanel`'s own `collapsed_changed`
+    exactly: this screen just owns the button/icon/local flag, the actual
+    splitter-segment resize is `WorkspaceScreen`'s job."""
 
     def __init__(
         self,
@@ -142,6 +152,7 @@ class SearchScreen(QWidget):
         )
         self._selected_card_index = -1
         self._detail_panel_animation = None
+        self._collapsed = False
 
         # Voice search: same lazy-build-at-most-once-behind-a-lock pattern
         # as semantic search / TTS (see `_get_or_build_voice_search_service`).
@@ -206,11 +217,13 @@ class SearchScreen(QWidget):
         self._scope_combo.setToolTip(tr("search-scope-tooltip"))
         self._detail_toggle_button.setToolTip(tr("search-detail-toggle-tooltip"))
         self._detail_maximize_button.setToolTip(tr("search-detail-maximize-tooltip"))
+        self._collapse_self_button.setToolTip(tr("search-collapse-panel-tooltip"))
         if self._status_is_idle:
             self._status_label.setText(tr("search-status-idle"))
         if self._detail_panel_is_empty:
             self._clear_detail_panel()
             self._show_detail_empty_state()
+        self._retranslate_result_cards()
 
     # ---------------------------------------------------------------- left
 
@@ -272,10 +285,25 @@ class SearchScreen(QWidget):
 
         self._libraries_pane_title_label = _pane_title(self._translator.tr("pane-libraries"))
         layout.addWidget(self._libraries_pane_title_label)
-        self._library_chip_layout = QVBoxLayout()
+        # Real bug fixed here: the library chip list used to be appended
+        # directly with no scroll capability of its own - with 10+ real
+        # libraries, its natural height could exceed what was actually
+        # left in the window, and the overflow was simply pushed past the
+        # pane's bounds with no way to reach it ("the list is hidden, I
+        # have to scroll but there's nothing to scroll"). Wrapping it in
+        # its own QScrollArea and giving it a real stretch factor (shared
+        # with the tree/author list above) lets both sections shrink and
+        # scroll independently instead of one silently starving the other.
+        library_scroll_area = QScrollArea()
+        library_scroll_area.setWidgetResizable(True)
+        library_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        library_chip_container = QWidget()
+        self._library_chip_layout = QVBoxLayout(library_chip_container)
+        self._library_chip_layout.setContentsMargins(0, 0, 0, 0)
         self._library_chip_layout.setSpacing(4)
         self._rebuild_library_chips()
-        layout.addLayout(self._library_chip_layout)
+        library_scroll_area.setWidget(library_chip_container)
+        layout.addWidget(library_scroll_area, stretch=1)
 
         return pane
 
@@ -597,6 +625,21 @@ class SearchScreen(QWidget):
         self._detail_maximize_button.setToolTip(self._translator.tr("search-detail-maximize-tooltip"))
         self._detail_maximize_button.clicked.connect(self._on_detail_maximize_clicked)
         filter_row_2.addWidget(self._detail_maximize_button)
+
+        # Real bug fixed here: this whole screen's segment of the outer
+        # WorkspaceScreen splitter had no collapse control at all
+        # (`setCollapsible(0, False)`) - on a real window it could crowd
+        # out the reader with no way to shrink it back. Mirrors
+        # AiAssistantPanel's own collapse button exactly: this widget owns
+        # the button/icon/local flag, `WorkspaceScreen` does the actual
+        # splitter-segment resize in response to `collapsed_changed`.
+        self._collapse_self_button = QPushButton()
+        self._collapse_self_button.setFlat(True)
+        self._collapse_self_button.setIcon(button_icon("prev"))
+        self._collapse_self_button.setIconSize(button_icon_size())
+        self._collapse_self_button.setToolTip(self._translator.tr("search-collapse-panel-tooltip"))
+        self._collapse_self_button.clicked.connect(self.toggle_collapsed)
+        filter_row_2.addWidget(self._collapse_self_button)
         layout.addLayout(filter_row_2)
 
         self._status_label = QLabel("")
@@ -1192,20 +1235,31 @@ class SearchScreen(QWidget):
         source = self._browser.get_book_source(book_id)
         if source is None:
             return None
-        pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
+        # Real bug fixed here: when the file wasn't found on disk right now
+        # (e.g. an external drive isn't plugged in), this button used to
+        # just not appear at all - indistinguishable from "no PDF was ever
+        # recorded for this book." A real Source is still evidence a PDF
+        # should exist, so the button stays, and clicking it while the
+        # file's genuinely missing tells the user exactly where to put it
+        # back instead of the app looking like it forgot the book existed.
+        expected_pdf_path = candidate_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
 
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 4, 0, 0)
-        if pdf_path is not None:
+        if expected_pdf_path is not None:
             pdf_button = QPushButton(self._translator.tr("search-open-pdf"))
+            pdf_button.setObjectName("resultCardOpenPdfButton")
             pdf_button.setIcon(button_icon("open-pdf"))
             pdf_button.setIconSize(button_icon_size())
-            pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
+            pdf_button.clicked.connect(
+                lambda: self._open_or_report_missing_pdf(expected_pdf_path)
+            )
             row_layout.addWidget(pdf_button)
 
         target_page = page_number or 1
         read_button = QPushButton(self._translator.tr("common-read-in-app"))
+        read_button.setObjectName("resultCardReadButton")
         read_button.setIcon(button_icon("viewer"))
         read_button.setIconSize(button_icon_size())
         read_button.clicked.connect(
@@ -1214,10 +1268,12 @@ class SearchScreen(QWidget):
         row_layout.addWidget(read_button)
 
         details_button = QPushButton(self._translator.tr("search-details-button"))
+        details_button.setObjectName("resultCardDetailsButton")
         details_button.clicked.connect(lambda: self._show_details(book_id, page_number))
         row_layout.addWidget(details_button)
 
         citation_button = QPushButton(self._translator.tr("viewer-copy-citation"))
+        citation_button.setObjectName("resultCardCitationButton")
         citation_button.setToolTip(self._translator.tr("search-copy-citation-tooltip"))
         citation_button.clicked.connect(
             lambda: self._copy_card_citation(book_id, page_number)
@@ -1226,6 +1282,46 @@ class SearchScreen(QWidget):
 
         row_layout.addStretch(1)
         return row
+
+    def _open_or_report_missing_pdf(self, expected_path: Path) -> None:
+        """Open a book's real PDF, or explain exactly where it's missing from.
+
+        Re-checks on disk at click time (not just whatever was true when
+        the card was built) - the drive it lives on may have been plugged
+        in since. Real bug fixed here: this used to just do nothing when
+        the file wasn't found, with no message at all.
+        """
+        if expected_path.is_file():
+            QDesktopServices.openUrl(_file_url(expected_path))
+            return
+        QMessageBox.warning(
+            self,
+            self._translator.tr("pdf-missing-title"),
+            self._translator.tr("pdf-missing-message").format(path=expected_path),
+        )
+
+    def _retranslate_result_cards(self) -> None:
+        """Refresh already-rendered result cards' button text in place.
+
+        Real bug fixed here: these cards are only ever (re)built by a new
+        search/browse action, not by `_retranslate()` - switching the app
+        language with results already on screen left every visible card's
+        action buttons (Copy/Details/Read in app/Open PDF) stuck in
+        whatever language was active when that card was first built.
+        Walking the existing widgets and resetting their text is cheap and
+        avoids re-running the real search/browse query (which would also
+        double-record it in Recent Searches) just to relabel buttons.
+        """
+        for object_name, key in (
+            ("resultCardOpenPdfButton", "search-open-pdf"),
+            ("resultCardReadButton", "common-read-in-app"),
+            ("resultCardDetailsButton", "search-details-button"),
+        ):
+            for button in self._results_container.findChildren(QPushButton, object_name):
+                button.setText(self._translator.tr(key))
+        for button in self._results_container.findChildren(QPushButton, "resultCardCitationButton"):
+            button.setText(self._translator.tr("viewer-copy-citation"))
+            button.setToolTip(self._translator.tr("search-copy-citation-tooltip"))
 
     # --------------------------------------------------------------- right
 
@@ -1279,6 +1375,25 @@ class SearchScreen(QWidget):
         self._detail_maximize_button.setIcon(
             button_icon("restore" if self._detail_panel_toggle.is_maximized else "maximize")
         )
+
+    @property
+    def is_collapsed(self) -> bool:
+        """Whether this whole screen (as a `WorkspaceScreen` splitter
+        segment) is currently collapsed."""
+        return self._collapsed
+
+    def toggle_collapsed(self) -> None:
+        self.set_collapsed(not self._collapsed)
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        """Set the collapsed state and notify listeners (the owning
+        `WorkspaceScreen`'s splitter) if it actually changed - mirrors
+        `AiAssistantPanel.set_collapsed()` exactly."""
+        if collapsed == self._collapsed:
+            return
+        self._collapsed = collapsed
+        self._collapse_self_button.setIcon(button_icon("next" if collapsed else "prev"))
+        self.collapsed_changed.emit(collapsed)
 
     def _show_detail_empty_state(self) -> None:
         """The detail pane before anything is selected - a real message,
@@ -1363,12 +1478,14 @@ class SearchScreen(QWidget):
 
         source = self._browser.get_book_source(metadata.book_id)
         if source is not None:
-            pdf_path = resolve_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
-            if pdf_path is not None:
+            expected_pdf_path = candidate_pdf_path(source[1], source[0], self._maknoon_pdf_folder)
+            if expected_pdf_path is not None:
                 pdf_button = QPushButton(tr("search-open-source-pdf"))
                 pdf_button.setIcon(button_icon("open-pdf"))
                 pdf_button.setIconSize(button_icon_size())
-                pdf_button.clicked.connect(lambda: QDesktopServices.openUrl(_file_url(pdf_path)))
+                pdf_button.clicked.connect(
+                    lambda: self._open_or_report_missing_pdf(expected_pdf_path)
+                )
                 self._detail_layout.addWidget(pdf_button)
 
         self._detail_layout.addStretch(1)

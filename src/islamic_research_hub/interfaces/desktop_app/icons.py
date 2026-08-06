@@ -10,7 +10,7 @@ size appropriate for sitting next to a button's own label text.
 """
 
 from PySide6.QtCore import QByteArray, QSize, Qt
-from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtGui import QIcon, QImage, QPainter, QPixmap, QTransform
 from PySide6.QtSvg import QSvgRenderer
 
 from islamic_research_hub.interfaces.desktop_app.theme import ACCENT, INK_SOFT
@@ -144,16 +144,40 @@ def rail_icon(name: str) -> QIcon:
     return icon
 
 
-def button_icon(name: str, color: str = INK_SOFT) -> QIcon:
-    """Return a single-color icon sized for an ordinary (non-checkable) button's label."""
+def button_icon(name: str, color: str = INK_SOFT, mirror: bool = False) -> QIcon:
+    """Return a single-color icon sized for an ordinary (non-checkable) button's label.
+
+    `mirror=True` flips the glyph horizontally - Qt mirrors *layout* (widget
+    order, text alignment) automatically under `app.setLayoutDirection(RightToLeft)`,
+    but never a `QIcon`'s own pixmap content, so directional glyphs like
+    prev/next chevrons need this to keep pointing the correct real
+    navigational direction once Urdu/Arabic flips the page-order the arrows
+    describe.
+    """
     icon = QIcon()
-    icon.addPixmap(_render(name, color, _BUTTON_RENDER_SIZE))
+    pixmap = _render(name, color, _BUTTON_RENDER_SIZE)
+    if mirror:
+        pixmap = pixmap.transformed(QTransform().scale(-1, 1))
+    icon.addPixmap(pixmap)
     return icon
 
 
 def button_icon_size() -> QSize:
     """Return the size `button_icon()` renders at, for `QPushButton.setIconSize()`."""
     return QSize(_BUTTON_RENDER_SIZE)
+
+
+_PROBE_SIZE = 48
+"""Working resolution for `_opaque_bounding_box()` - a real, reported bug:
+several icons' own path data isn't actually centered within the raw 0..24
+viewBox (e.g. a magnifying glass's handle extending further on one side
+than the circle does), which rendered as a visibly off-center glyph
+inside its button ("side panel logos are not inlined"). Rather than
+hand-tuning ~20 SVG path strings' coordinates (fragile, easy to get
+subtly wrong per-icon), every icon is measured once per render and
+re-centered on its own real drawn content - correct by construction, and
+automatically covers any icon added later too. 48px is enough resolution
+for this (icons render at 18-40px) without the pixel-scan costing much."""
 
 
 def _render(name: str, color: str, size: QSize) -> QPixmap:
@@ -167,9 +191,51 @@ def _render(name: str, color: str, size: QSize) -> QPixmap:
         f"{path_svg}</svg>"
     )
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+
+    probe = QPixmap(_PROBE_SIZE, _PROBE_SIZE)
+    probe.fill(Qt.GlobalColor.transparent)
+    probe_painter = QPainter(probe)
+    renderer.render(probe_painter)
+    probe_painter.end()
+    bbox = _opaque_bounding_box(probe.toImage())
+
     pixmap = QPixmap(size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
+    if bbox is not None:
+        left, top, right, bottom = bbox
+        content_center_x = (left + right + 1) / 2
+        content_center_y = (top + bottom + 1) / 2
+        probe_center = _PROBE_SIZE / 2
+        # Both the probe and the final pixmap render the same 0..24
+        # viewBox to fill their own full extent, so an offset expressed
+        # as a fraction of the probe's size carries over directly to the
+        # target size's own device pixels.
+        painter.translate(
+            (probe_center - content_center_x) / _PROBE_SIZE * size.width(),
+            (probe_center - content_center_y) / _PROBE_SIZE * size.height(),
+        )
     renderer.render(painter)
     painter.end()
     return pixmap
+
+
+def _opaque_bounding_box(image: QImage) -> tuple[int, int, int, int] | None:
+    """Return (left, top, right, bottom) pixel bounds of the glyph's real
+    drawn (non-transparent) content, or None for a blank render."""
+    width, height = image.width(), image.height()
+    left, top, right, bottom = width, height, -1, -1
+    for y in range(height):
+        for x in range(width):
+            if image.pixelColor(x, y).alpha() > 0:
+                if x < left:
+                    left = x
+                if x > right:
+                    right = x
+                if y < top:
+                    top = y
+                if y > bottom:
+                    bottom = y
+    if right < left:
+        return None
+    return left, top, right, bottom

@@ -1,5 +1,108 @@
 # Changelog
 
+## Live UI/UX bug-fixing pass (real-usage feedback)
+
+A round of real bugs found by actually using the running app, not code
+review - fixed as reported rather than batched into a themed milestone:
+
+- **Reversed prev/next page icons under RTL** (Urdu/Arabic): Qt mirrors
+  widget order/layout automatically but never a `QIcon`'s own pixmap, so
+  the chevrons kept pointing the LTR direction after the app flipped to
+  RTL. `icons.button_icon()` gained a `mirror` flag (horizontal pixmap
+  flip); `ViewerScreen`/`PdfViewerScreen` apply it based on
+  `translator.layout_direction` and re-apply on language change.
+- **Table of Contents now expands by default** when a book opens
+  (`ViewerScreen._reload_toc`) - previously required an extra click per
+  top-level entry every single time.
+- **Rail label truncation in English**: `RAIL_WIDTH` (84px) was tuned
+  against short Urdu/Arabic rail labels; real English ones ("Knowledge
+  Gaps", "Preservation") got silently mid-word-elided ("Kno...aps").
+  Widened to 112px.
+- **Two screens had no scroll area at all**: `SettingsScreen` (Keyboard
+  Shortcuts + About were unreachable below a certain window height) and
+  `HomeScreen` (10 real dashboard cards, same risk). Both wrapped in a
+  `QScrollArea`, matching the pattern already used elsewhere in the app.
+- **Libraries table wasted the whole page**: `import_screen.py`'s table
+  claimed only its own short natural height while a trailing
+  `addStretch(1)` pushed all the real leftover space below it - fixed by
+  giving the table the stretch instead (`layout.addWidget(table,
+  stretch=1)`), matching the fix already shipped earlier for the
+  Duplicate/Narrator/Event manager screens.
+- **Knowledge Gaps screen had no explanation of what it does or how to
+  read its output** - added a real intro line (new `knowledge-gap-intro`
+  i18n key, all 3 languages).
+- **Search result cards didn't retranslate on language switch**: cards
+  already on screen kept their Copy/Details/Read-in-app/Open-PDF button
+  labels in whatever language was active when they were built.
+  `SearchScreen._retranslate_result_cards()` now walks existing cards
+  (found by object name) and resets their text - avoids re-running the
+  real search/browse query (which would also double-record it in Recent
+  Searches) just to relabel buttons.
+- **Silent PDF-open failures**: clicking "Open PDF"/"Read in app" on a
+  book whose real file wasn't found on disk (e.g. an external drive not
+  currently connected) did nothing at all - no error, no explanation.
+  `pdf_source_resolver.py` gained `candidate_pdf_path()` (the expected
+  path, regardless of whether the file currently exists there - shared
+  so the UI's error message and the real existence check can never
+  disagree on where a book's file should be). Both `SearchScreen` and
+  `MainWindow._open_in_viewer` now show a real dialog naming the exact
+  expected path when the file is missing, instead of failing silently.
+- **Search screen's left pane truncated English tab labels** ("Categories"
+  became "ategori") and its **library chip list had no scroll of its own**
+  - `LEFT_PANE_WIDTH` widened 230px -> 280px; the library chips now live
+  in their own `QScrollArea` sharing stretch with the category/author
+  tree, instead of one silently starving the other's space.
+- **Viewer's Research Notes panel was always tiny**: fixed 2:1:1 stretch
+  factors let the TOC tree's own (much larger) natural size claim most of
+  the real space before the ratio ever applied to what was left. The
+  Contents/Bookmarks/Research Notes stack is now a vertical `QSplitter` -
+  the reader drags real space to whichever section they need.
+- **The Workspace's Search panel could never be minimized**
+  (`setCollapsible(0, False)`). `SearchScreen` gained a collapse button
+  (mirrors `AiAssistantPanel`'s own `collapsed_changed` signal exactly);
+  `WorkspaceScreen._apply_search_panel_collapsed` handles the actual
+  splitter-segment resize.
+- **Reader toolbar icons could clip after changing reading font size/
+  family**: the toolbar's height was fixed once at construction and never
+  recomputed. `_apply_font_size()` now recomputes it every time.
+- **TTS gained real controls**: a volume slider (`QAudioOutput.setVolume`),
+  a speed dropdown (0.75x-2x, `QMediaPlayer.setPlaybackRate`), and an
+  "Auto-continue" checkbox that keeps reading through subsequent pages
+  until paused, instead of stopping at every page boundary. Voice
+  selection and a separate language override were deliberately **not**
+  added: the local MMS-TTS checkpoints (`mms_tts_speaker.py`) are
+  single-speaker per language, and the spoken language is already
+  correctly auto-matched to each page's real content - a manual override
+  would just make the audio wrong, not add a real capability. Startup
+  latency on first use of each language is a real, one-time neural-model
+  load (~140MB), not a bug; a pre-warm-on-book-open follow-up would hide
+  most of it behind normal reading time if wanted later.
+
+Full test suite: 973 passed (plus 12 in `test_responsive_layout.py`, one
+of which had a hardcoded `RAIL_WIDTH == 84` updated to match the
+intentional widening above).
+
+Two more from this same pass:
+
+- **No visible confirmation that Settings actually saved**: every field
+  here (font size/family, TTS/voice-search/AI-Agent toggles, provider,
+  API key, theme, interface scale, density) already auto-saves the
+  instant it changes - there was just no feedback, which read as "is
+  there a Save button I'm missing?", especially for the API key field.
+  Added a real, transient "Saved" confirmation (`SettingsScreen._flash_saved()`,
+  new `settings-saved` i18n key) instead of switching to a save-then-forget
+  button - the existing live-save behavior is already correct and safer.
+- **Rail/toolbar icon glyphs weren't provably centered in their own
+  render box** ("side panel logos are not inlined"): measured directly
+  rather than guessed - most icons were already sub-pixel accurate, but
+  hand-verifying ~20 SVG path strings by eye isn't reliable long-term.
+  `icons._render()` now measures each glyph's real drawn bounding box at
+  a 48px probe resolution and re-centers it before the final render, so
+  every icon (including any added later) is correct by construction
+  instead of depending on hand-tuned path coordinates.
+
+Full targeted-test run across every touched file: 236 passed.
+
 ## Phase 11: Comparative Research Assistant - Milestone 1
 
 A new "Compare scholarly positions" mode in the AI Assistant panel's

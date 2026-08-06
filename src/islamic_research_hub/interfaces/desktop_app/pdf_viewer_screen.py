@@ -76,7 +76,6 @@ class PdfViewerScreen(QWidget):
         toolbar = QHBoxLayout(toolbar_container)
         toolbar.setContentsMargins(16, 4, 16, 8)
         self._prev_button = QPushButton(self._translator.tr("common-prev"))
-        self._prev_button.setIcon(button_icon("prev"))
         self._prev_button.setIconSize(button_icon_size())
         self._prev_button.clicked.connect(self._go_previous)
         toolbar.addWidget(self._prev_button)
