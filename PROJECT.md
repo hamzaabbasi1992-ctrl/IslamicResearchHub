@@ -1300,6 +1300,31 @@ checked for overlap before anything was imported:
   `HadithHashiaText` commentary (Hadith/) are the first real footnote
   data found in this corpus - see the `Footnotes` table note under
   Phase 2 above.
+- **Tib o Hikmat** (`F:\URDU OCR GOOGLE VISION\Output urdu ocr google
+  vision`, real Google-Vision-OCR output the user ran externally): 46
+  real Urdu books on prophetic medicine/traditional healing plus a
+  handful of unrelated classical/literary texts swept up from the same
+  OCR batch (Imam Ghazali's *Ihya Ulum al-Din*, Sabir Multani's
+  research, one novel) - kept in one library per the user's own choice
+  rather than split by real subject. New `infrastructure/persistence/
+  ocr_text_book_reader.py` (`read_ocr_text_book_file()`), mirrors
+  `maknoon_text_reader.py`'s page-marker-splitting shape with two real,
+  evidence-based safeguards added after actually running it against all
+  46 real files before ever touching production data: a monotonic-
+  page-number check (rejects a numbered-list item's digit line from
+  being mistaken for a page break) and an average-page-length/coverage-
+  ratio plausibility check (rejects a lone spurious footnote/hadith-
+  reference-number "marker" that would otherwise mislabel or silently
+  drop most of a book). Real yield: 16 of 46 books got genuine per-page
+  structure; the other 30 honestly fall back to one whole-book page
+  (full real text still present and searchable, just not paginated) -
+  the marker convention simply isn't consistent across this OCR batch,
+  confirmed by measurement, not assumed. New `interfaces/
+  import_ocr_text_books_cli.py`, mirrors `maknoon_import_cli.py`
+  exactly (recursive `.txt` scan instead of one folder level). Text
+  only, no PDF import - the ~30GB of source scans were deliberately
+  left out per direct instruction. `data/books.db`: 102,486 -> 102,532
+  books, 2,940 real pages, new 11th library.
 
 ## Not yet scheduled / future candidates
 

@@ -34,6 +34,7 @@ docs/jibreel_desktop/
 docs/pdf_inventory/
 docs/shamila_urdu/
 docs/book_inventory/
+docs/ocr_text/
 # Raw (uncompressed) export_book() backups can exceed GitHub's 100MB
 # limit for real-content books - the .gz alongside it is what's tracked.
 docs/duplicate_analysis/same_library_page_count_duplicates_removed_backup.json

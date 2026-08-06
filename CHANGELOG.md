@@ -1,5 +1,53 @@
 # Changelog
 
+## New library: Tib o Hikmat (real OCR text import)
+
+46 real Urdu books - prophetic medicine/traditional healing (Tib) plus
+a few unrelated classical/literary texts swept up from the same
+external OCR batch - imported from real Google-Vision-OCR'd `.txt`
+files the user produced outside this project. Text only, no PDF import
+(the ~30GB of source scans deliberately excluded per direct
+instruction).
+
+New `infrastructure/persistence/ocr_text_book_reader.py`
+(`read_ocr_text_book_file()`), mirrors `maknoon_text_reader.py`'s
+page-marker-splitting shape with real title-from-filename cleanup
+(underscore/dash separators). Two real safeguards added after actually
+dry-running the parser against all 46 real source files before ever
+touching production data - each caught a real, confirmed failure mode,
+not a hypothetical one:
+- A monotonic-page-number check: a candidate marker must be strictly
+  higher than the last accepted one, or it's treated as ordinary page
+  text - defends against a numbered-list item's OCR-isolated digit
+  line being mistaken for a page break.
+- An average-page-length + coverage-ratio plausibility check: if the
+  resulting split's average page is implausibly long (>20,000
+  characters - real, measured from the good vs. bad splits in this
+  actual batch) or captures less than 60% of the file's real content,
+  the whole marker-based split is discarded in favor of one honest,
+  full-content page. Caught real, confirmed cases in this batch where
+  a single stray footnote/hadith-reference number would otherwise have
+  produced a wildly mislabeled "page" (e.g. one book's entire content
+  filed under page "8210").
+
+Real yield after these safeguards: 16 of 46 books got genuine per-page
+structure; the other 30 honestly fall back to one whole-book page
+(full real text still present and fully searchable, just not
+paginated) - the source OCR batch's page-marker convention simply
+isn't consistent across all 46 files, confirmed by measurement rather
+than assumed to work uniformly.
+
+New `interfaces/import_ocr_text_books_cli.py`, mirrors
+`maknoon_import_cli.py` exactly except for a recursive `.txt` scan
+(the real source folder has a nested subfolder). 11 new tests
+(`test_ocr_text_book_reader.py`, `test_import_ocr_text_books_cli.py`).
+
+Ran for real against production `data/books.db`: 46/46 books imported,
+0 skipped, 0 failed, 2,940 real pages, new "Tib o Hikmat" library (the
+11th). `data/books.db`: 102,486 -> 102,532 books. Spot-checked real
+imported page content directly against the database - genuine,
+coherent Urdu text, correctly paginated for the well-structured books.
+
 ## Phase 17: Multimedia generation - Milestone 1, plus a real Settings fix
 
 Scope narrowed by explicit user decision: no video, no animation - this
