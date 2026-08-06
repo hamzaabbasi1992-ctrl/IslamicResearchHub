@@ -106,6 +106,7 @@ class ViewerScreen(QWidget):
     summarize_selection_requested = Signal(str)  # selected_text
     compare_selection_requested = Signal(str)  # selected_text
     generate_flashcards_requested = Signal(int)  # book_id
+    generate_mcqs_requested = Signal(int)  # book_id
     generate_slide_deck_requested = Signal(int)  # book_id
     generate_podcast_requested = Signal(int)  # book_id
 
@@ -367,6 +368,12 @@ class ViewerScreen(QWidget):
         self._generate_flashcards_button.clicked.connect(self._on_generate_flashcards_clicked)
         toolbar.addWidget(self._generate_flashcards_button)
 
+        self._generate_mcqs_button = QPushButton(self._translator.tr("viewer-generate-mcqs"))
+        self._generate_mcqs_button.setToolTip(self._translator.tr("viewer-generate-mcqs-tooltip"))
+        self._generate_mcqs_button.setVisible(self._enable_lazy_ai_agent)
+        self._generate_mcqs_button.clicked.connect(self._on_generate_mcqs_clicked)
+        toolbar.addWidget(self._generate_mcqs_button)
+
         self._generate_slide_deck_button = QPushButton(
             self._translator.tr("viewer-generate-slide-deck")
         )
@@ -504,6 +511,8 @@ class ViewerScreen(QWidget):
         self._generate_flashcards_button.setToolTip(
             self._translator.tr("viewer-generate-flashcards-tooltip")
         )
+        self._generate_mcqs_button.setText(self._translator.tr("viewer-generate-mcqs"))
+        self._generate_mcqs_button.setToolTip(self._translator.tr("viewer-generate-mcqs-tooltip"))
         self._generate_slide_deck_button.setText(self._translator.tr("viewer-generate-slide-deck"))
         self._generate_slide_deck_button.setToolTip(
             self._translator.tr("viewer-generate-slide-deck-tooltip")
@@ -1084,6 +1093,14 @@ class ViewerScreen(QWidget):
         if self._current_book_id is None:
             return
         self.generate_flashcards_requested.emit(self._current_book_id)
+
+    def _on_generate_mcqs_clicked(self) -> None:
+        """Ask upstream (MainWindow) to generate MCQs for the current
+        book (Phase 15 deferred scope, shipped later) - same minimal-
+        here, real-work-upstream reasoning as `_on_extract_events_clicked`."""
+        if self._current_book_id is None:
+            return
+        self.generate_mcqs_requested.emit(self._current_book_id)
 
     def _on_generate_slide_deck_clicked(self) -> None:
         """Ask upstream (MainWindow) to generate slide-deck content for

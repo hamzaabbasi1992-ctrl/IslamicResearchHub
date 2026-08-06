@@ -1184,7 +1184,7 @@ content and citation. Saved searches and saved AI conversations are
 still out of scope for this milestone, not missed - Collections was the
 concrete, well-scoped first piece.
 
-### Phase 15 — Educational features: **Milestone 1 done**
+### Phase 15 — Educational features: **Milestone 2 done**
 
 Quizzes, flashcards, MCQs, spaced-repetition-style revision, lesson
 plans, and a "teaching mode" view. Real dependency: question generation
@@ -1201,10 +1201,29 @@ could hallucinate), a new Flashcards rail screen (review/confirm/
 dismiss candidates), and a real Study mode - a sequential flip-through
 of only the *confirmed* flashcards, never an unreviewed or dismissed
 one. MCQs, real spaced-repetition *scheduling* (interval tracking, due
-dates - Study mode here is just sequential review, not SRS), lesson
-plans, and "teaching mode" are still open within this same phase, not
-missed - flashcard generation was the concrete, well-scoped first
-piece.
+dates - Study mode here is just sequential review, not SRS) is still
+open within this same phase, not missed - flashcard generation was the
+concrete, well-scoped first piece.
+
+**Milestone 2 (done)**: real MCQ (multiple-choice question) generation
+from one book's real page content, mirroring Flashcard generation's
+exact chunked architecture - `AiAgentService.generate_mcqs()` (own
+system prompt, strict JSON array output: question + exactly 4 options
++ correct_index + quoted excerpt + citation), `application/
+mcq_extraction.py::parse_extracted_mcqs()` (same fence-stripping/
+partial-failure discipline, plus real validation that `options` has
+exactly 4 real strings and `correct_index` is genuinely in range),
+`McqCandidateRepository` (three-state pending/confirmed/dismissed
+review, same reasoning as FlashcardCandidate). New MCQs rail screen
+(review/confirm/dismiss candidates) with a real **Quiz mode** - unlike
+Flashcards' flip-through Study mode, this is an actual scored quiz:
+pick an option, see it colored correct/wrong immediately, a running
+"Score: N/total" counter, and a real final-score screen at the end -
+over only the *confirmed* questions, never an unreviewed or dismissed
+one. New "Generate MCQs" button in the Viewer's toolbar (same pre-
+flight/cost-estimate/worker pattern as Generate Flashcards). Real
+spaced-repetition *scheduling* (interval tracking, due dates), lesson
+plans, and "teaching mode" remain open within this phase, not missed.
 
 ### Phase 16 — AI content generator: **Milestone 1 done**
 

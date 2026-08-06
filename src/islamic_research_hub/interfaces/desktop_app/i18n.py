@@ -192,6 +192,24 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} of {total}",
         "flashcard-manager-show-answer": "Show Answer",
         "flashcard-manager-show-question": "Show Question",
+        "mcq-manager-heading": "MCQ review",
+        "mcq-manager-intro": (
+            "Real multiple-choice questions generated from real page content, for your "
+            "review before anything is trusted or quizzed. Confirm the ones that are "
+            "accurate and worth studying, dismiss the rest."
+        ),
+        "mcq-manager-quiz": "Quiz",
+        "mcq-manager-candidates-count": "{count} question(s)",
+        "mcq-manager-col-question": "Question",
+        "mcq-manager-detail-options": "Options",
+        "mcq-manager-quiz-empty": "No confirmed questions yet - review and confirm some first.",
+        "mcq-manager-quiz-counter": "{current} of {total}",
+        "mcq-manager-quiz-score": "Score: {correct}/{total}",
+        "mcq-manager-quiz-finished-heading": "Quiz Complete",
+        "mcq-manager-quiz-finished-score": "You scored {correct} out of {total}.",
+        "viewer-generate-mcqs": "Generate MCQs",
+        "viewer-generate-mcqs-tooltip": "Generate real multiple-choice questions from this book's real content (AI, opt-in)",
+        "rail-mcqs": "MCQs",
         "viewer-generate-flashcards": "Generate Flashcards",
         "viewer-generate-flashcards-tooltip": "Generate real study flashcards from this book's real content (AI, opt-in)",
         "viewer-generate-slide-deck": "Generate Slide Deck",
@@ -625,6 +643,24 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} از {total}",
         "flashcard-manager-show-answer": "جواب دکھائیں",
         "flashcard-manager-show-question": "سوال دکھائیں",
+        "mcq-manager-heading": "کثیر انتخابی سوالات کا جائزہ",
+        "mcq-manager-intro": (
+            "حقیقی صفحہ مواد سے تیار کردہ حقیقی کثیر انتخابی سوالات، آپ کے جائزے کے لیے، "
+            "کسی بھی چیز پر بھروسہ یا کوئز لینے سے پہلے۔ درست اور مطالعہ کے قابل سوالات کی "
+            "تصدیق کریں، باقی کو مسترد کریں۔"
+        ),
+        "mcq-manager-quiz": "کوئز",
+        "mcq-manager-candidates-count": "{count} سوال(ات)",
+        "mcq-manager-col-question": "سوال",
+        "mcq-manager-detail-options": "اختیارات",
+        "mcq-manager-quiz-empty": "ابھی تک کوئی تصدیق شدہ سوال نہیں - پہلے کچھ کا جائزہ لے کر تصدیق کریں۔",
+        "mcq-manager-quiz-counter": "{current} از {total}",
+        "mcq-manager-quiz-score": "اسکور: {correct}/{total}",
+        "mcq-manager-quiz-finished-heading": "کوئز مکمل",
+        "mcq-manager-quiz-finished-score": "آپ نے {total} میں سے {correct} نمبر حاصل کیے۔",
+        "viewer-generate-mcqs": "MCQs بنائیں",
+        "viewer-generate-mcqs-tooltip": "اس کتاب کے حقیقی مواد سے حقیقی کثیر انتخابی سوالات بنائیں (AI، اختیاری)",
+        "rail-mcqs": "MCQs",
         "viewer-generate-flashcards": "فلیش کارڈز بنائیں",
         "viewer-generate-flashcards-tooltip": "اس کتاب کے حقیقی مواد سے حقیقی مطالعاتی فلیش کارڈز بنائیں (AI، اختیاری)",
         "viewer-generate-slide-deck": "سلائیڈ ڈیک بنائیں",
@@ -1054,6 +1090,24 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} من {total}",
         "flashcard-manager-show-answer": "إظهار الإجابة",
         "flashcard-manager-show-question": "إظهار السؤال",
+        "mcq-manager-heading": "مراجعة الأسئلة متعددة الخيارات",
+        "mcq-manager-intro": (
+            "أسئلة حقيقية متعددة الخيارات من إنشاء الذكاء الاصطناعي، من محتوى صفحات حقيقي، "
+            "للمراجعة قبل الوثوق بها أو استخدامها في اختبار. أكّد الأسئلة الدقيقة والجديرة "
+            "بالمراجعة، وارفض الباقي."
+        ),
+        "mcq-manager-quiz": "اختبار",
+        "mcq-manager-candidates-count": "{count} سؤال(أسئلة)",
+        "mcq-manager-col-question": "السؤال",
+        "mcq-manager-detail-options": "الخيارات",
+        "mcq-manager-quiz-empty": "لا توجد أسئلة مؤكَّدة بعد - راجع بعضها وأكّدها أولاً.",
+        "mcq-manager-quiz-counter": "{current} من {total}",
+        "mcq-manager-quiz-score": "النتيجة: {correct}/{total}",
+        "mcq-manager-quiz-finished-heading": "اكتمل الاختبار",
+        "mcq-manager-quiz-finished-score": "لقد حصلت على {correct} من أصل {total}.",
+        "viewer-generate-mcqs": "إنشاء أسئلة اختيار من متعدد",
+        "viewer-generate-mcqs-tooltip": "إنشاء أسئلة اختيار من متعدد حقيقية من محتوى هذا الكتاب الحقيقي (ذكاء اصطناعي، اختياري)",
+        "rail-mcqs": "أسئلة",
         "viewer-generate-flashcards": "إنشاء بطاقات تعليمية",
         "viewer-generate-flashcards-tooltip": "إنشاء بطاقات تعليمية حقيقية من محتوى هذا الكتاب الحقيقي (ذكاء اصطناعي، اختياري)",
         "viewer-generate-slide-deck": "إنشاء عرض شرائح",

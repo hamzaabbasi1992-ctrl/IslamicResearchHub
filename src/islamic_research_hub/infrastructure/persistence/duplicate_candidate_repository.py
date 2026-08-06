@@ -34,6 +34,7 @@ _BOOK_REFERENCING_TABLES: tuple[str, ...] = (
     "NarratorCandidates",
     "CollectionItems",
     "FlashcardCandidates",
+    "McqCandidates",
 )
 """Every real table (besides `Books` and `DuplicateCandidates`, handled
 separately) with a `BookID` column, found by inspecting the live schema.

@@ -485,6 +485,51 @@ def test_generate_flashcards_button_does_nothing_with_no_book_loaded(qtbot, tmp_
     assert received == []
 
 
+def test_generate_mcqs_button_hidden_when_ai_agent_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+
+    assert screen._generate_mcqs_button.isHidden() is True
+
+
+def test_generate_mcqs_button_visible_when_ai_agent_enabled(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+
+    assert screen._generate_mcqs_button.isHidden() is False
+
+
+def test_generate_mcqs_button_emits_the_current_book_id(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    received = []
+    screen.generate_mcqs_requested.connect(received.append)
+
+    screen._generate_mcqs_button.click()
+
+    assert received == [1]
+
+
+def test_generate_mcqs_button_does_nothing_with_no_book_loaded(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    received = []
+    screen.generate_mcqs_requested.connect(received.append)
+
+    screen._on_generate_mcqs_clicked()
+
+    assert received == []
+
+
 def test_generate_slide_deck_button_hidden_when_ai_agent_disabled_by_default(
     qtbot, tmp_path: Path
 ) -> None:

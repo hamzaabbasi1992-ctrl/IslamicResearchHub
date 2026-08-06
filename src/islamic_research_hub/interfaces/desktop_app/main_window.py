@@ -8,6 +8,7 @@ from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -37,6 +38,9 @@ from islamic_research_hub.infrastructure.persistence.event_candidate_repository 
 )
 from islamic_research_hub.infrastructure.persistence.flashcard_candidate_repository import (
     FlashcardCandidateRepository,
+)
+from islamic_research_hub.infrastructure.persistence.mcq_candidate_repository import (
+    McqCandidateRepository,
 )
 from islamic_research_hub.infrastructure.persistence.narrator_candidate_repository import (
     NarratorCandidateRepository,
@@ -80,6 +84,8 @@ from islamic_research_hub.interfaces.desktop_app.icons import rail_icon
 from islamic_research_hub.interfaces.desktop_app.import_screen import ImportScreen
 from islamic_research_hub.interfaces.desktop_app.knowledge_gap_screen import KnowledgeGapScreen
 from islamic_research_hub.interfaces.desktop_app.logs_screen import LogsScreen
+from islamic_research_hub.interfaces.desktop_app.mcq_extraction_worker import McqExtractionWorker
+from islamic_research_hub.interfaces.desktop_app.mcq_manager_screen import McqManagerScreen
 from islamic_research_hub.interfaces.desktop_app.narrator_extraction_worker import (
     NarratorExtractionWorker,
 )
@@ -148,6 +154,7 @@ _RAIL_KEYS = (
     "rail-preservation",
     "rail-collections",
     "rail-flashcards",
+    "rail-mcqs",
     "rail-logs",
     "rail-settings",
 )
@@ -164,6 +171,7 @@ _RAIL_ICON_NAMES = (
     "preservation",
     "collections",
     "flashcards",
+    "mcqs",
     "logs",
     "settings",
 )
@@ -244,6 +252,7 @@ class MainWindow(QMainWindow):
         self._summarize_passage_worker: AiAgentWorker | None = None
         self._compare_passage_worker: AiAgentWorker | None = None
         self._flashcard_extraction_worker: FlashcardExtractionWorker | None = None
+        self._mcq_extraction_worker: McqExtractionWorker | None = None
         self._slide_deck_worker: SlideDeckGenerationWorker | None = None
         self._podcast_worker: PodcastGenerationWorker | None = None
         if database_path.is_file():
@@ -334,6 +343,9 @@ class MainWindow(QMainWindow):
             self._viewer_screen.generate_flashcards_requested.connect(
                 self._on_generate_flashcards_requested
             )
+            self._viewer_screen.generate_mcqs_requested.connect(
+                self._on_generate_mcqs_requested
+            )
             self._viewer_screen.generate_slide_deck_requested.connect(
                 self._on_generate_slide_deck_requested
             )
@@ -395,6 +407,9 @@ class MainWindow(QMainWindow):
             flashcard_manager_screen = FlashcardManagerScreen(
                 database_path, self._translator, browser=self._browser
             )
+            mcq_manager_screen = McqManagerScreen(
+                database_path, self._translator, browser=self._browser
+            )
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -415,6 +430,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(preservation_report_screen)
             self._stack.addWidget(collections_screen)
             self._stack.addWidget(flashcard_manager_screen)
+            self._stack.addWidget(mcq_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(
@@ -850,6 +866,78 @@ class MainWindow(QMainWindow):
             self,
             "Generate Flashcards",
             f"{count} flashcard(s) generated - review them in the Flashcards screen.",
+        )
+
+    def _on_generate_mcqs_requested(self, book_id: int) -> None:
+        """Generate real multiple-choice questions for one book (Phase
+        15 deferred scope, shipped later) - same pre-flight check,
+        chunk/cost estimate, and background-worker shape as
+        `_on_generate_flashcards_requested`."""
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Generate MCQs", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Generate MCQs", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Generate MCQs", "This book has no real page content to extract from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Generate MCQs",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        repository = McqCandidateRepository(self._database_path)
+        worker = McqExtractionWorker(
+            self._ai_panel.get_or_build_ai_agent_service, repository, book_id, chunks, self
+        )
+        worker.extraction_finished.connect(self._on_mcq_generation_finished)
+        worker.extraction_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Generate MCQs", reason)
+        )
+        self._mcq_extraction_worker = worker
+        worker.start()
+
+    def _on_mcq_generation_finished(self, count: int) -> None:
+        QMessageBox.information(
+            self,
+            "Generate MCQs",
+            f"{count} question(s) generated - review them in the MCQs screen.",
         )
 
     def _on_generate_slide_deck_requested(self, book_id: int) -> None:

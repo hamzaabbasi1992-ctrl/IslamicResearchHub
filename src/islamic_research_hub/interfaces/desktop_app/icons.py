@@ -128,6 +128,12 @@ _SVG_PATHS: dict[str, str] = {
         '<rect x="6" y="3.5" width="14" height="10" rx="1.5"/>'
         '<rect x="4" y="9.5" width="14" height="10" rx="1.5" fill="{color}" fill-opacity="0.12"/>'
     ),
+    "mcqs": (
+        '<circle cx="6.5" cy="6.5" r="2.2"/><line x1="11.5" y1="6.5" x2="20" y2="6.5"/>'
+        '<circle cx="6.5" cy="13" r="2.2" fill="{color}" fill-opacity="0.16"/>'
+        '<path d="M5.2 13 6.2 14 7.9 11.7"/><line x1="11.5" y1="13" x2="20" y2="13"/>'
+        '<circle cx="6.5" cy="19.5" r="2.2"/><line x1="11.5" y1="19.5" x2="20" y2="19.5"/>'
+    ),
     "maximize": (
         '<polyline points="15 3 21 3 21 9"/>'
         '<polyline points="9 21 3 21 3 15"/>'

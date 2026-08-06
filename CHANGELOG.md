@@ -1,5 +1,37 @@
 # Changelog
 
+## Phase 15: Educational features - Milestone 2 (MCQ generation + real Quiz mode)
+
+Completes the deferred MCQ item from Phase 15's original scope
+(flashcard generation shipped as Milestone 1).
+
+New: `AiAgentService.generate_mcqs()` + its own system prompt (question
++ exactly 4 options + correct_index + quoted excerpt + citation, strict
+JSON array, only real substantive content - never invented).
+`application/mcq_extraction.py` (`parse_extracted_mcqs()`, same
+markdown-fence-stripping/partial-failure-is-not-fatal discipline as
+`flashcard_extraction.py`, plus real validation that `options` has
+exactly 4 real strings and `correct_index` is genuinely in range 0-3).
+`domain/models/mcq_candidate.py` + `infrastructure/persistence/
+mcq_candidate_repository.py` (three-state pending/confirmed/dismissed,
+mirrors `FlashcardCandidateRepository` exactly - added `McqCandidates`
+to `DuplicateCandidateRepository`'s book-cleanup table list too, same
+gap-closing discipline as Phase 15 Milestone 1's Collections fix).
+`interfaces/desktop_app/mcq_extraction_worker.py` (off-GUI-thread,
+mirrors `FlashcardExtractionWorker`).
+
+New `McqManagerScreen` (review/confirm/dismiss, real bulk book-title
+hydration) plus a real **Quiz mode** - unlike Flashcards' flip-through
+Study mode, this is an actual scored quiz: pick one of 4 real options,
+see it colored correct (green) or wrong (red) immediately with the
+real correct answer highlighted, a running "Score: N/total" counter,
+and a real final-score screen once the last question is answered -
+always over only the *confirmed* questions, never an unreviewed or
+dismissed one. New "Generate MCQs" button in the Viewer's toolbar (same
+pre-flight-check/cost-estimate/background-worker shape as Extract
+Events/Narrators/Generate Flashcards) and a new rail entry. 46 new
+tests.
+
 ## Phase 13: AI reading assistant - Milestone 2 (Summarize/Compare passage)
 
 Completes the deferred scope from Phase 13 Milestone 1 (Explain

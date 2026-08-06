@@ -123,6 +123,33 @@ _GENERATE_FLASHCARDS_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_GENERATE_MCQS_SYSTEM_PROMPT = (
+    "You are creating real multiple-choice study questions from a real "
+    "Islamic research library for a researcher's revision (Phase 15 "
+    "deferred scope, shipped later). Call get_book_pages for the given "
+    "range first (paginate with further calls if truncated), then "
+    "respond with ONLY a raw JSON array - no prose, no markdown code "
+    "fences - and nothing else. Each element must have exactly these "
+    "fields: question (string, a real question testing one real fact/"
+    "concept from the text), options (array of exactly 4 strings - one "
+    "real correct answer and three real, plausible-but-wrong "
+    "distractors, in any order), correct_index (integer 0-3, the index "
+    "into options of the real correct answer), quoted_excerpt (a real, "
+    "verbatim excerpt from the text supporting the correct answer - "
+    "never paraphrase this field), citation (use that page's own "
+    "\"citation\" field verbatim from get_book_pages - never invent "
+    "one). Only create questions for real, substantive content actually "
+    "in the text you read - never invent one to have something to "
+    "report, and never create a question for trivial or vague content. "
+    "If the range has nothing substantive to test, return an empty "
+    "array []."
+)
+
+_GENERATE_MCQS_PROMPT_TEMPLATE = (
+    "Generate real multiple-choice questions from book_id={book_id}, "
+    "pages {start_page}-{end_page}."
+)
+
 _GENERATE_SLIDE_DECK_SYSTEM_PROMPT = (
     "You are turning one real page range of an Islamic research library "
     "book into slide-deck content for a lecture or teaching session "
@@ -318,6 +345,23 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),),
             system_prompt=_GENERATE_FLASHCARDS_SYSTEM_PROMPT,
+        )
+
+    def generate_mcqs(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Generate real multiple-choice study questions from one real
+        page range, as a strict JSON array (possibly empty) - never
+        prose. `AgentTurnResult.answer` is the raw JSON text; parsing it
+        into typed questions is
+        `application/mcq_extraction.py::parse_extracted_mcqs()`'s job,
+        not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _GENERATE_MCQS_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),),
+            system_prompt=_GENERATE_MCQS_SYSTEM_PROMPT,
         )
 
     def generate_slide_deck(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:

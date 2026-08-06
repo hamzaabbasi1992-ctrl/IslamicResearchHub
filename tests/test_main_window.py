@@ -150,7 +150,7 @@ def test_settings_screen_is_real_and_shows_real_app_info(qtbot, tmp_path: Path) 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
 
-    settings_screen = window._stack.widget(13)
+    settings_screen = window._stack.widget(14)
     assert settings_screen._language_combo.count() == 3
     assert settings_screen.default_font_size() > 0
 
@@ -169,7 +169,7 @@ def test_changing_language_updates_rail_labels_and_layout_direction(
 
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
     qtbot.addWidget(window)
-    settings_screen = window._stack.widget(13)
+    settings_screen = window._stack.widget(14)
 
     try:
         ur_index = settings_screen._language_combo.findData("ur")
@@ -604,6 +604,55 @@ def test_generate_flashcards_with_no_api_key_shows_the_unavailable_dialog(
     assert len(popup_calls) == 1
     assert "No API key is set" in popup_calls[0][1]
     assert window._flashcard_extraction_worker is None
+
+
+def test_generate_mcqs_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Same pre-flight check (enabled + a real key) as Extract Events, for
+    the reader's "Generate MCQs" handler."""
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window._on_generate_mcqs_requested(1)
+
+    assert len(popup_calls) == 1
+    assert popup_calls[0][0] == "Generate MCQs"
+    assert "not enabled" in popup_calls[0][1].lower()
+    assert window._mcq_extraction_worker is None
+
+
+def test_generate_mcqs_with_no_api_key_shows_the_unavailable_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_ENABLED_KEY,
+    )
+
+    popup_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.main_window.show_ai_unavailable_dialog",
+        lambda parent, feature_name, reason: popup_calls.append((feature_name, reason)),
+    )
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
+    qtbot.addWidget(window)
+
+    window._on_generate_mcqs_requested(1)
+
+    assert len(popup_calls) == 1
+    assert "No API key is set" in popup_calls[0][1]
+    assert window._mcq_extraction_worker is None
 
 
 def test_generate_slide_deck_with_ai_agent_not_enabled_shows_the_unavailable_dialog(
