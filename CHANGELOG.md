@@ -1,5 +1,52 @@
 # Changelog
 
+## Phase 18: Mobile companion app - Milestone 1 (desktop export half)
+
+Starts the project's own long-stated goal ("Windows desktop app first,
+Android app later") for real. Researched framework choice properly
+before writing anything: Android-only means Flutter's cross-platform
+payoff is zero, and every real capability this phase needs (Room/
+SQLite, Storage Access Framework, later ML Kit OCR) is Google's own
+first-party Android surface with native Kotlin support - Flutter only
+reaches it through a third-party plugin wrapper. Decided: Kotlin +
+Jetpack Compose + Room, a new `mobile/` Gradle project (inert to the
+existing Python build - `pyproject.toml` already scopes packaging to
+`src/` only).
+
+Scoped Milestone 1 to the smallest real slice that proves the whole
+pipeline's data contract before any Kotlin gets written: two new
+desktop-side CLI tools, both mirroring `verify_database_cli.py`/
+`database_backup_cli.py`'s established shape exactly.
+
+`catalog_export_cli.py` - lightweight, all-book metadata (zero `Pages`
+rows, so it stays small enough to ship whole to a phone). Real
+production run: 102,532 books, 11 libraries, **9.4MB**, in well under a
+second - "small enough" measured for real against the actual database,
+not assumed.
+
+`book_package_export_cli.py` - one whole book's real pages, chapters,
+and metadata, self-contained. Real production run against BookID 1328
+("عبادت"): 5 pages, 35 chapters, 0.14MB. Reads `Books`/`Libraries`/
+`Pages`/`Chapters` directly rather than through `BookBrowserRepository`
+- its `get_book_detail()` doesn't select `HadeesNumber`/`AyahNumber` or
+the raw `LibraryID`/`SeriesID`/`PublishYear` this package needs, so a
+direct query was more honest than forcing a reuse that would silently
+drop real data.
+
+Both tools write real, self-contained SQLite files (not JSON) - the
+mobile app will query them directly with Room, no serialization layer
+needed - and both guard for `Books.SeriesID`/`VolumeNumber` not
+existing yet on an unmigrated database (a real bug caught by the new
+tests: a freshly-imported test database doesn't have these
+migration-added columns), mirroring `BookBrowserRepository.
+_has_series_support()`'s exact guard rather than assuming a fully
+current schema. 10 new tests.
+
+**Deliberately not started this pass**: the Android app itself. No
+mobile dev tooling exists on this machine (`flutter`/`dart`/`gradle`/
+`kotlinc`/`adb`/`java` all confirmed absent) - real setup needed before
+any Kotlin can be built or run, sequenced as its own next step.
+
 ## Real UX fix: navigation rail regrouped into tabs (15 icons was too many)
 
 Reported directly by the user: the left navigation rail had grown to 15

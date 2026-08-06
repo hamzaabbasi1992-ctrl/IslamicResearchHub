@@ -1296,14 +1296,41 @@ shape (two independent services, not one). Exports straight to a real
 milestones' document types are now shipped; this phase's original scope
 is complete.
 
-### Phase 18 — Mobile companion app: **scheduled after Phase 17, not started**
+### Phase 18 — Mobile companion app: **Milestone 1, desktop half done**
 
 The project's own stated goal already names this ("Windows desktop app
 first, Android app later" - see Goal, above) - this phase is that
-"later" spelled out for real: an offline mobile library, camera-based
-OCR capture, and bookmark/download sync with the desktop app's
-database. A materially different platform/tech stack from the current
-PySide6 desktop app, not a small extension of it.
+"later" started for real. A materially different platform/tech stack
+from the current PySide6 desktop app (Android, Kotlin - decided after
+real research: Android-only means Flutter's cross-platform payoff is
+zero, and every real capability needed - Room/SQLite, Storage Access
+Framework, later ML Kit OCR - is Google's own first-party Android
+surface with native Kotlin support, not a plugin-wrapped one), not a
+small extension of it. User's explicit scope decisions: Android only
+(not iOS); the phone can't hold the desktop's 156GB+ corpus, so the
+user browses a lightweight catalog and picks specific books to have
+offline rather than mirroring everything; camera OCR is a *search*
+lookup tool for existing content, not a way to add new books.
+
+**Milestone 1 (desktop half done, mobile half not started)**: proves
+the whole pipeline's data contract before writing any Kotlin. Two new
+CLI tools, `catalog_export_cli.py` (lightweight, all-book metadata, zero
+page content - real production run: 102,532 books, 11 libraries, 9.4MB)
+and `book_package_export_cli.py` (one whole book's real pages/chapters/
+metadata, self-contained - real production run against BookID 1328,
+"عبادت": 5 pages, 35 chapters, 0.14MB), each producing a real SQLite
+file (not JSON) the mobile app will query directly with Room, no
+serialization layer needed. Both guard for `Books.SeriesID`/
+`VolumeNumber` not existing yet on an unmigrated database, mirroring
+`BookBrowserRepository._has_series_support()`'s exact pattern. The
+Android app itself (Jetpack Compose + Room, catalog browse/search,
+book-package import via the system file picker, an offline reader) is
+deliberately not started yet - no mobile dev tooling exists on this
+machine (confirmed: no flutter/dart/gradle/kotlinc/adb/java installed),
+sequenced as its own next step once Android Studio is set up. Live
+network sync (extending `web_app.py`), camera OCR search, and bookmark
+sync back to the desktop all remain explicitly deferred to later
+milestones, not attempted here.
 
 ### Phase 19 — Developer APIs: **scheduled after Phase 18, not started**
 

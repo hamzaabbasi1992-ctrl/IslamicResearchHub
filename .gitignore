@@ -41,6 +41,7 @@ docs/duplicate_analysis/same_library_page_count_duplicates_removed_backup.json
 library/
 data/staging/
 data/backups/
+data/exports/
 installation/
 build_temp/
 
