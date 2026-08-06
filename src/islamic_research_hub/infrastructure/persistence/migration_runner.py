@@ -817,6 +817,35 @@ def _add_collections(connection: sqlite3.Connection) -> None:
     )
 
 
+def _add_saved_searches(connection: sqlite3.Connection) -> None:
+    """Add a SavedSearches table (Phase 14 deferred scope: saved
+    searches), additive and empty.
+
+    Every real filter `SearchScreen._run_search()` sends downstream is
+    its own column, so re-running a saved search reproduces the exact
+    same real search - not a partial approximation that drops the
+    library/author/category/exact/scope/search_target state a real user
+    actually had set when they saved it.
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS SavedSearches (
+            SavedSearchID INTEGER PRIMARY KEY,
+            Name TEXT NOT NULL,
+            Query TEXT NOT NULL,
+            Library TEXT,
+            Author TEXT,
+            Category TEXT,
+            ExactMatch INTEGER NOT NULL DEFAULT 0,
+            Scope TEXT NOT NULL DEFAULT 'content',
+            SearchTarget TEXT NOT NULL DEFAULT 'both',
+            CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_searches_name ON SavedSearches(Name);
+        """
+    )
+
+
 BASELINE_VERSION = 1
 AUTHORS_VERSION = 2
 CATEGORIES_VERSION = 3
@@ -834,6 +863,7 @@ HADEES_AND_AYAH_NUMBERS_VERSION = 14
 BOOKS_SEARCH_INDEX_VERSION = 15
 DROP_UNUSED_PARAGRAPHS_SEARCH_INDEX_VERSION = 16
 COLLECTIONS_VERSION = 17
+SAVED_SEARCHES_VERSION = 18
 
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(
@@ -941,6 +971,12 @@ MIGRATIONS: tuple[Migration, ...] = (
         "Add Collections and CollectionItems tables (Phase 14 Milestone "
         "1: personal research workspace), additive and empty.",
         _add_collections,
+    ),
+    Migration(
+        SAVED_SEARCHES_VERSION,
+        "Add a SavedSearches table (Phase 14 deferred scope: saved "
+        "searches), additive and empty.",
+        _add_saved_searches,
     ),
 )
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## Phase 14, Milestone 2: Saved searches
+
+Search screen can now save a real named search - the query plus every
+active filter (library, author, category, exact-match, scope, search
+target) - and re-run it later with one click. Same additive-migration
+discipline as Milestone 1's Collections: migration 18 adds a
+`SavedSearches` table (unique index on `Name`, no foreign keys - a
+saved search is a snapshot of filter values, not a reference to
+results). New `SavedSearchRepository` mirrors `CollectionRepository`'s
+exact shape, including the honest no-op degrade on a pre-migration
+database.
+
+Two new toolbar buttons: Save Search (rejects a duplicate name with a
+warning instead of silently overwriting, and asks the user to run a
+search first if nothing has run yet) and Saved Searches (a dialog
+listing every saved search with Run/Delete actions). Running a saved
+search blocks each restored filter widget's own auto-rerun signal
+before repopulating it, so restoring five filters fires the search
+exactly once, not five times.
+
+8 new UI tests (`test_search_screen.py`) plus the existing 9 repository
+tests and 41 migration tests. Full suite: 1224 passed, no regressions.
+Saved AI conversations (the other half of Phase 14's remaining scope)
+is still open, not missed.
+
 ## Phase 18: Mobile companion app - Milestone 1 (desktop export half)
 
 Starts the project's own long-stated goal ("Windows desktop app first,

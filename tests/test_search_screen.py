@@ -1133,3 +1133,207 @@ def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> No
     assert screen._library_combo.itemText(0) == "تمام مکاتب"
     assert screen._exact_match_checkbox.text() == "عین مطابق"
     assert screen._status_label.text() == "تلاش کریں، یا براؤز کرنے کے لیے کوئی مخصوص زمرہ/مصنف/لائبریری منتخب کریں۔"
+
+
+def _migrated_database(tmp_path: Path) -> Path:
+    """A real, fully-migrated database with one real searchable book."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+    return database_path
+
+
+def test_save_search_button_prompts_to_run_a_search_first_when_none_has_run(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    info_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QMessageBox.information",
+        staticmethod(lambda *a, **k: info_calls.append(a)),
+    )
+
+    screen._on_save_search_clicked()
+
+    assert len(info_calls) == 1
+    from islamic_research_hub.infrastructure.persistence.saved_search_repository import (
+        SavedSearchRepository,
+    )
+
+    assert SavedSearchRepository(database_path).list_searches() == ()
+
+
+def test_saving_a_search_persists_every_real_active_filter(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.infrastructure.persistence.saved_search_repository import (
+        SavedSearchRepository,
+    )
+
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    screen._author_edit.setText("Author One")
+    screen._exact_match_checkbox.setChecked(True)
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QInputDialog.getText",
+        staticmethod(lambda *a, **k: ("My saved search", True)),
+    )
+
+    screen._on_save_search_clicked()
+
+    saved = SavedSearchRepository(database_path).list_searches()
+    assert len(saved) == 1
+    assert saved[0].name == "My saved search"
+    assert saved[0].query == "jurisprudence"
+    assert saved[0].author == "Author One"
+    assert saved[0].exact is True
+
+
+def test_saving_a_search_with_a_taken_name_shows_a_warning(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    screen._saved_searches.save_search(
+        "My saved search", "fasting", None, None, None, False, "content", "both"
+    )
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QInputDialog.getText",
+        staticmethod(lambda *a, **k: ("My saved search", True)),
+    )
+    warning_calls = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QMessageBox.warning",
+        staticmethod(lambda *a, **k: warning_calls.append(a)),
+    )
+
+    screen._on_save_search_clicked()
+
+    assert len(warning_calls) == 1
+
+
+def test_cancelling_the_name_prompt_saves_nothing(qtbot, tmp_path: Path, monkeypatch) -> None:
+    from islamic_research_hub.infrastructure.persistence.saved_search_repository import (
+        SavedSearchRepository,
+    )
+
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    qtbot.keyClicks(screen._query_edit, "jurisprudence")
+    qtbot.keyClick(screen._query_edit, Qt.Key.Key_Return)
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QInputDialog.getText",
+        staticmethod(lambda *a, **k: ("", False)),
+    )
+
+    screen._on_save_search_clicked()
+
+    assert SavedSearchRepository(database_path).list_searches() == ()
+
+
+def test_running_a_saved_search_restores_every_real_filter_and_reruns(
+    qtbot, tmp_path: Path
+) -> None:
+    from islamic_research_hub.domain.models.saved_search import SavedSearch
+
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    saved = SavedSearch(
+        saved_search_id=1,
+        name="Real saved search",
+        query="jurisprudence",
+        library=None,
+        author="Author One",
+        category=None,
+        exact=True,
+        scope="content",
+        search_target="both",
+        created_at="2026-08-06",
+    )
+
+    screen._run_saved_search(saved)
+
+    assert screen._query_edit.text() == "jurisprudence"
+    assert screen._author_edit.text() == "Author One"
+    assert screen._exact_match_checkbox.isChecked() is True
+    assert "1 content result" in screen._status_label.text()
+
+
+def test_saved_searches_dialog_shows_the_real_empty_state(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+
+    screen._on_view_saved_searches_clicked()
+
+    assert len(shown_dialogs) == 1
+    labels = [label.text() for label in shown_dialogs[0].findChildren(QLabel)]
+    assert any("No saved searches yet" in text for text in labels)
+
+
+def test_saved_searches_dialog_lists_real_saved_searches(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    screen._saved_searches.save_search(
+        "Real saved search", "fasting", None, None, None, False, "content", "both"
+    )
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+
+    screen._on_view_saved_searches_clicked()
+
+    labels = [label.text() for label in shown_dialogs[0].findChildren(QLabel)]
+    assert "Real saved search" in labels
+
+
+def test_deleting_a_saved_search_from_the_dialog_removes_it(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    from islamic_research_hub.infrastructure.persistence.saved_search_repository import (
+        SavedSearchRepository,
+    )
+
+    database_path = _migrated_database(tmp_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+    repository = SavedSearchRepository(database_path)
+    saved_id = repository.save_search(
+        "Real saved search", "fasting", None, None, None, False, "content", "both"
+    )
+    shown_dialogs = []
+    monkeypatch.setattr(
+        "islamic_research_hub.interfaces.desktop_app.search_screen.QDialog.exec",
+        lambda self: shown_dialogs.append(self) or None,
+    )
+    screen._on_view_saved_searches_clicked()
+    delete_button = next(
+        b for b in shown_dialogs[0].findChildren(QPushButton) if b.text() == "Delete"
+    )
+
+    delete_button.click()
+
+    assert repository.list_searches() == ()

@@ -11,8 +11,10 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QCompleter,
+    QDialog,
     QFrame,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -34,6 +36,7 @@ from islamic_research_hub.application.voice_transcription import VoiceSearchServ
 from islamic_research_hub.domain.models.book_metadata import BookMetadata
 from islamic_research_hub.domain.models.book_summary import BookSummary
 from islamic_research_hub.domain.models.category_node import CategoryNode
+from islamic_research_hub.domain.models.saved_search import SavedSearch
 from islamic_research_hub.domain.models.search_result import SearchResult
 from islamic_research_hub.domain.models.semantic_search_result import SemanticSearchResult
 from islamic_research_hub.infrastructure.audio.pcm_conversion import pcm16_bytes_to_samples
@@ -46,6 +49,10 @@ from islamic_research_hub.infrastructure.persistence.book_rating_repository impo
 )
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
+)
+from islamic_research_hub.infrastructure.persistence.saved_search_repository import (
+    SavedSearchNameTakenError,
+    SavedSearchRepository,
 )
 from islamic_research_hub.infrastructure.persistence.sqlite_book_search_repository import (
     BookSearchError,
@@ -129,6 +136,7 @@ class SearchScreen(QWidget):
         enable_lazy_semantic_search: bool = False,
         recent_search_store: RecentSearchStore | None = None,
         enable_lazy_voice_search: bool = False,
+        saved_searches: SavedSearchRepository | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -155,6 +163,7 @@ class SearchScreen(QWidget):
         self._recent_searches = recent_search_store or RecentSearchStore(
             QSettings(SETTINGS_ORGANIZATION, SETTINGS_APPLICATION)
         )
+        self._saved_searches = saved_searches or SavedSearchRepository(database_path)
         self._selected_card_index = -1
         self._detail_panel_animation = None
         self._collapsed = False
@@ -220,6 +229,8 @@ class SearchScreen(QWidget):
         for index, key in enumerate(("search-scope-main", "search-scope-footnotes", "search-scope-both")):
             self._scope_combo.setItemText(index, tr(key))
         self._scope_combo.setToolTip(tr("search-scope-tooltip"))
+        self._save_search_button.setToolTip(tr("search-save-search-tooltip"))
+        self._saved_searches_button.setToolTip(tr("search-saved-searches-tooltip"))
         self._detail_toggle_button.setToolTip(tr("search-detail-toggle-tooltip"))
         self._detail_maximize_button.setToolTip(tr("search-detail-maximize-tooltip"))
         self._collapse_self_button.setToolTip(tr("search-collapse-panel-tooltip"))
@@ -612,6 +623,24 @@ class SearchScreen(QWidget):
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         filter_row_2.addWidget(self._scope_combo)
         filter_row_2.addStretch(1)
+
+        self._save_search_button = QPushButton()
+        self._save_search_button.setFlat(True)
+        self._save_search_button.setIcon(button_icon("star"))
+        self._save_search_button.setIconSize(button_icon_size())
+        self._save_search_button.setToolTip(self._translator.tr("search-save-search-tooltip"))
+        self._save_search_button.clicked.connect(self._on_save_search_clicked)
+        filter_row_2.addWidget(self._save_search_button)
+
+        self._saved_searches_button = QPushButton()
+        self._saved_searches_button.setFlat(True)
+        self._saved_searches_button.setIcon(button_icon("clock"))
+        self._saved_searches_button.setIconSize(button_icon_size())
+        self._saved_searches_button.setToolTip(
+            self._translator.tr("search-saved-searches-tooltip")
+        )
+        self._saved_searches_button.clicked.connect(self._on_view_saved_searches_clicked)
+        filter_row_2.addWidget(self._saved_searches_button)
 
         self._detail_toggle_button = QPushButton()
         self._detail_toggle_button.setCheckable(True)
@@ -1012,6 +1041,104 @@ class SearchScreen(QWidget):
     def _on_transcription_failed(self) -> None:
         self._mic_button.setEnabled(True)
         self._status_label.setText(self._translator.tr("search-mic-transcribe-failed"))
+
+    def _on_save_search_clicked(self) -> None:
+        """Save the current real query + every real active filter, so
+        re-running it later reproduces the exact same search - only
+        possible once a real search has actually run (`_current_query`
+        is empty otherwise)."""
+        if not self._current_query:
+            QMessageBox.information(
+                self,
+                self._translator.tr("search-save-search-tooltip"),
+                self._translator.tr("search-save-search-run-first"),
+            )
+            return
+        name, confirmed = QInputDialog.getText(
+            self,
+            self._translator.tr("search-save-search-tooltip"),
+            self._translator.tr("search-save-search-name-prompt"),
+        )
+        if not confirmed or not name.strip():
+            return
+        library = self._library_combo.currentText()
+        library = None if library == self._translator.tr("all-libraries") else library
+        try:
+            self._saved_searches.save_search(
+                name,
+                self._current_query,
+                library,
+                self._author_edit.text().strip() or None,
+                self._category_edit.text().strip() or None,
+                self._exact_match_checkbox.isChecked(),
+                self._scope_combo.currentData(),
+                self._search_target_combo.currentData(),
+            )
+        except SavedSearchNameTakenError as error:
+            QMessageBox.warning(self, self._translator.tr("search-save-search-tooltip"), str(error))
+
+    def _on_view_saved_searches_clicked(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._translator.tr("search-saved-searches-tooltip"))
+        dialog.resize(420, 360)
+        layout = QVBoxLayout(dialog)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        layout.addWidget(scroll_area, stretch=1)
+        close_button = QPushButton(self._translator.tr("common-close"))
+        close_button.clicked.connect(dialog.close)
+        layout.addWidget(close_button)
+
+        def _refresh() -> None:
+            content = QWidget()
+            content_layout = QVBoxLayout(content)
+            saved_searches = self._saved_searches.list_searches()
+            if not saved_searches:
+                content_layout.addWidget(QLabel(self._translator.tr("search-saved-searches-empty")))
+            for saved in saved_searches:
+                content_layout.addWidget(_build_saved_search_row(saved, self._translator, _run, _delete))
+            content_layout.addStretch(1)
+            scroll_area.setWidget(content)
+
+        def _run(saved: SavedSearch) -> None:
+            dialog.close()
+            self._run_saved_search(saved)
+
+        def _delete(saved_search_id: int) -> None:
+            self._saved_searches.delete_search(saved_search_id)
+            _refresh()
+
+        _refresh()
+        dialog.exec()
+
+    def _run_saved_search(self, saved: SavedSearch) -> None:
+        """Repopulate every real filter from a saved search, then run it -
+        signals on the auto-rerunning filter widgets are blocked while
+        restoring so this fires exactly one real search, not one per
+        widget touched along the way."""
+        self._query_edit.setText(saved.query)
+        if saved.library is not None:
+            index = self._library_combo.findText(saved.library)
+            self._library_combo.setCurrentIndex(index if index >= 0 else 0)
+        else:
+            self._library_combo.setCurrentIndex(0)
+        self._author_edit.setText(saved.author or "")
+        self._category_edit.setText(saved.category or "")
+
+        for widget in (self._exact_match_checkbox, self._scope_combo, self._search_target_combo):
+            widget.blockSignals(True)
+        try:
+            self._exact_match_checkbox.setChecked(saved.exact)
+            scope_index = self._scope_combo.findData(saved.scope)
+            if scope_index >= 0:
+                self._scope_combo.setCurrentIndex(scope_index)
+            target_index = self._search_target_combo.findData(saved.search_target)
+            if target_index >= 0:
+                self._search_target_combo.setCurrentIndex(target_index)
+        finally:
+            for widget in (self._exact_match_checkbox, self._scope_combo, self._search_target_combo):
+                widget.blockSignals(False)
+        self._run_search()
 
     def _browse_by_filters(
         self, library: str | None, author: str | None, category: str | None
@@ -1528,6 +1655,29 @@ class SearchScreen(QWidget):
                 self._detail_layout.addWidget(pdf_button)
 
         self._detail_layout.addStretch(1)
+
+
+def _build_saved_search_row(
+    saved: SavedSearch,
+    translator: Translator,
+    on_run,
+    on_delete,
+) -> QWidget:
+    """One real saved search's row in the Saved Searches dialog - its
+    name, a Run action, and a Delete action."""
+    row = QWidget()
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    name_label = QLabel(saved.name)
+    name_label.setWordWrap(True)
+    layout.addWidget(name_label, stretch=1)
+    run_button = QPushButton(translator.tr("common-run"))
+    run_button.clicked.connect(lambda: on_run(saved))
+    layout.addWidget(run_button)
+    delete_button = QPushButton(translator.tr("common-delete"))
+    delete_button.clicked.connect(lambda: on_delete(saved.saved_search_id))
+    layout.addWidget(delete_button)
+    return row
 
 
 def _pane_title(text: str) -> QLabel:

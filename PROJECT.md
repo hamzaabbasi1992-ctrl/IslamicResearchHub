@@ -1160,7 +1160,7 @@ conversational-loop verification (tool-calling against the actual
 corpus) is still pending final confirmation once the key restriction
 fix takes effect.
 
-### Phase 14 — Personal research workspace: **Milestone 1 done**
+### Phase 14 — Personal research workspace: **Milestone 2 done**
 
 Folders, collections, saved searches, saved AI conversations, and
 export tools, built on top of Phase 5's existing bookmarks/recent-books
@@ -1183,6 +1183,23 @@ dependency `docx_writer.py` already uses) with each item's real page
 content and citation. Saved searches and saved AI conversations are
 still out of scope for this milestone, not missed - Collections was the
 concrete, well-scoped first piece.
+
+**Milestone 2 (done)**: real named Saved Searches on the Search screen,
+same additive-migration discipline as Milestone 1 (migration 18:
+`SavedSearches`, unique index on `Name`, no foreign keys to any other
+table - a saved search is just a snapshot of filter values, not a
+reference to results). New `SavedSearchRepository` mirrors
+`CollectionRepository`'s exact shape (save/list/delete, honest no-op
+degrade via `_table_exists()` on a pre-migration database). Search
+screen gained a Save Search button (captures the real active query +
+library/author/category/exact-match/scope/search-target filters,
+rejects a duplicate name with a warning instead of silently
+overwriting) and a Saved Searches dialog (list/Run/Delete). Running a
+saved search restores every filter and re-runs the search exactly
+once - restoring filters blocks each widget's own auto-rerun signal
+first, so re-populating five filters doesn't fire five redundant
+searches. Saved AI conversations remain open within this phase, not
+missed - saved searches was the next concrete, well-scoped piece.
 
 ### Phase 15 — Educational features: **Milestone 2 done**
 
