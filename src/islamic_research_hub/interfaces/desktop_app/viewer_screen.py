@@ -44,7 +44,6 @@ from islamic_research_hub.interfaces.desktop_app.animations import animate_split
 from islamic_research_hub.interfaces.desktop_app.empty_state import EmptyStateLabel
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
-from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import (
     DEFAULT_FONT_CHOICE,
     FONT_CHOICES,
@@ -221,13 +220,19 @@ class ViewerScreen(QWidget):
         self._contents_button.setToolTip(self._translator.tr("viewer-contents-tooltip"))
         self._contents_button.toggled.connect(self._on_contents_toggled)
         toolbar.addWidget(self._contents_button)
-
-        self._nav_maximize_button = QPushButton()
-        self._nav_maximize_button.setIcon(button_icon("maximize"))
-        self._nav_maximize_button.setIconSize(button_icon_size())
-        self._nav_maximize_button.setToolTip(self._translator.tr("viewer-nav-maximize-tooltip"))
-        self._nav_maximize_button.clicked.connect(self._on_nav_maximize_clicked)
-        toolbar.addWidget(self._nav_maximize_button)
+        # Real bug fixed here: a dedicated "maximize this panel" button
+        # used to sit here, sharing `PanelToggle`'s hide-every-sibling
+        # behavior with the AI/detail panels - correct for those (a
+        # secondary panel gaining the whole splitter briefly), but not
+        # for the reader's own TOC: it drove the real page text's width
+        # to a real, forced 0px, reported directly as "when I open TOC
+        # the reader text gets hidden, I need to minimize TOC to see
+        # text." A table of contents has no real use case for hiding the
+        # very text it navigates, so the button (and the underlying
+        # `PanelToggle` instance) is removed rather than reworked - the
+        # existing Contents collapse/expand toggle plus manually dragging
+        # the splitter handle (capped at 360px) already cover "I want to
+        # see more of the TOC" without destroying the reading pane.
         toolbar.addWidget(_toolbar_separator())
 
         self._prev_button = QPushButton()
@@ -390,7 +395,6 @@ class ViewerScreen(QWidget):
         self._body_splitter.setCollapsible(1, False)
         self._body_splitter.setSizes([NAV_PANEL_WIDTH, 1])
         reader_layout.addWidget(self._body_splitter, stretch=1)
-        self._nav_panel_toggle = PanelToggle(self._body_splitter, index=0, expanded_width=NAV_PANEL_WIDTH)
 
         layout.addWidget(self._reader, stretch=1)
         self._apply_font_size()
@@ -414,7 +418,6 @@ class ViewerScreen(QWidget):
         self._pdf_fallback_button.setText(self._translator.tr("viewer-open-scanned-pdf"))
         self._contents_button.setText(self._translator.tr("viewer-contents"))
         self._contents_button.setToolTip(self._translator.tr("viewer-contents-tooltip"))
-        self._nav_maximize_button.setToolTip(self._translator.tr("viewer-nav-maximize-tooltip"))
         self._prev_button.setToolTip(self._translator.tr("viewer-prev-tooltip"))
         self._next_button.setToolTip(self._translator.tr("viewer-next-tooltip"))
         self._bookmark_button.setToolTip(self._translator.tr("common-bookmark-this-page"))
@@ -507,17 +510,6 @@ class ViewerScreen(QWidget):
     def _on_contents_toggled(self, checked: bool) -> None:
         target = NAV_PANEL_WIDTH if checked else 0
         self._nav_panel_animation = animate_splitter_size(self._body_splitter, index=0, end=target)
-
-    def _on_nav_maximize_clicked(self) -> None:
-        """Maximize/restore the contents/bookmarks panel - if it's
-        currently collapsed, expand it first so maximizing always shows
-        something real rather than a maximized-but-invisible panel."""
-        if not self._contents_button.isChecked():
-            self._contents_button.setChecked(True)
-        self._nav_panel_toggle.toggle_maximized()
-        self._nav_maximize_button.setIcon(
-            button_icon("restore" if self._nav_panel_toggle.is_maximized else "maximize")
-        )
 
     def _on_toc_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
         page_number = item.data(0, Qt.ItemDataRole.UserRole)

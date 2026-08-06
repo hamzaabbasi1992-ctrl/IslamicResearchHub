@@ -1164,41 +1164,28 @@ def test_bookmarking_a_page_replaces_the_bookmarks_empty_state(
     assert screen._bookmarks_list.item(0).text() == "Book of Fiqh, Page 1"
 
 
-def test_nav_panel_maximize_grows_it_and_shrinks_the_reader(qtbot, tmp_path: Path) -> None:
+def test_expanding_toc_never_hides_the_real_reading_content(qtbot, tmp_path: Path) -> None:
+    """Real bug reported directly: a "maximize the TOC panel" control
+    used to hide the reader's own page text entirely (forced the content
+    pane's width to 0) - "I have to minimize TOC to see text again."
+    The control has been removed; this guards the underlying behavior -
+    opening/expanding Contents must never force real reading content to
+    a real 0px width."""
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     screen = ViewerScreen(database_path, _translator(tmp_path))
     qtbot.addWidget(screen)
     screen.resize(1000, 600)
     screen.load_book(1)
-    initial_nav_width = screen._body_splitter.sizes()[0]
 
-    screen._on_nav_maximize_clicked()
-
-    assert screen._nav_panel_toggle.is_maximized is True
-    assert screen._body_splitter.sizes()[0] > initial_nav_width
-
-    screen._on_nav_maximize_clicked()
-
-    assert screen._nav_panel_toggle.is_maximized is False
-    assert screen._body_splitter.sizes()[0] == initial_nav_width
-
-
-def test_nav_panel_maximize_expands_it_first_if_collapsed(qtbot, tmp_path: Path) -> None:
-    database_path = tmp_path / "books.db"
-    _seed_database(database_path)
-    screen = ViewerScreen(database_path, _translator(tmp_path))
-    qtbot.addWidget(screen)
-    screen.resize(1000, 600)
-    screen.load_book(1)
     screen._contents_button.setChecked(False)
     screen._nav_panel_animation.setCurrentTime(1000)
-    assert screen._body_splitter.sizes()[0] < 10
+    screen._contents_button.setChecked(True)
+    screen._nav_panel_animation.setCurrentTime(1000)
 
-    screen._on_nav_maximize_clicked()
-
-    assert screen._contents_button.isChecked() is True
-    assert screen._body_splitter.sizes()[0] > 100
+    assert screen._body_splitter.sizes()[1] > 0
+    assert not hasattr(screen, "_nav_panel_toggle")
+    assert not hasattr(screen, "_on_nav_maximize_clicked")
 
 
 def test_bookmark_row_includes_volume_when_the_book_has_one(qtbot, tmp_path: Path) -> None:

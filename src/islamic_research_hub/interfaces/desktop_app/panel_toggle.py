@@ -1,14 +1,19 @@
 """Reusable "maximize" controller for one QSplitter segment.
 
-Written once instead of duplicated per screen - the AI panel, the
-reader's TOC/Bookmarks panel, and the Search screen's detail panel all
-use this for maximize/restore. Collapse is deliberately left to each
-screen's own existing, already-working collapse implementation (the AI
-panel's `set_collapsed`, ViewerScreen's `_on_contents_toggled`,
-SearchScreen's `_on_detail_panel_toggled`) rather than retrofitted onto
-this class - those are proven, tested code paths, not worth the
-regression risk of replacing for the sake of using one shared class for
-both behaviors.
+Written once instead of duplicated per screen - the AI panel and the
+Search screen's detail panel both use this for maximize/restore.
+ViewerScreen's reader/TOC split deliberately does NOT use this class:
+maximizing a segment hides every real sibling (see `set_maximized()`
+below), which is fine for a secondary panel (AI chat, book detail) but
+was a real, reported bug when applied to the reader's own TOC - it
+drove the actual page text to a real 0px width ("I have to minimize TOC
+to see my reading text"). Collapse (as opposed to maximize) is
+deliberately left to each screen's own existing, already-working
+collapse implementation (the AI panel's `set_collapsed`, ViewerScreen's
+`_on_contents_toggled`, SearchScreen's `_on_detail_panel_toggled`)
+rather than retrofitted onto this class - those are proven, tested code
+paths, not worth the regression risk of replacing for the sake of using
+one shared class for both behaviors.
 """
 
 from __future__ import annotations
