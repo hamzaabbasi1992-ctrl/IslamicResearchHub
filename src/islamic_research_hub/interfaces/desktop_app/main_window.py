@@ -317,6 +317,7 @@ class MainWindow(QMainWindow):
             )
 
             self._search_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            self._search_screen.ai_quick_ask_requested.connect(self._on_ai_quick_ask_requested)
             self._import_screen = ImportScreen(database_path, self._translator)
             self._import_screen.library_imported.connect(self._on_library_imported)
             duplicate_manager_screen = DuplicateManagerScreen(database_path, self._translator)
@@ -759,6 +760,17 @@ class MainWindow(QMainWindow):
     def _on_explain_answer_ready(self, passage: str, answer: str) -> None:
         if self._viewer_screen is not None:
             self._viewer_screen.show_explanation(passage, answer)
+
+    def _on_ai_quick_ask_requested(self, question: str) -> None:
+        """A real question asked from the Search screen's empty detail
+        pane - expand the real AI panel (if currently collapsed) and ask
+        it there, reusing its own lazy-build/pre-flight/worker logic
+        rather than duplicating it in a second, narrower box."""
+        if self._ai_panel is None:
+            return
+        if self._ai_panel.is_collapsed:
+            self._ai_panel.set_collapsed(False)
+        self._ai_panel.ask(question)
 
     def _on_language_changed(self, _language: str) -> None:
         """Update rail labels and mirror the whole app's layout for the new language."""

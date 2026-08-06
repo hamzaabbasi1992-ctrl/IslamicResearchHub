@@ -208,6 +208,15 @@ class AiAssistantPanel(QWidget):
             else self._translator.tr("ai-panel-ask-placeholder-disabled")
         )
 
+    def ask(self, question: str) -> None:
+        """Ask a real question programmatically - the same real path as
+        typing into the box and clicking Ask, for callers elsewhere in
+        the app (the Search screen's quick-ask box) that want to start a
+        real conversation in this panel rather than duplicating its
+        lazy-build/pre-flight/worker logic."""
+        self._question_edit.setText(question)
+        self._on_ask_clicked()
+
     def _on_ask_clicked(self) -> None:
         question = self._question_edit.text().strip()
         if not question:

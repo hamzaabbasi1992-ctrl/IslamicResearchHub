@@ -896,6 +896,37 @@ def test_search_box_has_a_completer_seeded_from_authors_and_recent_searches(
     assert "a prior search" in suggestions
 
 
+def test_empty_detail_pane_offers_a_real_quick_ask_box(qtbot, tmp_path: Path) -> None:
+    """Real, repeatedly reported gap: the detail pane before anything is
+    selected used to be one long empty box - the bottom half now hosts a
+    real, working quick-start into the AI Agent instead of sitting idle."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+
+    received = []
+    screen.ai_quick_ask_requested.connect(received.append)
+    screen._quick_ask_edit.setText("What does this library say about patience?")
+    screen._on_quick_ask_clicked()
+
+    assert received == ["What does this library say about patience?"]
+    assert screen._quick_ask_edit.text() == ""  # cleared after asking
+
+
+def test_quick_ask_with_blank_text_does_nothing(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = SearchScreen(database_path, tmp_path / "maknoon_pdfs", _translator(tmp_path))
+    qtbot.addWidget(screen)
+
+    received = []
+    screen.ai_quick_ask_requested.connect(received.append)
+    screen._on_quick_ask_clicked()
+
+    assert received == []
+
+
 def test_detail_panel_toggle_collapses_and_expands(qtbot, tmp_path: Path) -> None:
     """UI Polish Pass 2: the detail (right) pane can be collapsed to free
     width for the reader/results, mirroring ViewerScreen's existing TOC

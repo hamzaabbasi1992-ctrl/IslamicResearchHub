@@ -105,6 +105,11 @@ class SearchScreen(QWidget):
     """Browse categories/authors, search the master database, view a result's details."""
 
     open_in_viewer_requested = Signal(int, int)  # book_id, page_number
+    ai_quick_ask_requested = Signal(str)  # question
+    """A real question asked from the empty detail pane's quick-ask box -
+    `MainWindow` forwards it into the real `AiAssistantPanel` (expanding
+    it if collapsed) rather than this screen duplicating the AI Agent's
+    lazy-build/pre-flight/worker logic."""
     collapsed_changed = Signal(bool)
     """This whole screen's collapsed state, as embedded in `WorkspaceScreen`'s
     outer splitter - mirrors `AiAssistantPanel`'s own `collapsed_changed`
@@ -1396,13 +1401,47 @@ class SearchScreen(QWidget):
         self.collapsed_changed.emit(collapsed)
 
     def _show_detail_empty_state(self) -> None:
-        """The detail pane before anything is selected - a real message,
-        not a blank rectangle."""
+        """The detail pane before anything is selected - real content in
+        both halves, not one long blank rectangle: the top half explains
+        what will show up here once a result is selected, the bottom
+        half is a real, working quick-start into the AI Agent (reused,
+        not duplicated - see `_on_quick_ask_clicked`) so the otherwise-
+        idle space does something useful.
+        """
         self._detail_panel_is_empty = True
         self._detail_layout.addWidget(
-            EmptyStateLabel(self._translator.tr("search-detail-empty-state"), centered=True)
+            EmptyStateLabel(self._translator.tr("search-detail-empty-state"), centered=True),
+            stretch=1,
         )
-        self._detail_layout.addStretch(1)
+
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        self._detail_layout.addWidget(divider)
+
+        quick_ask_container = QWidget()
+        quick_ask_layout = QVBoxLayout(quick_ask_container)
+        quick_ask_layout.setContentsMargins(0, 0, 0, 0)
+        quick_ask_layout.setSpacing(Spacing.XS)
+        heading = _pane_title(self._translator.tr("search-quick-ask-heading"))
+        quick_ask_layout.addWidget(heading)
+        self._quick_ask_edit = QLineEdit()
+        self._quick_ask_edit.setPlaceholderText(
+            self._translator.tr("search-quick-ask-placeholder")
+        )
+        self._quick_ask_edit.returnPressed.connect(self._on_quick_ask_clicked)
+        quick_ask_layout.addWidget(self._quick_ask_edit)
+        self._quick_ask_button = QPushButton(self._translator.tr("search-quick-ask-button"))
+        self._quick_ask_button.setObjectName("primaryButton")
+        self._quick_ask_button.clicked.connect(self._on_quick_ask_clicked)
+        quick_ask_layout.addWidget(self._quick_ask_button)
+        self._detail_layout.addWidget(quick_ask_container, stretch=1)
+
+    def _on_quick_ask_clicked(self) -> None:
+        question = self._quick_ask_edit.text().strip()
+        if not question:
+            return
+        self._quick_ask_edit.clear()
+        self.ai_quick_ask_requested.emit(question)
 
     def _on_rating_changed(self, book_id: int) -> None:
         value = self._rating_combo.currentData()

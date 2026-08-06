@@ -1,5 +1,17 @@
 # Changelog
 
+## Quick-ask AI box in Search's empty detail pane
+
+Repeatedly reported: the detail pane before selecting a result used to
+be one long empty box. `SearchScreen._show_detail_empty_state()` now
+splits it - the existing placeholder stays on top, a real, working
+"Ask the AI Assistant" quick-start box on the bottom. Submitting a
+question emits `ai_quick_ask_requested`; `MainWindow` expands the real
+`AiAssistantPanel` (if collapsed) and calls its answer there via a new
+public `AiAssistantPanel.ask()` method, rather than duplicating the
+panel's own lazy-build/pre-flight/worker logic in a second, narrower
+box. 4 new tests (2 `SearchScreen`, 1 `MainWindow`, 1 `AiAssistantPanel`).
+
 ## Real bug fix: Gemini provider's default model didn't exist
 
 Found via the first real live-key test of the AI Agent against Gemini

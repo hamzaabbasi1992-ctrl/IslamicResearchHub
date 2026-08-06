@@ -65,6 +65,26 @@ def test_main_window_constructs_with_home_screen_active(qtbot, tmp_path: Path) -
     assert window._stack.currentIndex() == 0
 
 
+def test_ai_quick_ask_expands_the_panel_and_forwards_the_question(
+    qtbot, tmp_path: Path
+) -> None:
+    """The Search screen's quick-ask box reuses the real AI panel's own
+    ask() rather than duplicating its lazy-build/pre-flight logic -
+    expands the panel if collapsed, then asks the real question there."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+    window._ai_panel.set_collapsed(True)
+    asked = []
+    window._ai_panel.ask = asked.append
+
+    window._on_ai_quick_ask_requested("What does this library say about patience?")
+
+    assert window._ai_panel.is_collapsed is False
+    assert asked == ["What does this library say about patience?"]
+
+
 def test_rail_buttons_switch_the_visible_screen(qtbot, tmp_path: Path) -> None:
     """Clicking a rail button switches the stacked screen and its checked state."""
     database_path = tmp_path / "books.db"

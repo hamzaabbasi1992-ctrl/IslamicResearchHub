@@ -165,6 +165,25 @@ def test_asking_a_question_shows_the_real_answer_and_tool_calls(qtbot, tmp_path:
     assert panel._ask_button.isEnabled()
 
 
+def test_ask_public_method_sets_the_question_and_runs_a_real_turn(qtbot, tmp_path: Path) -> None:
+    """`ask()` is the public seam other screens (the Search screen's
+    quick-ask box) use to start a real conversation here without
+    duplicating this panel's own lazy-build/pre-flight/worker logic -
+    same real outcome as typing into the box and clicking Ask."""
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(panel)
+    fake = _install_fake_ai_agent(panel, answer="Real grounded answer.")
+
+    panel.ask("What does this library say about patience?")
+    with qtbot.waitSignal(panel._ai_agent_worker.finished, timeout=5000):
+        pass
+    qtbot.wait(50)
+
+    assert panel._question_edit.text() == "What does this library say about patience?"
+    assert fake.last_question == "What does this library say about patience?"
+    assert panel._answer_area.toPlainText() == "Real grounded answer."
+
+
 def test_compare_mode_checkbox_routes_to_compare_positions(qtbot, tmp_path: Path) -> None:
     """When checked, the worker calls compare_positions(), not converse() -
     verified via a fake that only implements one distinctly."""
