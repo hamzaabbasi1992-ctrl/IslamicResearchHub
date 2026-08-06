@@ -105,6 +105,7 @@ class ViewerScreen(QWidget):
     explain_selection_requested = Signal(str)  # selected_text
     generate_flashcards_requested = Signal(int)  # book_id
     generate_slide_deck_requested = Signal(int)  # book_id
+    generate_podcast_requested = Signal(int)  # book_id
 
     def __init__(
         self,
@@ -376,6 +377,18 @@ class ViewerScreen(QWidget):
         self._generate_slide_deck_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_slide_deck_button.clicked.connect(self._on_generate_slide_deck_clicked)
         toolbar.addWidget(self._generate_slide_deck_button)
+
+        self._generate_podcast_button = QPushButton(
+            self._translator.tr("viewer-generate-podcast")
+        )
+        self._generate_podcast_button.setToolTip(
+            self._translator.tr("viewer-generate-podcast-tooltip")
+        )
+        # Needs both the AI Agent (script generation) and TTS (narration)
+        # real, opt-in features - visible only when both are enabled.
+        self._generate_podcast_button.setVisible(self._enable_lazy_ai_agent and self._enable_lazy_tts)
+        self._generate_podcast_button.clicked.connect(self._on_generate_podcast_clicked)
+        toolbar.addWidget(self._generate_podcast_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -492,6 +505,10 @@ class ViewerScreen(QWidget):
         self._generate_slide_deck_button.setText(self._translator.tr("viewer-generate-slide-deck"))
         self._generate_slide_deck_button.setToolTip(
             self._translator.tr("viewer-generate-slide-deck-tooltip")
+        )
+        self._generate_podcast_button.setText(self._translator.tr("viewer-generate-podcast"))
+        self._generate_podcast_button.setToolTip(
+            self._translator.tr("viewer-generate-podcast-tooltip")
         )
         self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
         self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
@@ -1026,6 +1043,14 @@ class ViewerScreen(QWidget):
             return
         self.generate_slide_deck_requested.emit(self._current_book_id)
 
+    def _on_generate_podcast_clicked(self) -> None:
+        """Ask upstream (MainWindow) to generate a narrated podcast for
+        the current book (Phase 17 Milestone 1) - same minimal-here,
+        real-work-upstream reasoning as `_on_extract_events_clicked`."""
+        if self._current_book_id is None:
+            return
+        self.generate_podcast_requested.emit(self._current_book_id)
+
     def _update_bookmark_button(self) -> None:
         page_number = self.current_page_number()
         is_bookmarked = page_number is not None and page_number in self._bookmarked_pages
@@ -1113,7 +1138,7 @@ class ViewerScreen(QWidget):
         self._reset_narration_playback_state()
         self._play_pause_button.setEnabled(False)
         worker = TtsWorker(
-            self._get_or_build_tts_narration_service,
+            self.get_or_build_tts_narration_service,
             page.content_f,
             self._current_language,
             self._current_narration_key(),
@@ -1125,12 +1150,16 @@ class ViewerScreen(QWidget):
         self._tts_worker = worker
         worker.start()
 
-    def _get_or_build_tts_narration_service(self) -> PageNarrationService | None:
+    def get_or_build_tts_narration_service(self) -> PageNarrationService | None:
         """Return the cached narration service, building it at most once.
 
         Runs on the worker thread - guarded by a lock so two overlapping
         Play clicks can't both attempt the (real, ~1s+) model load at once.
         Mirrors `SearchScreen._get_or_build_semantic_service` exactly.
+        Public so `MainWindow`'s Generate Podcast dispatch (Phase 17
+        Milestone 1) reuses this one real lazy-build path instead of
+        loading a second MMS-TTS model - same reasoning as
+        `AiAssistantPanel.get_or_build_ai_agent_service()`.
         """
         with self._tts_lock:
             if self._tts_narration_service is None and self._enable_lazy_tts:

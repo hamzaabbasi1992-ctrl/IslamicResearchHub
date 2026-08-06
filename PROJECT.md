@@ -1199,7 +1199,7 @@ types (lecture notes, khutbah outlines, comparison tables, etc.) -
 those remain open within this phase, not missed; this milestone proved
 the export path end-to-end on the simplest real case first.
 
-### Phase 17 — Multimedia generation: **Milestone 1 done**
+### Phase 17 — Multimedia generation: **Milestone 2 done**
 
 **Scope narrowed by explicit user decision (2026-08-06): no video, no
 animation.** Originally proposed whiteboard-style animated explanations
@@ -1222,10 +1222,31 @@ explicit human confirmation, so it skips the review-screen architecture
 Events/Narrators/Flashcards use. Exports straight to a real `.pptx` via
 `research_notes/slide_deck_export.py` (`python-pptx`, same
 build-then-save shape as the existing `.docx` exporters), a new
-"Generate Slide Deck" button in the Viewer's toolbar. Narrated podcasts
-remain open within this phase, not missed - slide decks were the
-concrete, well-scoped first piece (no new audio-file-export engineering
-needed to prove the pattern).
+"Generate Slide Deck" button in the Viewer's toolbar.
+
+**Milestone 2 (done)**: real narrated podcasts - a spoken-narration
+script generated chunk-by-chunk via a new `AiAgentService.
+generate_podcast_script()` (own system prompt: plain spoken prose, no
+markdown/headings/citations, since this text is read aloud by TTS, never
+shown as a document), then the full concatenated script handed to the
+same chunked synthesis path `TtsWorker` already uses
+(`PageNarrationService.prepare_chunked_narration()`/`synthesize_chunk()`)
+- the one real difference being every chunk's samples are concatenated
+into a single track instead of separate temp files for progressive
+playback. New `PodcastGenerationWorker` (two phases: script generation,
+then narration synthesis, each with its own progress signal and
+partial-failure-is-not-fatal discipline). `ViewerScreen.
+get_or_build_tts_narration_service()` promoted from private to public
+(mirrors `AiAssistantPanel.get_or_build_ai_agent_service()`) so
+`MainWindow`'s dispatch reuses the reader's own lazy-loaded MMS-TTS
+model instead of loading a second one. New "Generate Podcast" button in
+the Viewer's toolbar, visible only when *both* AI Agent and TTS are
+enabled (needs both real features) - a genuinely new pre-flight-check
+shape (two independent services, not one). Exports straight to a real
+`.wav` via the existing `wav_writer.py`, same
+`QFileDialog`/`QMessageBox` save pattern as Slide Decks. Both
+milestones' document types are now shipped; this phase's original scope
+is complete.
 
 ### Phase 18 — Mobile companion app: **scheduled after Phase 17, not started**
 

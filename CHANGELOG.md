@@ -1,5 +1,36 @@
 # Changelog
 
+## Phase 17: Multimedia generation - Milestone 2 (narrated podcasts)
+
+Completes Phase 17's original scope: real narrated podcasts, generated
+from one book's real content and read aloud by the local TTS this app
+already has.
+
+New: `AiAgentService.generate_podcast_script()` + its own system prompt
+- unlike the JSON-producing extraction/generation methods (Events,
+Narrators, Flashcards, Slide Decks), this one instructs the model to
+write plain spoken prose with no markdown, headings, or bracketed
+citations, since the output is read aloud by TTS, never shown as a
+document. New `interfaces/desktop_app/podcast_generation_worker.py`
+(`PodcastGenerationWorker`, two real phases: chunk-by-chunk script
+generation, then the concatenated script handed to the same chunked
+synthesis path `TtsWorker` already uses - `PageNarrationService.
+prepare_chunked_narration()`/`synthesize_chunk()` - with every chunk's
+samples concatenated into one track instead of separate temp files for
+progressive playback). `ViewerScreen._get_or_build_tts_narration_service`
+promoted to public `get_or_build_tts_narration_service()` (mirrors
+`AiAssistantPanel.get_or_build_ai_agent_service()`) so `MainWindow`'s
+dispatch reuses the reader's own lazy-loaded MMS-TTS model rather than
+loading a second one. New "Generate Podcast" button in the Viewer's
+toolbar, visible only when *both* AI Agent and TTS are enabled - the
+first feature in this app needing two independent real services before
+it's usable, so it gets two independent pre-flight checks. Exports to
+a real `.wav` via the existing `wav_writer.py`, same
+`QFileDialog`/`QMessageBox` save pattern as Slide Decks' `.pptx`
+export. 20 new tests (7 for the worker's two-phase generation/
+cancellation/partial-failure behavior, the rest for the button and
+pre-flight wiring).
+
 ## New library: Tib o Hikmat (real OCR text import)
 
 46 real Urdu books - prophetic medicine/traditional healing (Tib) plus

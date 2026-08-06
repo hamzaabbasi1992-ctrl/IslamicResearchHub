@@ -25,6 +25,7 @@ from islamic_research_hub.application.pdf_source_resolver import (
     candidate_pdf_path,
     resolve_pdf_path,
 )
+from islamic_research_hub.infrastructure.audio.wav_writer import write_wav
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
@@ -91,6 +92,9 @@ from islamic_research_hub.interfaces.desktop_app.preservation_report_screen impo
 )
 from islamic_research_hub.interfaces.desktop_app.quick_open_dialog import QuickOpenDialog
 from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FONT_CHOICE
+from islamic_research_hub.interfaces.desktop_app.podcast_generation_worker import (
+    PodcastGenerationWorker,
+)
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.slide_deck_worker import (
     SlideDeckGenerationWorker,
@@ -239,6 +243,7 @@ class MainWindow(QMainWindow):
         self._explain_worker: AiAgentWorker | None = None
         self._flashcard_extraction_worker: FlashcardExtractionWorker | None = None
         self._slide_deck_worker: SlideDeckGenerationWorker | None = None
+        self._podcast_worker: PodcastGenerationWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -323,6 +328,9 @@ class MainWindow(QMainWindow):
             )
             self._viewer_screen.generate_slide_deck_requested.connect(
                 self._on_generate_slide_deck_requested
+            )
+            self._viewer_screen.generate_podcast_requested.connect(
+                self._on_generate_podcast_requested
             )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
@@ -925,6 +933,111 @@ class MainWindow(QMainWindow):
             self,
             "Generate Slide Deck",
             f"{len(slides)} slide(s) generated and saved to {output_path_str}.",
+        )
+
+    def _on_generate_podcast_requested(self, book_id: int) -> None:
+        """Generate a real narrated podcast for one book (Phase 17
+        Milestone 1) - same pre-flight/chunk/cost-estimate/background-
+        worker shape as `_on_generate_slide_deck_requested`, plus a
+        second pre-flight check (TTS must also be real and available,
+        not just the AI Agent) since this feature needs both."""
+        if (
+            self._browser is None
+            or self._database_path is None
+            or self._ai_panel is None
+            or self._viewer_screen is None
+        ):
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Generate Podcast", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Generate Podcast", f"No API key is set for {provider_label}."
+            )
+            return
+        if not bool(self._settings.value(TTS_ENABLED_KEY, False, type=bool)):
+            show_ai_unavailable_dialog(
+                self, "Generate Podcast", "Text-to-speech is not enabled in Settings."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Generate Podcast", "This book has no real page content to narrate."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Generate Podcast",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee), plus real local narration/synthesis time "
+            "afterward. Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        worker = PodcastGenerationWorker(
+            self._ai_panel.get_or_build_ai_agent_service,
+            self._viewer_screen.get_or_build_tts_narration_service,
+            book_id,
+            chunks,
+            metadata.language,
+            self,
+        )
+        worker.generation_finished.connect(
+            lambda samples, sample_rate, title=metadata.title: self._on_podcast_generation_finished(
+                title, samples, sample_rate
+            )
+        )
+        worker.generation_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Generate Podcast", reason)
+        )
+        worker.generation_failed.connect(
+            lambda reason: QMessageBox.information(self, "Generate Podcast", reason)
+        )
+        self._podcast_worker = worker
+        worker.start()
+
+    def _on_podcast_generation_finished(
+        self, book_title: str, samples: tuple, sample_rate: int
+    ) -> None:
+        default_path = str(Path.home() / "Documents" / f"{book_title[:60]}.wav")
+        output_path_str, _filter = QFileDialog.getSaveFileName(
+            self, "Generate Podcast", default_path, "WAV Audio (*.wav)"
+        )
+        if not output_path_str:
+            return
+        write_wav(Path(output_path_str), samples, sample_rate)
+        duration_seconds = len(samples) / sample_rate if sample_rate else 0
+        QMessageBox.information(
+            self,
+            "Generate Podcast",
+            f"~{duration_seconds:.0f}s of real narration generated and saved to {output_path_str}.",
         )
 
     def _on_explain_selection_requested(self, selected_text: str) -> None:

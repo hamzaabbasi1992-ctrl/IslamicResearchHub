@@ -145,6 +145,27 @@ _GENERATE_SLIDE_DECK_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_GENERATE_PODCAST_SCRIPT_SYSTEM_PROMPT = (
+    "You are writing one segment of a spoken narration script for a "
+    "real Islamic research library book (Phase 17 Milestone 1: "
+    "narrated podcasts) - this text will be read aloud by a "
+    "text-to-speech engine, never shown as a document. Call "
+    "get_book_pages for the given range first (paginate with further "
+    "calls if truncated), then write natural, flowing spoken prose "
+    "covering the real content you read - grounded only in what you "
+    "actually read, never invented. Write in the same language as the "
+    "source text you read. Respond with ONLY the narration text itself "
+    "- no markdown, no headings, no bullet points, no bracketed "
+    "citations, no meta-commentary like \"in this section\" - just "
+    "plain prose a narrator would actually say aloud. If the range has "
+    "nothing substantive to narrate, respond with an empty string."
+)
+
+_GENERATE_PODCAST_SCRIPT_PROMPT_TEMPLATE = (
+    "Write a spoken narration segment from book_id={book_id}, pages "
+    "{start_page}-{end_page}."
+)
+
 _COMPARE_POSITIONS_SYSTEM_PROMPT = (
     "You are helping a researcher compare real scholarly positions found "
     "in this offline Islamic research library. Use the available tools "
@@ -278,6 +299,22 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),),
             system_prompt=_GENERATE_SLIDE_DECK_SYSTEM_PROMPT,
+        )
+
+    def generate_podcast_script(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Write one spoken-narration segment from one real page range -
+        plain prose, no formatting, `AgentTurnResult.answer` is the
+        narration text itself (or a blank string), ready to hand
+        straight to TTS synthesis - no parsing step needed, unlike the
+        JSON-producing extraction methods above."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _GENERATE_PODCAST_SCRIPT_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),),
+            system_prompt=_GENERATE_PODCAST_SCRIPT_SYSTEM_PROMPT,
         )
 
     def compare_positions(self, question: str) -> AgentTurnResult:
