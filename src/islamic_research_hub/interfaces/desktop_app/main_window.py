@@ -42,6 +42,7 @@ from islamic_research_hub.infrastructure.persistence.pdf_match_candidate_reposit
 from islamic_research_hub.infrastructure.persistence.recent_book_repository import (
     RecentBookRepository,
 )
+from islamic_research_hub.interfaces.desktop_app.ai_agent_worker import AiAgentWorker
 from islamic_research_hub.interfaces.desktop_app.ai_panel_screen import AiAssistantPanel
 from islamic_research_hub.interfaces.desktop_app.ai_unavailable_dialog import (
     show_ai_unavailable_dialog,
@@ -214,6 +215,7 @@ class MainWindow(QMainWindow):
         self._database_path: Path | None = None
         self._event_extraction_worker: EventExtractionWorker | None = None
         self._narrator_extraction_worker: NarratorExtractionWorker | None = None
+        self._explain_worker: AiAgentWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -289,6 +291,9 @@ class MainWindow(QMainWindow):
             )
             self._viewer_screen.extract_narrators_requested.connect(
                 self._on_extract_narrators_requested
+            )
+            self._viewer_screen.explain_selection_requested.connect(
+                self._on_explain_selection_requested
             )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
@@ -714,6 +719,46 @@ class MainWindow(QMainWindow):
             "Extract Narrators",
             f"{count} narrator mention(s) found - review them in the Narrators screen.",
         )
+
+    def _on_explain_selection_requested(self, selected_text: str) -> None:
+        """Explain one real passage the reader selected (Phase 13
+        Milestone 1: AI reading assistant) - same pre-flight check as
+        Extract Events/Narrators, but a single real API call (no
+        chunking, no cost-estimate confirmation - same reasoning as the
+        AI panel's own Ask box not showing one per question either)."""
+        if self._viewer_screen is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Explain this passage", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Explain this passage", f"No API key is set for {provider_label}."
+            )
+            return
+
+        worker = AiAgentWorker(
+            self._ai_panel.get_or_build_ai_agent_service, selected_text, "explain", self
+        )
+        worker.answer_ready.connect(
+            lambda answer, _tool_calls: self._on_explain_answer_ready(selected_text, answer)
+        )
+        worker.answer_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Explain this passage", reason)
+        )
+        self._explain_worker = worker
+        worker.start()
+
+    def _on_explain_answer_ready(self, passage: str, answer: str) -> None:
+        if self._viewer_screen is not None:
+            self._viewer_screen.show_explanation(passage, answer)
 
     def _on_language_changed(self, _language: str) -> None:
         """Update rail labels and mirror the whole app's layout for the new language."""

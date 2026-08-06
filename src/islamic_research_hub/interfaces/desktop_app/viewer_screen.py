@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
@@ -97,6 +98,7 @@ class ViewerScreen(QWidget):
     pdf_fallback_requested = Signal()
     extract_events_requested = Signal(int)  # book_id
     extract_narrators_requested = Signal(int)  # book_id
+    explain_selection_requested = Signal(str)  # selected_text
 
     def __init__(
         self,
@@ -651,6 +653,10 @@ class ViewerScreen(QWidget):
             translate_action = menu.addAction(self._translator.tr("viewer-translate-selection"))
             translate_action.setEnabled(bool(selected_text))
             actions["translate"] = translate_action
+        if self._enable_lazy_ai_agent:
+            explain_action = menu.addAction(self._translator.tr("viewer-explain-selection"))
+            explain_action.setEnabled(bool(selected_text))
+            actions["explain"] = explain_action
         menu.addSeparator()
         actions["open_notes"] = menu.addAction(self._translator.tr("viewer-open-notes"))
 
@@ -675,6 +681,8 @@ class ViewerScreen(QWidget):
             open_current_notes(self)
         elif action == "translate":
             self._translate_selection(selected_text)
+        elif action == "explain":
+            self.explain_selection_requested.emit(selected_text)
 
     def _copy_selection_with_citation(self, selected_text: str) -> None:
         page_number = self.current_page_number()
@@ -699,6 +707,33 @@ class ViewerScreen(QWidget):
             self._current_title,
             page_number,
             selected_text,
+        )
+
+    def show_explanation(self, passage: str, explanation: str) -> None:
+        """Show a real AI explanation of a passage the reader selected
+        (Phase 13 Milestone 1), with an option to save it to Research
+        Notes against the currently-open book/page.
+
+        Public - `MainWindow` owns the real AI Agent service/pre-flight
+        check (mirrors Extract Events/Narrators' split), so it drives the
+        real API call and hands the result back here once ready; this
+        screen still owns the book/page context needed for Save to Notes.
+        """
+        _show_explanation_dialog(
+            self, self._translator, passage, explanation, self._on_save_explanation_to_notes
+        )
+
+    def _on_save_explanation_to_notes(self, explanation: str) -> None:
+        page_number = self.current_page_number()
+        if self._current_book_id is None or self._current_title is None or page_number is None:
+            return
+        show_save_to_notes_dialog(
+            self,
+            self._browser,
+            self._current_book_id,
+            self._current_title,
+            page_number,
+            explanation,
         )
 
     def _translate_selection(self, selected_text: str) -> None:
@@ -1187,6 +1222,58 @@ def _show_translation_dialog(
     copy_button = QPushButton(translator.tr("viewer-translation-copy"))
     copy_button.clicked.connect(lambda: QGuiApplication.clipboard().setText(translated_text))
     button_row.addWidget(copy_button)
+    close_button = QPushButton(translator.tr("common-close"))
+    close_button.clicked.connect(dialog.close)
+    button_row.addWidget(close_button)
+    layout.addLayout(button_row)
+
+    dialog.exec()
+
+
+def _show_explanation_dialog(
+    parent: QWidget,
+    translator: Translator,
+    passage: str,
+    explanation: str,
+    on_save_to_notes: Callable[[str], None],
+) -> None:
+    """A real, read-only dialog showing the selected passage alongside its
+    AI-generated explanation, plus an honest disclaimer - a reading aid,
+    not a fatwa or authoritative religious ruling."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(translator.tr("viewer-explain-dialog-title"))
+    dialog.resize(560, 480)
+    layout = QVBoxLayout(dialog)
+
+    passage_heading = QLabel(translator.tr("viewer-explain-passage-heading"))
+    passage_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
+    layout.addWidget(passage_heading)
+    passage_label = QLabel(passage)
+    passage_label.setWordWrap(True)
+    passage_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    passage_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    passage_label.setStyleSheet(RTL_TEXT_STYLE)
+    layout.addWidget(passage_label)
+
+    explanation_heading = QLabel(translator.tr("viewer-explain-explanation-heading"))
+    explanation_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
+    layout.addWidget(explanation_heading)
+    explanation_label = QLabel(explanation)
+    explanation_label.setWordWrap(True)
+    explanation_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    layout.addWidget(explanation_label)
+    layout.addStretch(1)
+
+    disclaimer = QLabel(translator.tr("viewer-explain-disclaimer"))
+    disclaimer.setWordWrap(True)
+    disclaimer.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
+    layout.addWidget(disclaimer)
+
+    button_row = QHBoxLayout()
+    button_row.addStretch(1)
+    save_button = QPushButton(translator.tr("viewer-explain-save-to-notes"))
+    save_button.clicked.connect(lambda: on_save_to_notes(explanation))
+    button_row.addWidget(save_button)
     close_button = QPushButton(translator.tr("common-close"))
     close_button.clicked.connect(dialog.close)
     button_row.addWidget(close_button)

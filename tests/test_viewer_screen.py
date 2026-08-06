@@ -662,6 +662,68 @@ def test_translate_menu_item_hidden_for_an_unsupported_language(qtbot, tmp_path:
     assert screen._translation_offered() is False
 
 
+def test_explain_action_emits_the_real_selected_text(qtbot, tmp_path: Path) -> None:
+    """Phase 13 Milestone 1: "Explain this passage" routes up to
+    MainWindow (which owns the real AI Agent service), not handled
+    locally like TTS/translation - this screen just emits the signal
+    with the real selected text."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+
+    received = []
+    screen.explain_selection_requested.connect(received.append)
+    screen._handle_context_menu_action("explain", "a real selected passage")
+
+    assert received == ["a real selected passage"]
+
+
+def test_show_explanation_opens_a_real_dialog_with_save_to_notes(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module,
+        "_show_explanation_dialog",
+        lambda *args: calls.append(args),
+    )
+
+    screen.show_explanation("a real passage", "a real explanation")
+
+    assert len(calls) == 1
+    _parent, _translator_arg, passage, explanation, on_save = calls[0]
+    assert passage == "a real passage"
+    assert explanation == "a real explanation"
+
+    # The dialog's own Save-to-Notes button calls back with the
+    # explanation text - confirm it wires to the real, currently-open
+    # book/page via show_save_to_notes_dialog, same as the existing
+    # Save to Research Notes context-menu action.
+    notes_calls = []
+    monkeypatch.setattr(
+        viewer_screen_module,
+        "show_save_to_notes_dialog",
+        lambda *args: notes_calls.append(args),
+    )
+    on_save("a real explanation")
+
+    assert len(notes_calls) == 1
+    _parent, _browser, book_id, title, page_number, saved_text = notes_calls[0]
+    assert book_id == 1
+    assert title == "Book of Fiqh"
+    assert page_number == 1
+    assert saved_text == "a real explanation"
+
+
 def test_translating_a_selection_shows_a_real_translation_dialog(
     qtbot, tmp_path: Path, monkeypatch
 ) -> None:

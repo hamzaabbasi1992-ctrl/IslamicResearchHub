@@ -259,3 +259,35 @@ def test_compare_positions_uses_its_own_system_prompt_forbidding_a_verdict() -> 
     lowered = system_prompt.lower()
     assert "never" in lowered
     assert "correct" in lowered or "verdict" in lowered
+
+
+def test_explain_passage_rejects_blank_text() -> None:
+    service = AiAgentService(FakeLLMProvider([]), _executor())
+
+    with pytest.raises(ValueError):
+        service.explain_passage("   ")
+
+
+def test_explain_passage_seeds_the_real_selected_text() -> None:
+    provider = FakeLLMProvider(
+        [LLMTurn(text="This passage means...", tool_calls=(), stop_reason="end_turn")]
+    )
+    service = AiAgentService(provider, _executor())
+
+    result = service.explain_passage("إنما الأعمال بالنيات")
+
+    assert result.answer == "This passage means..."
+    _system_prompt, messages = provider.calls[0]
+    assert "إنما الأعمال بالنيات" in messages[0].text
+
+
+def test_explain_passage_uses_its_own_system_prompt_forbidding_a_fatwa() -> None:
+    provider = FakeLLMProvider([LLMTurn(text="answer", tool_calls=(), stop_reason="end_turn")])
+    service = AiAgentService(provider, _executor())
+
+    service.explain_passage("A real passage.")
+
+    system_prompt, _messages = provider.calls[0]
+    lowered = system_prompt.lower()
+    assert "never" in lowered
+    assert "fatwa" in lowered or "ruling" in lowered or "verdict" in lowered

@@ -1,5 +1,40 @@
 # Changelog
 
+## Phase 13: AI reading assistant - Milestone 1
+
+"Explain this passage" - select real text while reading, right-click,
+get a real grounded AI explanation of that specific passage. Reuses the
+Phase 11 tool-calling `AiAgentService` (cloud LLM) rather than a new
+service: `explain_passage()` mirrors `compare_positions()`'s exact
+shape (one new method, one new system prompt, same `_run_loop()`), with
+its own system prompt explicitly forbidding the model from presenting
+its explanation as a fatwa or authoritative religious ruling.
+
+`AiAgentWorker` gained a third `mode` value (`"explain"`, alongside
+`"converse"`/`"compare"`). `ViewerScreen` gained a new
+`explain_selection_requested` signal (context-menu item, gated by the
+existing `enable_lazy_ai_agent` flag - reuses the same opt-in already
+wired for Extract Events/Narrators) and a public `show_explanation()`
+method + result dialog (passage + explanation + a "Save to Research
+Notes" button, reusing the existing `show_save_to_notes_dialog` flow
+unchanged). `MainWindow._on_explain_selection_requested` owns the real
+pre-flight check (enabled + a real key) and worker dispatch - same
+split as Extract Events/Narrators, since the cloud AI Agent service is
+owned there, not by `ViewerScreen` (unlike TTS/Phase 12 translation,
+which each have their own local model and stay self-contained in
+`ViewerScreen`). 7 new tests (3 service-level, 2 `MainWindow`
+pre-flight, 2 `ViewerScreen`); full suite 991 passed.
+
+**Real finding while building this**: the user's real Gemini API key
+was live-tested end-to-end for the first time this session (a
+standalone script against the real `GeminiLlmProvider`/`AiAgentService`/
+`AgentToolExecutor`, real `data/books.db`) - found two sequential, real
+Google Cloud configuration gaps (the Generative Language API not
+enabled on the project; then the API key's own "API restrictions"
+blocking it), neither a bug in this codebase. See
+`project_ai_agent_milestone1_status` memory for the full real-key
+verification trail.
+
 ## Button/icon visual polish pass
 
 Subtle polish, per direct instruction (not a redesign): `QPushButton`

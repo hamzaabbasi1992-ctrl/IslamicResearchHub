@@ -1094,7 +1094,7 @@ built and automated-tested (fake translator, same technique as
 proved out for real; the actual ~300MB-per-language download and real
 translation quality haven't been checked by a human yet.
 
-### Phase 13 — AI reading assistant: **scheduled after Phase 12, not started**
+### Phase 13 — AI reading assistant: **Milestone 1 done**
 
 The in-reader interaction layer: highlight text while reading, then
 ask the AI to explain, compare, translate (Phase 12), or summarize it,
@@ -1103,6 +1103,33 @@ already exists as a foundation). This phase is the UI/interaction
 layer specifically - it calls into Phase 11 (research assistant) and
 Phase 12 (translation) rather than re-implementing their logic, so
 there's one real place each capability lives, not several.
+
+**Milestone 1 (done)**: "Explain this passage" - select real text while
+reading, right-click, get a real AI explanation of that specific
+passage (meaning, context, significance), grounded via the same
+tool-calling `AiAgentService` as Phase 11, with its own system prompt
+(`AiAgentService.explain_passage()`, mirrors `compare_positions()`'s
+exact shape) that explicitly forbids presenting the explanation as a
+fatwa or authoritative ruling - a reading aid, not scholarly guidance.
+Translate (Phase 12) already existed as its own context-menu item;
+"Compare"/"Summarize" from the passage above and "save as a bookmark"
+are still out of scope for this milestone - "save as a note" is in
+(the result dialog's "Save to Research Notes" button reuses the exact
+same `show_save_to_notes_dialog` flow the reader's own text-selection
+menu already used). Routed through `MainWindow` (owns the real AI
+Agent service/pre-flight check, same split as Extract Events/
+Narrators), not handled locally in `ViewerScreen` like TTS/translation
+are, since those use their own separate local models.
+
+**Real live-key verification, 2026-08-06**: while building this
+milestone, the user's real Gemini API key was tested end-to-end for
+the first time (see `project_ai_agent_milestone1_status` memory) -
+found and fixed two real, sequential Google Cloud configuration gaps
+(API not enabled on the project; then the key's own API restrictions
+blocking it) that were unrelated to any code in this repo. Real
+conversational-loop verification (tool-calling against the actual
+corpus) is still pending final confirmation once the key restriction
+fix takes effect.
 
 ### Phase 14 — Personal research workspace: **scheduled after Phase 13, not started**
 

@@ -118,6 +118,22 @@ _COMPARE_POSITIONS_SYSTEM_PROMPT = (
     "comparison that isn't really there."
 )
 
+_EXPLAIN_PASSAGE_SYSTEM_PROMPT = (
+    "You are helping a researcher understand one specific passage they "
+    "selected while reading, from this offline Islamic research library. "
+    "Explain the passage clearly: its meaning, context, and significance. "
+    "You are not required to call any tool - a passage can often be "
+    "explained directly from what's given - but you may use the available "
+    "tools if genuinely useful for real background (e.g. finding related "
+    "discussion elsewhere in the library), citing anything you bring in "
+    "from a tool result using its own \"citation\" field verbatim, never "
+    "invented. Never present your explanation as a fatwa, a ruling, or an "
+    "authoritative religious verdict - you are helping the reader "
+    "understand the text, not issuing guidance on what to believe or do. "
+    "If the passage is too short or unclear to meaningfully explain, say "
+    "so honestly instead of inventing an explanation."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AgentTurnResult:
@@ -198,6 +214,19 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=normalized_question),),
             system_prompt=_COMPARE_POSITIONS_SYSTEM_PROMPT,
+        )
+
+    def explain_passage(self, text: str) -> AgentTurnResult:
+        """Explain one real passage the reader selected (Phase 13
+        Milestone 1: AI reading assistant) - never a fatwa or verdict, a
+        reading aid. Same seed shape as `converse()`/`compare_positions()`;
+        the real difference is entirely in the system prompt."""
+        normalized_text = text.strip()
+        if not normalized_text:
+            raise ValueError("Text must not be empty.")
+        return self._run_loop(
+            (LLMMessage(role="user", text=normalized_text),),
+            system_prompt=_EXPLAIN_PASSAGE_SYSTEM_PROMPT,
         )
 
     def _run_loop(

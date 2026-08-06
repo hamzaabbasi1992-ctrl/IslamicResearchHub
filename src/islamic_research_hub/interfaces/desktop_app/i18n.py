@@ -242,6 +242,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-save-to-notes": "Save to Research Notes",
         "viewer-open-notes": "Open Current Notes",
         "viewer-translate-selection": "Translate to English",
+        "viewer-explain-selection": "Explain this passage (AI)",
+        "viewer-explain-dialog-title": "Explanation",
+        "viewer-explain-passage-heading": "Passage",
+        "viewer-explain-explanation-heading": "Explanation",
+        "viewer-explain-disclaimer": (
+            "AI-generated explanation, not a fatwa or an authoritative religious "
+            "ruling - a reading aid, meant to help you understand the text, not "
+            "a substitute for qualified scholarly guidance."
+        ),
+        "viewer-explain-save-to-notes": "Save to Research Notes",
         "viewer-translation-dialog-title": "Translation",
         "viewer-translation-original-heading": "Original",
         "viewer-translation-english-heading": "English",
@@ -600,6 +610,15 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-save-to-notes": "ریسرچ نوٹس میں محفوظ کریں",
         "viewer-open-notes": "موجودہ نوٹس کھولیں",
         "viewer-translate-selection": "انگریزی میں ترجمہ کریں",
+        "viewer-explain-selection": "اس عبارت کی وضاحت کریں (AI)",
+        "viewer-explain-dialog-title": "وضاحت",
+        "viewer-explain-passage-heading": "عبارت",
+        "viewer-explain-explanation-heading": "وضاحت",
+        "viewer-explain-disclaimer": (
+            "یہ AI کی جانب سے تیار کردہ وضاحت ہے، کوئی فتویٰ یا مستند شرعی حکم نہیں - "
+            "یہ صرف متن سمجھنے میں مدد کے لیے ہے، مستند علمی رہنمائی کا متبادل نہیں۔"
+        ),
+        "viewer-explain-save-to-notes": "ریسرچ نوٹس میں محفوظ کریں",
         "viewer-translation-dialog-title": "ترجمہ",
         "viewer-translation-original-heading": "اصل متن",
         "viewer-translation-english-heading": "انگریزی",
@@ -956,6 +975,15 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-save-to-notes": "حفظ في ملاحظات البحث",
         "viewer-open-notes": "فتح الملاحظات الحالية",
         "viewer-translate-selection": "ترجمة إلى الإنجليزية",
+        "viewer-explain-selection": "اشرح هذا المقطع (AI)",
+        "viewer-explain-dialog-title": "الشرح",
+        "viewer-explain-passage-heading": "المقطع",
+        "viewer-explain-explanation-heading": "الشرح",
+        "viewer-explain-disclaimer": (
+            "شرح تم إنشاؤه بالذكاء الاصطناعي، وليس فتوى أو حكمًا شرعيًا موثوقًا - "
+            "أداة لمساعدتك على فهم النص، لا بديلاً عن إرشاد علمي مؤهل."
+        ),
+        "viewer-explain-save-to-notes": "حفظ في ملاحظات البحث",
         "viewer-translation-dialog-title": "الترجمة",
         "viewer-translation-original-heading": "النص الأصلي",
         "viewer-translation-english-heading": "الإنجليزية",
