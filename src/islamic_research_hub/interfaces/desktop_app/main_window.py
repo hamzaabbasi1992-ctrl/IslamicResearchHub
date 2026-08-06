@@ -33,6 +33,9 @@ from islamic_research_hub.infrastructure.persistence.bookmark_repository import 
 from islamic_research_hub.infrastructure.persistence.event_candidate_repository import (
     EventCandidateRepository,
 )
+from islamic_research_hub.infrastructure.persistence.flashcard_candidate_repository import (
+    FlashcardCandidateRepository,
+)
 from islamic_research_hub.infrastructure.persistence.narrator_candidate_repository import (
     NarratorCandidateRepository,
 )
@@ -58,6 +61,12 @@ from islamic_research_hub.interfaces.desktop_app.event_extraction_worker import 
     EventExtractionWorker,
 )
 from islamic_research_hub.interfaces.desktop_app.event_manager_screen import EventManagerScreen
+from islamic_research_hub.interfaces.desktop_app.flashcard_extraction_worker import (
+    FlashcardExtractionWorker,
+)
+from islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen import (
+    FlashcardManagerScreen,
+)
 from islamic_research_hub.interfaces.desktop_app.header_bar import HeaderBar
 from islamic_research_hub.interfaces.desktop_app.home_screen import HomeScreen
 from islamic_research_hub.interfaces.desktop_app.i18n import (
@@ -128,6 +137,7 @@ _RAIL_KEYS = (
     "rail-knowledge-gaps",
     "rail-preservation",
     "rail-collections",
+    "rail-flashcards",
     "rail-logs",
     "rail-settings",
 )
@@ -143,6 +153,7 @@ _RAIL_ICON_NAMES = (
     "knowledge-gaps",
     "preservation",
     "collections",
+    "flashcards",
     "logs",
     "settings",
 )
@@ -219,6 +230,7 @@ class MainWindow(QMainWindow):
         self._event_extraction_worker: EventExtractionWorker | None = None
         self._narrator_extraction_worker: NarratorExtractionWorker | None = None
         self._explain_worker: AiAgentWorker | None = None
+        self._flashcard_extraction_worker: FlashcardExtractionWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -298,6 +310,9 @@ class MainWindow(QMainWindow):
             self._viewer_screen.explain_selection_requested.connect(
                 self._on_explain_selection_requested
             )
+            self._viewer_screen.generate_flashcards_requested.connect(
+                self._on_generate_flashcards_requested
+            )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
             self._viewer_stack = QStackedWidget()
@@ -350,6 +365,9 @@ class MainWindow(QMainWindow):
                 database_path, self._translator, browser=self._browser
             )
             collections_screen.open_in_viewer_requested.connect(self._open_in_viewer)
+            flashcard_manager_screen = FlashcardManagerScreen(
+                database_path, self._translator, browser=self._browser
+            )
             self._home_screen = HomeScreen(
                 database_path,
                 self._translator,
@@ -369,6 +387,7 @@ class MainWindow(QMainWindow):
             self._stack.addWidget(knowledge_gap_screen)
             self._stack.addWidget(preservation_report_screen)
             self._stack.addWidget(collections_screen)
+            self._stack.addWidget(flashcard_manager_screen)
             self._stack.addWidget(LogsScreen(log_directory, self._translator))
             self._stack.addWidget(
                 SettingsScreen(database_path, self._settings, self._translator)
@@ -727,6 +746,78 @@ class MainWindow(QMainWindow):
             self,
             "Extract Narrators",
             f"{count} narrator mention(s) found - review them in the Narrators screen.",
+        )
+
+    def _on_generate_flashcards_requested(self, book_id: int) -> None:
+        """Generate real study flashcards for one book (Phase 15
+        Milestone 1: educational features) - same pre-flight check,
+        chunk/cost estimate, and background-worker shape as
+        `_on_extract_events_requested`."""
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Generate Flashcards", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Generate Flashcards", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Generate Flashcards", "This book has no real page content to extract from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Generate Flashcards",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        repository = FlashcardCandidateRepository(self._database_path)
+        worker = FlashcardExtractionWorker(
+            self._ai_panel.get_or_build_ai_agent_service, repository, book_id, chunks, self
+        )
+        worker.extraction_finished.connect(self._on_flashcard_generation_finished)
+        worker.extraction_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Generate Flashcards", reason)
+        )
+        self._flashcard_extraction_worker = worker
+        worker.start()
+
+    def _on_flashcard_generation_finished(self, count: int) -> None:
+        QMessageBox.information(
+            self,
+            "Generate Flashcards",
+            f"{count} flashcard(s) generated - review them in the Flashcards screen.",
         )
 
     def _on_explain_selection_requested(self, selected_text: str) -> None:

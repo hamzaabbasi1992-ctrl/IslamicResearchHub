@@ -103,6 +103,7 @@ class ViewerScreen(QWidget):
     extract_events_requested = Signal(int)  # book_id
     extract_narrators_requested = Signal(int)  # book_id
     explain_selection_requested = Signal(str)  # selected_text
+    generate_flashcards_requested = Signal(int)  # book_id
 
     def __init__(
         self,
@@ -348,6 +349,19 @@ class ViewerScreen(QWidget):
         self._extract_narrators_button.setVisible(self._enable_lazy_ai_agent)
         self._extract_narrators_button.clicked.connect(self._on_extract_narrators_clicked)
         toolbar.addWidget(self._extract_narrators_button)
+
+        self._generate_flashcards_button = QPushButton(
+            self._translator.tr("viewer-generate-flashcards")
+        )
+        self._generate_flashcards_button.setToolTip(
+            self._translator.tr("viewer-generate-flashcards-tooltip")
+        )
+        # Same visible-only-when-enabled philosophy as Extract Events/
+        # Narrators - real paid API calls, opt-in via the same AI Agent
+        # Settings toggle.
+        self._generate_flashcards_button.setVisible(self._enable_lazy_ai_agent)
+        self._generate_flashcards_button.clicked.connect(self._on_generate_flashcards_clicked)
+        toolbar.addWidget(self._generate_flashcards_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -457,6 +471,10 @@ class ViewerScreen(QWidget):
         self._extract_events_button.setToolTip(self._translator.tr("viewer-extract-events-tooltip"))
         self._extract_narrators_button.setText(self._translator.tr("viewer-extract-narrators"))
         self._extract_narrators_button.setToolTip(self._translator.tr("viewer-extract-narrators-tooltip"))
+        self._generate_flashcards_button.setText(self._translator.tr("viewer-generate-flashcards"))
+        self._generate_flashcards_button.setToolTip(
+            self._translator.tr("viewer-generate-flashcards-tooltip")
+        )
         self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
         self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
         self._research_notes_heading_label.setText(self._translator.tr("viewer-research-notes-heading"))
@@ -973,6 +991,14 @@ class ViewerScreen(QWidget):
         if self._current_book_id is None:
             return
         self.extract_narrators_requested.emit(self._current_book_id)
+
+    def _on_generate_flashcards_clicked(self) -> None:
+        """Ask upstream (MainWindow) to generate flashcards for the
+        current book (Phase 15 Milestone 1) - same minimal-here,
+        real-work-upstream reasoning as `_on_extract_events_clicked`."""
+        if self._current_book_id is None:
+            return
+        self.generate_flashcards_requested.emit(self._current_book_id)
 
     def _update_bookmark_button(self) -> None:
         page_number = self.current_page_number()

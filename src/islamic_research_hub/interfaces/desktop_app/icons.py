@@ -124,6 +124,10 @@ _SVG_PATHS: dict[str, str] = {
     "collections": (
         '<path d="M3 6.5a1 1 0 0 1 1-1h5.2l1.8 1.8H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'
     ),
+    "flashcards": (
+        '<rect x="6" y="3.5" width="14" height="10" rx="1.5"/>'
+        '<rect x="4" y="9.5" width="14" height="10" rx="1.5" fill="{color}" fill-opacity="0.12"/>'
+    ),
     "maximize": (
         '<polyline points="15 3 21 3 21 9"/>'
         '<polyline points="9 21 3 21 3 15"/>'

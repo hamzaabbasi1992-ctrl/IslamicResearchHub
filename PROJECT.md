@@ -1155,12 +1155,27 @@ content and citation. Saved searches and saved AI conversations are
 still out of scope for this milestone, not missed - Collections was the
 concrete, well-scoped first piece.
 
-### Phase 15 — Educational features: **scheduled after Phase 14, not started**
+### Phase 15 — Educational features: **Milestone 1 done**
 
 Quizzes, flashcards, MCQs, spaced-repetition-style revision, lesson
 plans, and a "teaching mode" view. Real dependency: question generation
 needs to be grounded in real page content (same sourcing discipline as
 Phase 11), not free-floating AI-generated trivia.
+
+**Milestone 1 (done)**: real flashcard generation from one book's real
+page content, mirroring Extract Events/Narrators' exact shape -
+`AiAgentService.generate_flashcards()` (own system prompt, strict JSON
+array output), `FlashcardCandidateRepository` (three-state pending/
+confirmed/dismissed review, same reasoning as EventCandidate/
+NarratorCandidate: a generated flashcard asserts a real fact an LLM
+could hallucinate), a new Flashcards rail screen (review/confirm/
+dismiss candidates), and a real Study mode - a sequential flip-through
+of only the *confirmed* flashcards, never an unreviewed or dismissed
+one. MCQs, real spaced-repetition *scheduling* (interval tracking, due
+dates - Study mode here is just sequential review, not SRS), lesson
+plans, and "teaching mode" are still open within this same phase, not
+missed - flashcard generation was the concrete, well-scoped first
+piece.
 
 ### Phase 16 — AI content generator: **scheduled after Phase 15, not started**
 

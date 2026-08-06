@@ -1,5 +1,37 @@
 # Changelog
 
+## Phase 15: Educational features - Milestone 1
+
+Real flashcard generation from one book's real page content, mirroring
+Extract Events/Narrators' exact architecture (chunk-based tool-calling
+extraction, three-state human review before anything is trusted).
+
+New: `AiAgentService.generate_flashcards()` + its own system prompt
+(front/back/quoted_excerpt/citation, strict JSON array, only real
+substantive content - never invented). `application/
+flashcard_extraction.py` (`parse_extracted_flashcards()`, same
+markdown-fence-stripping/partial-failure-is-not-fatal discipline as
+`event_extraction.py`). `domain/models/flashcard_candidate.py` +
+`infrastructure/persistence/flashcard_candidate_repository.py` (three-
+state pending/confirmed/dismissed, mirrors `EventCandidateRepository`
+exactly - added `CollectionItems`/`FlashcardCandidates` to
+`DuplicateCandidateRepository`'s book-cleanup table list too, closing a
+real gap from Phase 14: removing a book didn't clean up its
+`CollectionItems` rows). `interfaces/desktop_app/
+flashcard_extraction_worker.py` (off-GUI-thread, mirrors
+`EventExtractionWorker`). New `FlashcardManagerScreen` (review/confirm/
+dismiss, real bulk book-title hydration) plus a real **Study mode** - a
+sequential flip-through of only the *confirmed* flashcards, never an
+unreviewed or dismissed one. New "Generate Flashcards" button in the
+Viewer's toolbar (same pre-flight-check/cost-estimate/background-worker
+shape as Extract Events/Narrators) and a new rail entry.
+
+MCQs, real spaced-repetition *scheduling* (interval tracking, due dates
+- Study mode here is sequential review only, not SRS), lesson plans,
+and "teaching mode" are still open within this phase - flashcard
+generation was the concrete, well-scoped first piece, same discipline
+as every other phase this project has shipped.
+
 ## Phase 14: Personal research workspace - Milestone 1
 
 Real named Collections: group real bookmarked pages into named research

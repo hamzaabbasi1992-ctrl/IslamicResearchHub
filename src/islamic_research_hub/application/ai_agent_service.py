@@ -99,6 +99,30 @@ _EXTRACT_NARRATORS_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_GENERATE_FLASHCARDS_SYSTEM_PROMPT = (
+    "You are creating real study flashcards from a real Islamic research "
+    "library for a researcher's revision (Phase 15 Milestone 1). Call "
+    "get_book_pages for the given range first (paginate with further "
+    "calls if truncated), then respond with ONLY a raw JSON array - no "
+    "prose, no markdown code fences - and nothing else. Each element "
+    "must have exactly these fields: front (string, a real question or "
+    "term testing one real fact/concept from the text), back (string, "
+    "the real answer/definition, grounded only in what you read), "
+    "quoted_excerpt (a real, verbatim excerpt from the text supporting "
+    "this answer - never paraphrase this field), citation (use that "
+    "page's own \"citation\" field verbatim from get_book_pages - never "
+    "invent one). Only create flashcards for real, substantive content "
+    "actually in the text you read - never invent one to have something "
+    "to report, and never create a flashcard for trivial or vague "
+    "content. If the range has nothing substantive to test, return an "
+    "empty array []."
+)
+
+_GENERATE_FLASHCARDS_PROMPT_TEMPLATE = (
+    "Generate real study flashcards from book_id={book_id}, pages "
+    "{start_page}-{end_page}."
+)
+
 _COMPARE_POSITIONS_SYSTEM_PROMPT = (
     "You are helping a researcher compare real scholarly positions found "
     "in this offline Islamic research library. Use the available tools "
@@ -200,6 +224,22 @@ class AiAgentService:
         )
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),), system_prompt=_EXTRACT_NARRATORS_SYSTEM_PROMPT
+        )
+
+    def generate_flashcards(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Generate real study flashcards from one real page range, as a
+        strict JSON array (possibly empty) - never prose. `AgentTurnResult.answer`
+        is the raw JSON text; parsing it into typed flashcards is
+        `application/flashcard_extraction.py::parse_extracted_flashcards()`'s
+        job, not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _GENERATE_FLASHCARDS_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),),
+            system_prompt=_GENERATE_FLASHCARDS_SYSTEM_PROMPT,
         )
 
     def compare_positions(self, question: str) -> AgentTurnResult:
