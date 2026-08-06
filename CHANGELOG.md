@@ -1,5 +1,18 @@
 # Changelog
 
+## Button/icon visual polish pass
+
+Subtle polish, per direct instruction (not a redesign): `QPushButton`
+hover now changes background, not just border/text color - wired up
+`Palette.surface_hover`, a token that was already defined for all 3
+themes (light/dark/high-contrast) but never actually referenced anywhere
+in the stylesheet. `:pressed` gets a 1px padding shift (a real, classic
+"pushed down" tactile cue achievable in plain QSS, since Qt stylesheets
+don't support `box-shadow`/drop-shadow at all). Border-radius on
+`QPushButton`/`#navTab`/`#authorRow`/`#libraryChip` now uses the shared
+`RADIUS`/`RADIUS_SM` tokens instead of each hardcoding its own
+slightly-different value (6px/5px/6px). Full suite: 984 passed.
+
 ## Phase 12: Translation engine - Milestone 1
 
 "Translate to English" for a selected passage in the Viewer, on a real

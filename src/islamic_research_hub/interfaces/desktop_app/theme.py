@@ -242,11 +242,12 @@ QLabel, QScrollArea, QScrollArea > QWidget > QWidget {{
 QPushButton {{
     background: {palette.surface_raised};
     border: 1px solid {palette.line};
-    border-radius: 6px;
+    border-radius: {RADIUS}px;
     padding: {sp(6)} {sp(14)};
     color: {palette.ink_soft};
 }}
 QPushButton:hover {{
+    background: {palette.surface_hover};
     border-color: {palette.accent};
     color: {palette.ink};
 }}
@@ -254,6 +255,8 @@ QPushButton:pressed {{
     background: {palette.accent_soft};
     border-color: {palette.accent};
     color: {palette.accent_ink};
+    padding-top: {sp(7)};
+    padding-bottom: {sp(5)};
 }}
 QPushButton:focus {{
     border: 1px solid {palette.accent};
@@ -288,7 +291,7 @@ QPushButton:default:pressed, QPushButton#primaryButton:pressed {{
 #navTab {{
     background: {palette.bg};
     border: none;
-    border-radius: 5px;
+    border-radius: {RADIUS_SM}px;
     padding: {sp(5)} {sp(8)};
     font-size: {px(Type.CAPTION)};
     font-weight: 600;
@@ -305,7 +308,7 @@ QPushButton:default:pressed, QPushButton#primaryButton:pressed {{
 #authorRow, #libraryChip {{
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: {RADIUS_SM}px;
     padding: {sp(4)} {sp(6)};
     text-align: left;
     font-size: {px(Type.CAPTION)};
