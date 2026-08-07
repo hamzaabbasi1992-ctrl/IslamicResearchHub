@@ -158,6 +158,46 @@ def test_show_reader_animates_smoothly_through_intermediate_widths(qtbot, tmp_pa
     assert 0 < workspace._splitter.sizes()[1] < animation.endValue()
 
 
+def test_show_reader_defaults_to_roughly_half_the_total_workspace_width(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real user request: the reader should size itself to a comfortable
+    width automatically every time a book opens - about half the real
+    total workspace width - rather than requiring a manual splitter
+    drag each time."""
+    workspace, _reader_stack, placeholder = _build_workspace(qtbot, tmp_path)
+    workspace.show()
+    qtbot.waitExposed(workspace)
+    total_width = sum(workspace._splitter.sizes())
+
+    workspace.show_reader(placeholder, animated=False)
+
+    reader_width = workspace._splitter.sizes()[1]
+    assert reader_width == pytest.approx(total_width / 2, rel=0.15)
+
+
+def test_show_reader_resizes_to_half_even_if_previously_left_narrow(
+    qtbot, tmp_path: Path
+) -> None:
+    """Real fix for the reported bug: re-opening a book used to reuse
+    whatever narrow width a previous manual resize left the reader at -
+    now it resets to a real, comfortable width every time, not just the
+    first time."""
+    workspace, _reader_stack, placeholder = _build_workspace(qtbot, tmp_path)
+    workspace.show()
+    qtbot.waitExposed(workspace)
+    workspace.show_reader(placeholder, animated=False)
+    total_width = sum(workspace._splitter.sizes())
+    narrow_sizes = workspace._splitter.sizes()
+    narrow_sizes[1] = 50
+    workspace._splitter.setSizes(narrow_sizes)
+
+    workspace.show_reader(placeholder, animated=False)
+
+    reader_width = workspace._splitter.sizes()[1]
+    assert reader_width == pytest.approx(total_width / 2, rel=0.15)
+
+
 def test_show_reader_without_animation_applies_instantly(qtbot, tmp_path: Path) -> None:
     """`animated=False` (used for the initial layout) skips the animation entirely."""
     workspace, _reader_stack, placeholder = _build_workspace(qtbot, tmp_path)

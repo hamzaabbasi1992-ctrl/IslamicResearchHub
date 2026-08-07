@@ -111,6 +111,13 @@ class WorkspaceScreen(QWidget):
         The reader stack always contains a real widget (`ViewerScreen` shows
         its own empty state with nothing loaded) - `widget=None` only affects
         this segment's width, not what the stack itself is showing.
+
+        Real user request: every time a real book opens, the reader
+        should default to a comfortable width on its own - about half
+        of the workspace's real current total width - rather than
+        requiring a manual splitter drag each time, or reusing whatever
+        narrow width a previous manual resize (or a collapsed AI/search
+        panel) happened to leave behind.
         """
         if widget is not None:
             self._reader_stack.setCurrentWidget(widget)
@@ -120,11 +127,23 @@ class WorkspaceScreen(QWidget):
                 self._last_reader_width = sizes[1]
             target = 0
         else:
-            target = sizes[1] if sizes[1] > 0 else max(self._last_reader_width, _MIN_READER_WIDTH)
+            total_width = sum(sizes) or self._splitter.width()
+            target = max(total_width // 2, _MIN_READER_WIDTH)
         if animated:
             self._reader_animation = animate_splitter_size(self._splitter, index=1, end=target)
         else:
+            # Mirrors `animate_splitter_size()`'s own real-delta-from-the-
+            # widest-other-segment approach: overwriting just sizes[1] and
+            # leaving the other two at their old absolute values would let
+            # `QSplitter.setSizes()` normalize the *ratio* to fit the real
+            # total width instead of literally honoring `target` - under-
+            # delivering it whenever the other two segments' old sizes
+            # were themselves already a large share of the total.
+            delta = target - sizes[1]
             sizes[1] = target
+            other_indices = [i for i in range(len(sizes)) if i != 1]
+            widest = max(other_indices, key=lambda i: sizes[i])
+            sizes[widest] -= delta
             self._splitter.setSizes(sizes)
 
     def _on_ai_panel_collapsed_changed(self, collapsed: bool) -> None:

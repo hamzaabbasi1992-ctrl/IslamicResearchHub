@@ -1,5 +1,25 @@
 # Changelog
 
+## Real UX fix: reader auto-sizes to ~half the workspace width on open
+
+Reported directly by the user: opening a book left the reader at
+whatever narrow width a previous manual resize (or the initial fixed
+starting size) happened to leave behind, requiring a manual splitter
+drag nearly every time to get a comfortable reading width.
+
+`WorkspaceScreen.show_reader()` now computes a real target of ~half
+the workspace's actual current total width every time a book opens,
+not just once. Fixed a real bug found while building this: naively
+overwriting only the reader's own splitter index and leaving the
+other two segments at their old absolute sizes let `QSplitter.
+setSizes()` normalize the *ratio* to fit the real total width instead
+of literally honoring the computed target - under-delivering it
+whenever the other two segments' old sizes were already a large share
+of the total. Fixed by mirroring `animate_splitter_size()`'s own
+correct approach: take the real delta from whichever other segment is
+currently widest, keeping the total width exactly constant. 2 new
+tests. Full suite: 1304 passed, no regressions.
+
 ## Real UX fix: nav rail group tabs moved to a top menu bar, icons gained text labels
 
 Reported directly by the user, with a screenshot of the grouped-tab
