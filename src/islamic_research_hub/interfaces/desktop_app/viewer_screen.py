@@ -110,6 +110,7 @@ class ViewerScreen(QWidget):
     generate_mcqs_requested = Signal(int)  # book_id
     generate_slide_deck_requested = Signal(int)  # book_id
     generate_podcast_requested = Signal(int)  # book_id
+    generate_lecture_notes_requested = Signal(int)  # book_id
 
     def __init__(
         self,
@@ -399,6 +400,19 @@ class ViewerScreen(QWidget):
         self._generate_podcast_button.setVisible(self._enable_lazy_ai_agent and self._enable_lazy_tts)
         self._generate_podcast_button.clicked.connect(self._on_generate_podcast_clicked)
         toolbar.addWidget(self._generate_podcast_button)
+
+        self._generate_lecture_notes_button = QPushButton(
+            self._translator.tr("viewer-generate-lecture-notes")
+        )
+        self._generate_lecture_notes_button.setToolTip(
+            self._translator.tr("viewer-generate-lecture-notes-tooltip")
+        )
+        # Same visible-only-when-enabled philosophy as Extract Events/
+        # Narrators/Generate Flashcards - real paid API calls, opt-in via
+        # the same AI Agent Settings toggle.
+        self._generate_lecture_notes_button.setVisible(self._enable_lazy_ai_agent)
+        self._generate_lecture_notes_button.clicked.connect(self._on_generate_lecture_notes_clicked)
+        toolbar.addWidget(self._generate_lecture_notes_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -521,6 +535,12 @@ class ViewerScreen(QWidget):
         self._generate_podcast_button.setText(self._translator.tr("viewer-generate-podcast"))
         self._generate_podcast_button.setToolTip(
             self._translator.tr("viewer-generate-podcast-tooltip")
+        )
+        self._generate_lecture_notes_button.setText(
+            self._translator.tr("viewer-generate-lecture-notes")
+        )
+        self._generate_lecture_notes_button.setToolTip(
+            self._translator.tr("viewer-generate-lecture-notes-tooltip")
         )
         self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
         self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
@@ -1144,6 +1164,14 @@ class ViewerScreen(QWidget):
         if self._current_book_id is None:
             return
         self.generate_podcast_requested.emit(self._current_book_id)
+
+    def _on_generate_lecture_notes_clicked(self) -> None:
+        """Ask upstream (MainWindow) to generate lecture-notes content for
+        the current book (Phase 16 Milestone 2) - same minimal-here,
+        real-work-upstream reasoning as `_on_extract_events_clicked`."""
+        if self._current_book_id is None:
+            return
+        self.generate_lecture_notes_requested.emit(self._current_book_id)
 
     def _update_bookmark_button(self) -> None:
         page_number = self.current_page_number()

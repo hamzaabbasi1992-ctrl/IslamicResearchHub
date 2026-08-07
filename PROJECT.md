@@ -1312,7 +1312,7 @@ cleanup step. 22 new tests (`test_spaced_repetition.py`,
 mode" remain open within this phase, not missed - real scheduling was
 the next concrete, well-scoped piece.
 
-### Phase 16 — AI content generator: **Milestone 1 done**
+### Phase 16 — AI content generator: **Milestone 2 done**
 
 Produces structured output documents - lecture notes, khutbah outlines,
 research-paper drafts, book reviews, comparison tables, citation lists
@@ -1333,6 +1333,29 @@ Deliberately does not gather any new evidence or add new document
 types (lecture notes, khutbah outlines, comparison tables, etc.) -
 those remain open within this phase, not missed; this milestone proved
 the export path end-to-end on the simplest real case first.
+
+**Milestone 2 (done)**: real lecture-notes generation from one book's
+real page content - the first Phase 16 document type built from fresh
+evidence-gathering rather than reusing an existing AI panel answer,
+mirroring Slide Deck's exact chunked-generation shape (Phase 17
+Milestone 1) rather than the review-screen architecture Events/
+Narrators/Flashcards/MCQs use, since a lecture note is a formatted
+restatement of real content, not an asserted fact needing explicit
+human confirmation. `AiAgentService.generate_lecture_notes()` (own
+system prompt, strict JSON array output: heading + one real
+explanatory paragraph per section), `application/
+lecture_notes_extraction.py::parse_extracted_lecture_sections()` (same
+fence-stripping/partial-failure discipline as every other extraction
+module), a new `LectureNotesGenerationWorker` that collects sections
+across chunks in memory, exported straight to a real `.docx` via
+`research_notes/lecture_notes_export.py` (reusing the same
+`python-docx` dependency `ai_answer_export.py`/`collection_export.py`
+already use). New "Generate Lecture Notes" button in the Viewer's
+toolbar (same pre-flight/cost-estimate/worker pattern as Generate
+Slide Deck). Khutbah outlines, research-paper drafts, book reviews,
+comparison tables, and citation lists remain open within this phase,
+not missed - lecture notes was the next concrete, well-scoped document
+type.
 
 ### Phase 17 — Multimedia generation: **Milestone 2 done**
 

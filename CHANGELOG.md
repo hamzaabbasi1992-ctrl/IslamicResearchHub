@@ -1,5 +1,28 @@
 # Changelog
 
+## Phase 16, Milestone 2: Real lecture-notes generation
+
+First Phase 16 document type built from fresh evidence-gathering
+rather than reusing an existing AI panel answer - mirrors Slide Deck's
+exact chunked-generation shape (own system prompt, strict JSON array
+output: heading + one real explanatory paragraph per section), not
+the review-screen architecture Events/Flashcards/MCQs use, since a
+lecture note is a formatted restatement of real content, not an
+asserted fact needing human confirmation.
+
+`AiAgentService.generate_lecture_notes()`,
+`application/lecture_notes_extraction.py`, a new
+`LectureNotesGenerationWorker` (collects sections across chunks in
+memory), exported to a real `.docx` via
+`research_notes/lecture_notes_export.py` (reuses the existing
+`python-docx` dependency). New "Generate Lecture Notes" button in the
+Viewer's toolbar, same pre-flight/cost-estimate/worker pattern as
+Generate Slide Deck.
+
+28 new tests across 6 files. Full suite green, no regressions. Khutbah
+outlines, research-paper drafts, book reviews, comparison tables, and
+citation lists remain open within Phase 16.
+
 ## Phase 15, Milestone 3: Real spaced-repetition scheduling for flashcards
 
 Genuine SM-2 scheduling (SuperMemo's real algorithm - the same one

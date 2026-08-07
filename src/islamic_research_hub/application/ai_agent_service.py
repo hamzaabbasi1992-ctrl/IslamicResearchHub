@@ -172,6 +172,28 @@ _GENERATE_SLIDE_DECK_PROMPT_TEMPLATE = (
     "{start_page}-{end_page}."
 )
 
+_GENERATE_LECTURE_NOTES_SYSTEM_PROMPT = (
+    "You are turning one real page range of an Islamic research library "
+    "book into lecture notes (Phase 16 Milestone 2: AI content "
+    "generator). Call get_book_pages for the given range first "
+    "(paginate with further calls if truncated), then respond with "
+    "ONLY a raw JSON array - no prose, no markdown code fences - and "
+    "nothing else. Each element must have exactly these fields: "
+    "heading (string, a short section heading), content (string, one "
+    "real explanatory paragraph grounded only in the text you read - "
+    "never invented, written as a lecturer would actually explain it, "
+    "not just a restatement). Only create sections for real, "
+    "substantive content actually in the text you read - never invent "
+    "one to have something to report, and never create a section for "
+    "trivial or vague content. Preserve the real order the content "
+    "appears in. If the range has nothing substantive to present, "
+    "return an empty array []."
+)
+
+_GENERATE_LECTURE_NOTES_PROMPT_TEMPLATE = (
+    "Generate lecture notes from book_id={book_id}, pages {start_page}-{end_page}."
+)
+
 _GENERATE_PODCAST_SCRIPT_SYSTEM_PROMPT = (
     "You are writing one segment of a spoken narration script for a "
     "real Islamic research library book (Phase 17 Milestone 1: "
@@ -378,6 +400,22 @@ class AiAgentService:
         return self._run_loop(
             (LLMMessage(role="user", text=prompt),),
             system_prompt=_GENERATE_SLIDE_DECK_SYSTEM_PROMPT,
+        )
+
+    def generate_lecture_notes(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:
+        """Generate real lecture-notes content from one real page range, as
+        a strict JSON array (possibly empty) - never prose. `AgentTurnResult.answer`
+        is the raw JSON text; parsing it into typed sections is
+        `application/lecture_notes_extraction.py::parse_extracted_lecture_sections()`'s
+        job, not this service's."""
+        if start_page > end_page:
+            raise ValueError("start_page must not be after end_page.")
+        prompt = _GENERATE_LECTURE_NOTES_PROMPT_TEMPLATE.format(
+            book_id=book_id, start_page=start_page, end_page=end_page
+        )
+        return self._run_loop(
+            (LLMMessage(role="user", text=prompt),),
+            system_prompt=_GENERATE_LECTURE_NOTES_SYSTEM_PROMPT,
         )
 
     def generate_podcast_script(self, book_id: int, start_page: int, end_page: int) -> AgentTurnResult:

@@ -102,6 +102,9 @@ from islamic_research_hub.interfaces.desktop_app.reading_fonts import DEFAULT_FO
 from islamic_research_hub.interfaces.desktop_app.podcast_generation_worker import (
     PodcastGenerationWorker,
 )
+from islamic_research_hub.interfaces.desktop_app.lecture_notes_worker import (
+    LectureNotesGenerationWorker,
+)
 from islamic_research_hub.interfaces.desktop_app.search_screen import SearchScreen
 from islamic_research_hub.interfaces.desktop_app.slide_deck_worker import (
     SlideDeckGenerationWorker,
@@ -131,6 +134,9 @@ from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
     ViewerScreen,
 )
 from islamic_research_hub.interfaces.desktop_app.workspace_screen import WorkspaceScreen
+from islamic_research_hub.research_notes.lecture_notes_export import (
+    export_lecture_notes_to_docx,
+)
 from islamic_research_hub.research_notes.slide_deck_export import export_slide_deck_to_pptx
 
 RAIL_WIDTH = 112
@@ -284,6 +290,7 @@ class MainWindow(QMainWindow):
         self._mcq_extraction_worker: McqExtractionWorker | None = None
         self._slide_deck_worker: SlideDeckGenerationWorker | None = None
         self._podcast_worker: PodcastGenerationWorker | None = None
+        self._lecture_notes_worker: LectureNotesGenerationWorker | None = None
         if database_path.is_file():
             self._database_path = database_path
             self._browser = BookBrowserRepository(database_path)
@@ -380,6 +387,9 @@ class MainWindow(QMainWindow):
             )
             self._viewer_screen.generate_podcast_requested.connect(
                 self._on_generate_podcast_requested
+            )
+            self._viewer_screen.generate_lecture_notes_requested.connect(
+                self._on_generate_lecture_notes_requested
             )
             self._pdf_viewer_screen = PdfViewerScreen(self._translator)
             self._pdf_viewer_screen.bookmark_toggled.connect(self._on_bookmark_toggled)
@@ -1215,6 +1225,98 @@ class MainWindow(QMainWindow):
             self,
             "Generate Podcast",
             f"~{duration_seconds:.0f}s of real narration generated and saved to {output_path_str}.",
+        )
+
+    def _on_generate_lecture_notes_requested(self, book_id: int) -> None:
+        """Generate real lecture-notes content for one book (Phase 16
+        Milestone 2: AI content generator) - same pre-flight check,
+        chunk/cost estimate, and background-worker shape as
+        `_on_generate_slide_deck_requested`. No candidate-review screen
+        here either - a lecture note is a formatted restatement of real
+        content, not an asserted fact, so generated sections go straight
+        to a real .docx export instead of a DB table."""
+        if self._browser is None or self._database_path is None or self._ai_panel is None:
+            return
+        provider_code = str(
+            self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+        )
+        provider_label = AI_AGENT_PROVIDER_LABELS.get(provider_code, provider_code)
+        enabled = bool(self._settings.value(AI_AGENT_ENABLED_KEY, False, type=bool))
+        if not enabled:
+            show_ai_unavailable_dialog(
+                self, "Generate Lecture Notes", "AI Agent is not enabled in Settings."
+            )
+            return
+        if not resolve_ai_agent_api_key(self._settings, provider_code):
+            show_ai_unavailable_dialog(
+                self, "Generate Lecture Notes", f"No API key is set for {provider_label}."
+            )
+            return
+
+        metadata = self._browser.get_book_metadata(book_id)
+        if metadata is None:
+            return
+        chapters = self._browser.list_chapters(book_id)
+        chunks = compute_extraction_chunks(chapters, metadata.page_count)
+        if not chunks:
+            QMessageBox.information(
+                self, "Generate Lecture Notes", "This book has no real page content to generate from."
+            )
+            return
+
+        with closing(sqlite3.connect(self._database_path)) as connection:
+            total_characters = (
+                connection.execute(
+                    "SELECT SUM(LENGTH(Content)) FROM Pages WHERE BookID = ?", (book_id,)
+                ).fetchone()[0]
+                or 0
+            )
+        estimated_cost = estimate_extraction_cost(total_characters, len(chunks), provider_code)
+
+        confirmed = QMessageBox.question(
+            self,
+            "Generate Lecture Notes",
+            f"This will make ~{len(chunks)} real API call(s) to {provider_label}, "
+            f"estimated cost ~${estimated_cost:.2f} (approximate - not a "
+            "billing guarantee). Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirmed != QMessageBox.StandardButton.Yes:
+            return
+
+        worker = LectureNotesGenerationWorker(
+            self._ai_panel.get_or_build_ai_agent_service, book_id, chunks, self
+        )
+        worker.generation_finished.connect(
+            lambda sections, title=metadata.title: self._on_lecture_notes_generation_finished(
+                title, sections
+            )
+        )
+        worker.generation_unavailable.connect(
+            lambda reason: show_ai_unavailable_dialog(self, "Generate Lecture Notes", reason)
+        )
+        self._lecture_notes_worker = worker
+        worker.start()
+
+    def _on_lecture_notes_generation_finished(self, book_title: str, sections: tuple) -> None:
+        if not sections:
+            QMessageBox.information(
+                self,
+                "Generate Lecture Notes",
+                "No real lecture-worthy content was found in this book.",
+            )
+            return
+        default_path = str(Path.home() / "Documents" / f"{book_title[:60]}.docx")
+        output_path_str, _filter = QFileDialog.getSaveFileName(
+            self, "Generate Lecture Notes", default_path, "Word Document (*.docx)"
+        )
+        if not output_path_str:
+            return
+        export_lecture_notes_to_docx(book_title, sections, Path(output_path_str))
+        QMessageBox.information(
+            self,
+            "Generate Lecture Notes",
+            f"{len(sections)} section(s) generated and saved to {output_path_str}.",
         )
 
     def _on_explain_selection_requested(self, selected_text: str) -> None:
