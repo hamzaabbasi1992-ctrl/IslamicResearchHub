@@ -202,6 +202,13 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} of {total}",
         "flashcard-manager-show-answer": "Show Answer",
         "flashcard-manager-show-question": "Show Question",
+        "flashcard-manager-review": "Review Due Cards",
+        "flashcard-manager-review-empty": "No cards due for review right now.",
+        "flashcard-manager-review-counter": "{count} card(s) due",
+        "flashcard-manager-review-done": "All done for now - no more cards due.",
+        "flashcard-manager-grade-again": "Again",
+        "flashcard-manager-grade-good": "Good",
+        "flashcard-manager-grade-easy": "Easy",
         "mcq-manager-heading": "MCQ review",
         "mcq-manager-intro": (
             "Real multiple-choice questions generated from real page content, for your "
@@ -673,6 +680,13 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} از {total}",
         "flashcard-manager-show-answer": "جواب دکھائیں",
         "flashcard-manager-show-question": "سوال دکھائیں",
+        "flashcard-manager-review": "واجب الادا کارڈز کا جائزہ لیں",
+        "flashcard-manager-review-empty": "فی الحال جائزے کے لیے کوئی کارڈ واجب الادا نہیں۔",
+        "flashcard-manager-review-counter": "{count} کارڈ واجب الادا",
+        "flashcard-manager-review-done": "فی الحال سب مکمل - مزید کوئی کارڈ واجب الادا نہیں۔",
+        "flashcard-manager-grade-again": "دوبارہ",
+        "flashcard-manager-grade-good": "اچھا",
+        "flashcard-manager-grade-easy": "آسان",
         "mcq-manager-heading": "کثیر انتخابی سوالات کا جائزہ",
         "mcq-manager-intro": (
             "حقیقی صفحہ مواد سے تیار کردہ حقیقی کثیر انتخابی سوالات، آپ کے جائزے کے لیے، "
@@ -1140,6 +1154,13 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "flashcard-manager-study-counter": "{current} من {total}",
         "flashcard-manager-show-answer": "إظهار الإجابة",
         "flashcard-manager-show-question": "إظهار السؤال",
+        "flashcard-manager-review": "مراجعة البطاقات المستحقة",
+        "flashcard-manager-review-empty": "لا توجد بطاقات مستحقة للمراجعة الآن.",
+        "flashcard-manager-review-counter": "{count} بطاقة مستحقة",
+        "flashcard-manager-review-done": "تم الانتهاء الآن - لا مزيد من البطاقات المستحقة.",
+        "flashcard-manager-grade-again": "إعادة",
+        "flashcard-manager-grade-good": "جيد",
+        "flashcard-manager-grade-easy": "سهل",
         "mcq-manager-heading": "مراجعة الأسئلة متعددة الخيارات",
         "mcq-manager-intro": (
             "أسئلة حقيقية متعددة الخيارات من إنشاء الذكاء الاصطناعي، من محتوى صفحات حقيقي، "

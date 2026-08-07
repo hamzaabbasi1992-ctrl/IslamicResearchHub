@@ -9,6 +9,14 @@ Adds one real thing `event_manager_screen.py` doesn't need: a Study
 button that flips through only the confirmed flashcards - never the
 unreviewed ones, so nothing unverified is ever presented as something
 to memorize.
+
+Also adds a real Review button (Phase 15's deferred spaced-repetition
+scheduling milestone): unlike Study's plain flip-through of every
+confirmed card, Review only shows cards genuinely due right now (see
+`FlashcardCandidateRepository.due_candidates()`), and after each
+answer asks for a real Again/Good/Easy self-grade that feeds the SM-2
+schedule (`application/spaced_repetition.py`) - two real modes for two
+real needs, not one trying to do both.
 """
 
 from pathlib import Path
@@ -78,6 +86,9 @@ class FlashcardManagerScreen(QWidget):
         self._study_button.setObjectName("primaryButton")
         self._study_button.clicked.connect(self._on_study_clicked)
         header_row.addWidget(self._study_button)
+        self._review_button = QPushButton(self._translator.tr("flashcard-manager-review"))
+        self._review_button.clicked.connect(self._on_review_clicked)
+        header_row.addWidget(self._review_button)
         layout.addLayout(header_row)
 
         self._intro_label = QLabel(self._translator.tr("flashcard-manager-intro"))
@@ -114,6 +125,7 @@ class FlashcardManagerScreen(QWidget):
     def _retranslate(self, _language: str) -> None:
         self._heading_label.setText(self._translator.tr("flashcard-manager-heading"))
         self._study_button.setText(self._translator.tr("flashcard-manager-study"))
+        self._review_button.setText(self._translator.tr("flashcard-manager-review"))
         self._intro_label.setText(self._translator.tr("flashcard-manager-intro"))
         self._flashcard_table.setHorizontalHeaderLabels(self._table_header_labels())
         self._reload_candidates()
@@ -188,6 +200,15 @@ class FlashcardManagerScreen(QWidget):
     def _on_study_clicked(self) -> None:
         confirmed = self._flashcards.list_candidates(status="confirmed")
         dialog = _build_study_dialog(confirmed, self._translator, self)
+        dialog.exec()
+
+    def _on_review_clicked(self) -> None:
+        """Real SM-2 spaced-repetition review (Phase 15's deferred
+        scheduling milestone) - only cards genuinely due right now, self-
+        graded Again/Good/Easy after each answer, feeding straight back
+        into `FlashcardCandidateRepository.record_review()`."""
+        due = self._flashcards.due_candidates()
+        dialog = _build_review_dialog(due, self._flashcards, self._translator, self)
         dialog.exec()
 
 
@@ -326,3 +347,115 @@ def _navigate(
 ) -> None:
     state["index"] = (state["index"] + delta) % len(confirmed)
     _render_current_card(state, confirmed, card_label, flip_button, counter_label, translator)
+
+
+def _build_review_dialog(
+    due: tuple[FlashcardCandidate, ...],
+    flashcards: FlashcardCandidateRepository,
+    translator: Translator,
+    parent: QWidget,
+) -> QDialog:
+    """A real SM-2 review session over only the cards genuinely due right
+    now - each one is graded (Again/Good/Easy) after its answer is
+    shown, immediately persisted via `record_review()`, then removed
+    from this session's queue (grading it again before its real next
+    due date isn't offered)."""
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(translator.tr("flashcard-manager-review"))
+    dialog.resize(480, 360)
+    layout = QVBoxLayout(dialog)
+
+    if not due:
+        layout.addWidget(QLabel(translator.tr("flashcard-manager-review-empty")))
+        close_button = QPushButton(translator.tr("common-close"))
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        return dialog
+
+    state = {"queue": list(due), "showing_back": False}
+
+    counter_label = QLabel()
+    layout.addWidget(counter_label)
+
+    card_label = QLabel()
+    card_label.setWordWrap(True)
+    card_label.setStyleSheet(f"font-size: 15px; {RTL_TEXT_STYLE}")
+    layout.addWidget(card_label, stretch=1)
+
+    flip_button = QPushButton()
+    layout.addWidget(flip_button)
+
+    grade_row = QHBoxLayout()
+    again_button = QPushButton(translator.tr("flashcard-manager-grade-again"))
+    good_button = QPushButton(translator.tr("flashcard-manager-grade-good"))
+    easy_button = QPushButton(translator.tr("flashcard-manager-grade-easy"))
+    grade_buttons = (again_button, good_button, easy_button)
+    for button in grade_buttons:
+        grade_row.addWidget(button)
+    layout.addLayout(grade_row)
+
+    flip_button.clicked.connect(
+        lambda: _toggle_review_flip(state, card_label, flip_button, grade_buttons, translator)
+    )
+    for button, grade in zip(grade_buttons, ("again", "good", "easy")):
+        button.clicked.connect(
+            lambda _checked, g=grade: _grade_current_review_card(
+                state, g, flashcards, card_label, flip_button, counter_label, grade_buttons, translator
+            )
+        )
+
+    close_button = QPushButton(translator.tr("common-close"))
+    close_button.clicked.connect(dialog.accept)
+    layout.addWidget(close_button)
+
+    _render_current_review_card(state, card_label, flip_button, counter_label, grade_buttons, translator)
+    return dialog
+
+
+def _render_current_review_card(
+    state: dict, card_label: QLabel, flip_button: QPushButton,
+    counter_label: QLabel, grade_buttons: tuple[QPushButton, ...], translator: Translator,
+) -> None:
+    state["showing_back"] = False
+    card = state["queue"][0]
+    card_label.setText(card.flashcard.front)
+    flip_button.setText(translator.tr("flashcard-manager-show-answer"))
+    flip_button.setEnabled(True)
+    for button in grade_buttons:
+        button.setEnabled(False)  # only meaningful once the real answer has been seen
+    counter_label.setText(
+        translator.tr("flashcard-manager-review-counter").format(count=len(state["queue"]))
+    )
+
+
+def _toggle_review_flip(
+    state: dict, card_label: QLabel, flip_button: QPushButton,
+    grade_buttons: tuple[QPushButton, ...], translator: Translator,
+) -> None:
+    card = state["queue"][0]
+    state["showing_back"] = not state["showing_back"]
+    if state["showing_back"]:
+        card_label.setText(card.flashcard.back)
+        flip_button.setText(translator.tr("flashcard-manager-show-question"))
+        for button in grade_buttons:
+            button.setEnabled(True)
+    else:
+        card_label.setText(card.flashcard.front)
+        flip_button.setText(translator.tr("flashcard-manager-show-answer"))
+
+
+def _grade_current_review_card(
+    state: dict, grade: str, flashcards: FlashcardCandidateRepository, card_label: QLabel,
+    flip_button: QPushButton, counter_label: QLabel, grade_buttons: tuple[QPushButton, ...],
+    translator: Translator,
+) -> None:
+    card = state["queue"].pop(0)
+    flashcards.record_review(card.id, grade)
+    if state["queue"]:
+        _render_current_review_card(state, card_label, flip_button, counter_label, grade_buttons, translator)
+        return
+    card_label.setText(translator.tr("flashcard-manager-review-done"))
+    counter_label.setText("")
+    flip_button.setEnabled(False)
+    for button in grade_buttons:
+        button.setEnabled(False)

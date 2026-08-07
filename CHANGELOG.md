@@ -1,5 +1,31 @@
 # Changelog
 
+## Phase 15, Milestone 3: Real spaced-repetition scheduling for flashcards
+
+Genuine SM-2 scheduling (SuperMemo's real algorithm - the same one
+Anki's own scheduler descends from), not just Milestone 1's sequential
+flip-through. `application/spaced_repetition.py` is pure and DB-free:
+`schedule_next_review(state, grade)` takes a real "again"/"good"/"easy"
+self-grade and returns the next ease factor/interval/repetition count,
+independently testable without touching SQLite or a clock.
+
+`FlashcardCandidateRepository` gained `record_review()`,
+`get_review_state()`, and `due_candidates()` plus a new
+`FlashcardReviewState` table (one row per confirmed card, created
+lazily on its first real review). New "Review Due Cards" button
+alongside the existing Study button - Review only shows cards
+genuinely due right now; each graded card is immediately persisted and
+leaves the session queue.
+
+Caught and fixed a real cleanup gap while building this:
+`DuplicateCandidateRepository.remove_book()` deleted a removed book's
+`FlashcardCandidates` rows but left their `FlashcardReviewState` rows
+orphaned (that table has no `BookID` column of its own). Added the
+missing cleanup step before the fix could ship silently broken.
+
+22 new tests across 4 files. Full suite: 1272 passed, no regressions.
+Lesson plans and "teaching mode" remain open within Phase 15.
+
 ## Phase 12, Milestone 2: Real direct Arabic<->Urdu translation
 
 Researched properly before building: Helsinki-NLP (already used for

@@ -373,6 +373,37 @@ def test_remove_book_also_clears_any_citation_candidate_rows_referencing_it(
     assert citation_repository.list_candidates(include_dismissed=True) == ()
 
 
+def test_remove_book_also_clears_flashcard_review_state_referencing_it(tmp_path: Path) -> None:
+    """FlashcardReviewState has no BookID column of its own (it keys off
+    FlashcardCandidateID) - a removed book's real spaced-repetition
+    schedule shouldn't survive as orphaned dead data."""
+    from islamic_research_hub.application.flashcard_extraction import ExtractedFlashcard
+    from islamic_research_hub.infrastructure.persistence.flashcard_candidate_repository import (
+        FlashcardCandidateRepository,
+    )
+
+    database_path = tmp_path / "books.db"
+    repository = MasterBookRepository()
+    repository.import_books(
+        database_path, (_book("Book of Fiqh"),), (tmp_path / "a.mjbz",), library_name="Library A"
+    )
+    flashcards = FlashcardCandidateRepository(database_path)
+    candidate_id = flashcards.add_candidate(
+        1,
+        1,
+        5,
+        ExtractedFlashcard(front="Front", back="Back", quoted_excerpt="x", citation="y"),
+    )
+    flashcards.confirm(candidate_id)
+    flashcards.record_review(candidate_id, "good")
+
+    DuplicateCandidateRepository(database_path).remove_book(1)
+
+    with sqlite3.connect(database_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM FlashcardReviewState").fetchone()[0]
+    assert count == 0
+
+
 def test_resolve_empty_stub_duplicates_removes_the_contentless_side(tmp_path: Path) -> None:
     """When one side has no content, only the empty side is removed."""
     database_path = tmp_path / "books.db"

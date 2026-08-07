@@ -199,6 +199,139 @@ def test_only_confirmed_flashcards_are_offered_for_study(qtbot, tmp_path: Path) 
     assert confirmed == ()
 
 
+def test_review_dialog_with_no_due_cards_shows_the_empty_state(qtbot, tmp_path: Path) -> None:
+    from islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen import (
+        _build_review_dialog,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_book_and_flashcard(database_path)
+    flashcards = FlashcardCandidateRepository(database_path)
+
+    dialog = _build_review_dialog((), flashcards, _translator(tmp_path), None)
+
+    from PySide6.QtWidgets import QLabel
+
+    labels = [label.text() for label in dialog.findChildren(QLabel)]
+    assert any("No cards due for review" in text for text in labels)
+
+
+def test_review_dialog_shows_front_first_then_flips_and_enables_grading(
+    qtbot, tmp_path: Path
+) -> None:
+    from islamic_research_hub.domain.models.flashcard_candidate import FlashcardCandidate
+    from islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen import (
+        _build_review_dialog,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_book_and_flashcard(database_path)
+    flashcards = FlashcardCandidateRepository(database_path)
+    flashcards.confirm(1)
+    due = (
+        FlashcardCandidate(id=1, book_id=1, chunk_start_page=1, chunk_end_page=5, flashcard=_FLASHCARD, status="confirmed"),
+    )
+    dialog = _build_review_dialog(due, flashcards, _translator(tmp_path), None)
+
+    from PySide6.QtWidgets import QLabel, QPushButton
+
+    card_label = dialog.findChildren(QLabel)[1]  # [0] is the counter label
+    assert card_label.text() == _FLASHCARD.front
+    good_button = next(b for b in dialog.findChildren(QPushButton) if b.text() == "Good")
+    assert not good_button.isEnabled()  # not offered before the answer is seen
+
+    flip_button = next(b for b in dialog.findChildren(QPushButton) if b.text() == "Show Answer")
+    flip_button.click()
+
+    assert card_label.text() == _FLASHCARD.back
+    assert good_button.isEnabled()
+
+
+def test_grading_a_card_persists_a_real_review_and_advances_the_queue(
+    qtbot, tmp_path: Path
+) -> None:
+    from islamic_research_hub.domain.models.flashcard_candidate import FlashcardCandidate
+    from islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen import (
+        _build_review_dialog,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_book_and_flashcard(database_path)
+    flashcards = FlashcardCandidateRepository(database_path)
+    flashcards.confirm(1)
+    second = ExtractedFlashcard(
+        front="A second question", back="A second answer",
+        quoted_excerpt="excerpt", citation="Book, Page 2, Paragraph 1",
+    )
+    second_id = flashcards.add_candidate(1, 6, 10, second)
+    flashcards.confirm(second_id)
+    due = (
+        FlashcardCandidate(id=1, book_id=1, chunk_start_page=1, chunk_end_page=5, flashcard=_FLASHCARD, status="confirmed"),
+        FlashcardCandidate(id=second_id, book_id=1, chunk_start_page=6, chunk_end_page=10, flashcard=second, status="confirmed"),
+    )
+    dialog = _build_review_dialog(due, flashcards, _translator(tmp_path), None)
+
+    from PySide6.QtWidgets import QLabel, QPushButton
+
+    card_label = dialog.findChildren(QLabel)[1]
+    counter_label = dialog.findChildren(QLabel)[0]
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == "Show Answer").click()
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == "Good").click()
+
+    assert card_label.text() == second.front  # advanced to the next real due card
+    assert "1 card(s) due" in counter_label.text()
+    assert flashcards.get_review_state(1) is not None
+    assert flashcards.get_review_state(1).repetitions == 1
+
+
+def test_grading_the_last_due_card_shows_a_real_all_done_message(qtbot, tmp_path: Path) -> None:
+    from islamic_research_hub.domain.models.flashcard_candidate import FlashcardCandidate
+    from islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen import (
+        _build_review_dialog,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_book_and_flashcard(database_path)
+    flashcards = FlashcardCandidateRepository(database_path)
+    flashcards.confirm(1)
+    due = (
+        FlashcardCandidate(id=1, book_id=1, chunk_start_page=1, chunk_end_page=5, flashcard=_FLASHCARD, status="confirmed"),
+    )
+    dialog = _build_review_dialog(due, flashcards, _translator(tmp_path), None)
+
+    from PySide6.QtWidgets import QLabel, QPushButton
+
+    card_label = dialog.findChildren(QLabel)[1]
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == "Show Answer").click()
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == "Easy").click()
+
+    assert card_label.text() == "All done for now - no more cards due."
+
+
+def test_review_button_opens_a_review_dialog_over_only_due_confirmed_cards(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import islamic_research_hub.interfaces.desktop_app.flashcard_manager_screen as screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_book_and_flashcard(database_path)  # still "pending" - never offered
+    screen = FlashcardManagerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+    shown = []
+    monkeypatch.setattr(
+        screen_module, "_build_review_dialog", lambda due, *a: shown.append(due) or _StubDialog()
+    )
+
+    screen._on_review_clicked()
+
+    assert shown == [()]
+
+
+class _StubDialog:
+    def exec(self) -> None:
+        return None
+
+
 def test_switching_language_retranslates_the_screen(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_book_and_flashcard(database_path)

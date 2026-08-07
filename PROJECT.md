@@ -1244,7 +1244,7 @@ playback - no new worker, no new LLM call - it just redisplays the
 exact original question and answer. This closes out Phase 14 as
 originally scoped in PROJECT.md.
 
-### Phase 15 — Educational features: **Milestone 2 done**
+### Phase 15 — Educational features: **Milestone 3 done**
 
 Quizzes, flashcards, MCQs, spaced-repetition-style revision, lesson
 plans, and a "teaching mode" view. Real dependency: question generation
@@ -1284,6 +1284,33 @@ one. New "Generate MCQs" button in the Viewer's toolbar (same pre-
 flight/cost-estimate/worker pattern as Generate Flashcards). Real
 spaced-repetition *scheduling* (interval tracking, due dates), lesson
 plans, and "teaching mode" remain open within this phase, not missed.
+
+**Milestone 3 (done)**: real spaced-repetition *scheduling* for
+confirmed flashcards - genuine interval tracking and due dates, not
+just Milestone 1's sequential flip-through. Implements SuperMemo's
+real SM-2 algorithm (`application/spaced_repetition.py`, pure and
+DB-free - the same algorithm Anki's own scheduler descends from, not
+invented) behind a real 3-button self-grade (Again/Good/Easy, mapped
+onto SM-2's classic 0-5 quality scale). `FlashcardCandidateRepository`
+gained `record_review()`/`get_review_state()`/`due_candidates()` and a
+new `FlashcardReviewState` table (ease factor, interval, repetitions,
+due date, one row per confirmed card, created lazily on its first real
+review). New "Review Due Cards" button/dialog alongside the existing
+Study button - Review only ever shows cards genuinely due (never
+reviewed yet, or past their real due date), grades feed straight back
+into the schedule, and a graded card leaves the session queue
+immediately (re-grading it before its next real due date isn't
+offered). Found and fixed a real cleanup gap while building this:
+`DuplicateCandidateRepository.remove_book()` deleted a removed book's
+`FlashcardCandidates` rows but not their `FlashcardReviewState` rows
+(no `BookID` column there - it keys off `FlashcardCandidateID`), which
+would have left orphaned schedule rows behind; added the missing
+cleanup step. 22 new tests (`test_spaced_repetition.py`,
+`test_flashcard_candidate_repository.py`,
+`test_flashcard_manager_screen.py`,
+`test_duplicate_candidate_repository.py`). Lesson plans and "teaching
+mode" remain open within this phase, not missed - real scheduling was
+the next concrete, well-scoped piece.
 
 ### Phase 16 — AI content generator: **Milestone 1 done**
 

@@ -290,6 +290,17 @@ class DuplicateCandidateRepository:
             # loop below - same two-sided treatment as DuplicateCandidates above.
             connection.execute("DELETE FROM CitationCandidates WHERE CitingBookID = ?", (book_id,))
             connection.execute("DELETE FROM CitationCandidates WHERE CitedBookID = ?", (book_id,))
+        if "FlashcardReviewState" in existing_tables and "FlashcardCandidates" in existing_tables:
+            # FlashcardReviewState has no BookID column of its own (it
+            # keys off FlashcardCandidateID) - must run before
+            # FlashcardCandidates rows are deleted below, or the real
+            # spaced-repetition schedule for this book's flashcards
+            # would be orphaned dead data instead of cleaned up.
+            connection.execute(
+                "DELETE FROM FlashcardReviewState WHERE FlashcardCandidateID IN "
+                "(SELECT FlashcardCandidateID FROM FlashcardCandidates WHERE BookID = ?)",
+                (book_id,),
+            )
         for table in _BOOK_REFERENCING_TABLES:
             if table in existing_tables:
                 connection.execute(f"DELETE FROM {table} WHERE BookID = ?", (book_id,))
