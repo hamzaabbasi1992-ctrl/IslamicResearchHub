@@ -1,5 +1,28 @@
 # Changelog
 
+## Phase 18, Milestone 2: remaining three mobile screens, real navigation
+
+Completes the mobile app's real first milestone (see the entry below
+for the catalog-import slice this builds on). Three more real screens,
+wired together with real Jetpack Navigation Compose:
+
+- `BookDetailScreen` - real book metadata, plus the separate real
+  per-book import flow (`book_<id>.db` via the system file picker) -
+  Read/Chapters once imported, an import prompt otherwise.
+- `ChapterListScreen` - real chapters from `PageDao.listChapters()`,
+  tapping one jumps the reader to its real page.
+- `BookReaderScreen` - every real page from `PageDao.listPages()`, in
+  order, entirely from local Room, real Arabic/Urdu RTL text - the
+  real offline reading experience this whole phase exists for.
+
+Real routes: `catalog` → `book/{bookId}` → `chapters` or
+`reader?page={page}`. Verified with a second real `gradlew
+assembleDebug` success (10.3MB APK) - compiled cleanly on the first
+try, no further version-compatibility surprises (all of those were
+resolved building the first slice). Real catalog search/filtering UI,
+camera OCR search, and bookmark sync remain open. Not yet run on a
+real device.
+
 ## Phase 18, Milestone 2: mobile app's real first slice, verified building
 
 Android Studio's SDK, redirected to F: drive, confirmed working for

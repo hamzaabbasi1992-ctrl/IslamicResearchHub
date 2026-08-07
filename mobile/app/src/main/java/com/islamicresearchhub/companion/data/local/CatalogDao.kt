@@ -17,6 +17,9 @@ interface CatalogDao {
     @Query("SELECT * FROM Books ORDER BY Title")
     suspend fun listAll(): List<BookEntity>
 
+    @Query("SELECT * FROM Books WHERE BookID = :bookId")
+    suspend fun getBook(bookId: Int): BookEntity?
+
     @Query("SELECT * FROM Libraries")
     suspend fun listLibraries(): List<LibraryEntity>
 }

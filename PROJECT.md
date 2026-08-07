@@ -1432,7 +1432,7 @@ shape (two independent services, not one). Exports straight to a real
 milestones' document types are now shipped; this phase's original scope
 is complete.
 
-### Phase 18 — Mobile companion app: **Milestone 2, real first slice building**
+### Phase 18 — Mobile companion app: **Milestone 2 done**
 
 The project's own stated goal already names this ("Windows desktop app
 first, Android app later" - see Goal, above) - this phase is that
@@ -1516,14 +1516,39 @@ real build failure, not guessed preemptively:
 - One Compose API (`TopAppBar`) is still marked experimental in the
   pinned Compose BOM - added the real `@OptIn(ExperimentalMaterial3Api::class)`.
 
-**Deliberately not built yet**: book-package import/offline reading,
-chapter list, real catalog search/filtering UI, camera OCR search,
-bookmark sync. The Room layer for book packages
-(`BookPackageDatabase`/`PageDao`) is already real and ready; only its
-own Compose screens remain. Not live-tested on a real device or
-emulator yet either - `gradlew assembleDebug`'s success proves the code
-compiles and packages into a real, installable APK, not that it
-behaves correctly at runtime.
+**The remaining three real screens shipped in the same milestone**,
+with real Jetpack Navigation Compose wiring (`androidx.navigation:
+navigation-compose`, already a dependency) connecting all four:
+- `BookDetailScreen` - real book metadata from the catalog, plus the
+  separate real "import this specific book" flow (`book_<id>.db`, its
+  own file picker, same SAF pattern as the catalog import) - shows
+  Read/Chapters once imported, an import prompt otherwise.
+- `ChapterListScreen` - real chapters from `PageDao.listChapters()`, a
+  flat list for this real first version (parent/child nesting via
+  `ParentChapterID` is a real "nice to have," not required for tapping
+  a chapter to jump to its real page).
+- `BookReaderScreen` - every real page from `PageDao.listPages()`, in
+  order, entirely from local Room - the real offline reading
+  experience this whole phase exists for. Real Arabic/Urdu text reads
+  right-to-left (`LocalLayoutDirection` provided as RTL), matching the
+  desktop reader's own real RTL handling.
+
+Real navigation routes: `catalog` → `book/{bookId}` → `book/{bookId}/
+chapters` or `book/{bookId}/reader?page={page}` (the chapter list
+passes a real starting page; opened directly from the detail screen,
+the reader just starts at the top). Verified with a second real
+`gradlew assembleDebug` success (10.3MB APK) after adding all three
+screens and the navigation graph - compiled cleanly on the first try,
+no further version-compatibility issues (all of those were resolved
+getting the first real slice building, above).
+
+**Deliberately not built yet**: real catalog search/filtering UI
+(`CatalogDao.search()` exists and is real, just not wired to a search
+box yet), camera OCR search, bookmark sync back to the desktop, nested
+chapter hierarchy. Not live-tested on a real device or emulator yet
+either - `gradlew assembleDebug`'s success proves the code compiles and
+packages into a real, installable APK, not that it behaves correctly
+at runtime.
 
 ### Phase 19 — Developer APIs: **scheduled after Phase 18, not started**
 
