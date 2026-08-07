@@ -339,23 +339,34 @@ class ViewerScreen(QWidget):
         toolbar.addWidget(self._copy_citation_button)
         toolbar.addWidget(_toolbar_separator())
 
+        # Real user request: this toolbar had grown to 20+ real controls,
+        # requiring horizontal scrolling just to find a button - the same
+        # crowding problem already fixed once for PdfViewerScreen's own
+        # toolbar (there, by adding a scrollbar; here, that scrollbar
+        # already existed and scrolling itself became the friction). Real
+        # fix: every AI-generation action below (all gated behind the same
+        # opt-in AI Agent Settings toggle, all occasional/heavier actions
+        # rather than core reading controls) moves into its own real
+        # collapsible second toolbar row instead of its own primary-row
+        # slot - a real toggle button shows/hides `self._ai_tools_row`,
+        # mirroring `main_window.py`'s already-proven `_show_rail_group()`
+        # pattern (a real sibling widget's own `setVisible()`, not a
+        # `QMenu`/`QWidgetAction` popup - Qt reports any widget inside an
+        # unshown popup as `isHidden()` regardless of its own explicit
+        # visibility, which would make every one of these buttons
+        # untestable without actually opening the popup). Each button
+        # object below is unchanged - same attribute name, same
+        # `setVisible()` gate, same click handler - only *which row it's
+        # added to* changes.
         self._extract_events_button = QPushButton(self._translator.tr("viewer-extract-events"))
         self._extract_events_button.setToolTip(self._translator.tr("viewer-extract-events-tooltip"))
-        # Same visible-only-when-enabled philosophy as the TTS button above -
-        # this makes real paid API calls, so it's opt-in via the same
-        # AI Agent Settings toggle, not a dead button for users who haven't
-        # configured it.
         self._extract_events_button.setVisible(self._enable_lazy_ai_agent)
         self._extract_events_button.clicked.connect(self._on_extract_events_clicked)
-        toolbar.addWidget(self._extract_events_button)
 
         self._extract_narrators_button = QPushButton(self._translator.tr("viewer-extract-narrators"))
         self._extract_narrators_button.setToolTip(self._translator.tr("viewer-extract-narrators-tooltip"))
-        # Same visible-only-when-enabled philosophy as Extract Events - real
-        # paid API calls, opt-in via the same AI Agent Settings toggle.
         self._extract_narrators_button.setVisible(self._enable_lazy_ai_agent)
         self._extract_narrators_button.clicked.connect(self._on_extract_narrators_clicked)
-        toolbar.addWidget(self._extract_narrators_button)
 
         self._generate_flashcards_button = QPushButton(
             self._translator.tr("viewer-generate-flashcards")
@@ -363,18 +374,13 @@ class ViewerScreen(QWidget):
         self._generate_flashcards_button.setToolTip(
             self._translator.tr("viewer-generate-flashcards-tooltip")
         )
-        # Same visible-only-when-enabled philosophy as Extract Events/
-        # Narrators - real paid API calls, opt-in via the same AI Agent
-        # Settings toggle.
         self._generate_flashcards_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_flashcards_button.clicked.connect(self._on_generate_flashcards_clicked)
-        toolbar.addWidget(self._generate_flashcards_button)
 
         self._generate_mcqs_button = QPushButton(self._translator.tr("viewer-generate-mcqs"))
         self._generate_mcqs_button.setToolTip(self._translator.tr("viewer-generate-mcqs-tooltip"))
         self._generate_mcqs_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_mcqs_button.clicked.connect(self._on_generate_mcqs_clicked)
-        toolbar.addWidget(self._generate_mcqs_button)
 
         self._generate_slide_deck_button = QPushButton(
             self._translator.tr("viewer-generate-slide-deck")
@@ -382,12 +388,8 @@ class ViewerScreen(QWidget):
         self._generate_slide_deck_button.setToolTip(
             self._translator.tr("viewer-generate-slide-deck-tooltip")
         )
-        # Same visible-only-when-enabled philosophy as Extract Events/
-        # Narrators/Generate Flashcards - real paid API calls, opt-in via
-        # the same AI Agent Settings toggle.
         self._generate_slide_deck_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_slide_deck_button.clicked.connect(self._on_generate_slide_deck_clicked)
-        toolbar.addWidget(self._generate_slide_deck_button)
 
         self._generate_podcast_button = QPushButton(
             self._translator.tr("viewer-generate-podcast")
@@ -399,7 +401,6 @@ class ViewerScreen(QWidget):
         # real, opt-in features - visible only when both are enabled.
         self._generate_podcast_button.setVisible(self._enable_lazy_ai_agent and self._enable_lazy_tts)
         self._generate_podcast_button.clicked.connect(self._on_generate_podcast_clicked)
-        toolbar.addWidget(self._generate_podcast_button)
 
         self._generate_lecture_notes_button = QPushButton(
             self._translator.tr("viewer-generate-lecture-notes")
@@ -407,12 +408,14 @@ class ViewerScreen(QWidget):
         self._generate_lecture_notes_button.setToolTip(
             self._translator.tr("viewer-generate-lecture-notes-tooltip")
         )
-        # Same visible-only-when-enabled philosophy as Extract Events/
-        # Narrators/Generate Flashcards - real paid API calls, opt-in via
-        # the same AI Agent Settings toggle.
         self._generate_lecture_notes_button.setVisible(self._enable_lazy_ai_agent)
         self._generate_lecture_notes_button.clicked.connect(self._on_generate_lecture_notes_clicked)
-        toolbar.addWidget(self._generate_lecture_notes_button)
+
+        self._ai_tools_toggle_button = QPushButton(self._translator.tr("viewer-ai-tools"))
+        self._ai_tools_toggle_button.setCheckable(True)
+        self._ai_tools_toggle_button.setVisible(self._enable_lazy_ai_agent)
+        self._ai_tools_toggle_button.toggled.connect(self._on_ai_tools_toggled)
+        toolbar.addWidget(self._ai_tools_toggle_button)
         toolbar.addWidget(_toolbar_separator())
 
         self._font_family_combo = QComboBox()
@@ -452,6 +455,35 @@ class ViewerScreen(QWidget):
         self._toolbar_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._toolbar_scroll.setFixedHeight(toolbar_container.sizeHint().height())
         reader_layout.addWidget(self._toolbar_scroll)
+
+        # Real fix for the same crowding problem: the AI-generation
+        # buttons live in this real, collapsed-by-default second row -
+        # same horizontal-scroll safety net as the primary row above, so
+        # a narrow window still never squeezes/hides a control even with
+        # every AI tool visible at once.
+        ai_tools_row_container = QWidget()
+        ai_tools_row = QHBoxLayout(ai_tools_row_container)
+        ai_tools_row.setContentsMargins(16, 0, 16, 8)
+        for ai_tool_button in (
+            self._extract_events_button,
+            self._extract_narrators_button,
+            self._generate_flashcards_button,
+            self._generate_mcqs_button,
+            self._generate_slide_deck_button,
+            self._generate_podcast_button,
+            self._generate_lecture_notes_button,
+        ):
+            ai_tools_row.addWidget(ai_tool_button)
+        ai_tools_row.addStretch(1)
+        self._ai_tools_scroll = QScrollArea()
+        self._ai_tools_scroll.setWidget(ai_tools_row_container)
+        self._ai_tools_scroll.setWidgetResizable(True)
+        self._ai_tools_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._ai_tools_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._ai_tools_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._ai_tools_scroll.setFixedHeight(ai_tools_row_container.sizeHint().height())
+        self._ai_tools_scroll.setVisible(False)
+        reader_layout.addWidget(self._ai_tools_scroll)
 
         self._body_splitter = QSplitter(Qt.Orientation.Horizontal)
         self._body_splitter.addWidget(self._build_nav_panel())
@@ -542,6 +574,7 @@ class ViewerScreen(QWidget):
         self._generate_lecture_notes_button.setToolTip(
             self._translator.tr("viewer-generate-lecture-notes-tooltip")
         )
+        self._ai_tools_toggle_button.setText(self._translator.tr("viewer-ai-tools"))
         self._contents_heading_label.setText(self._translator.tr("viewer-contents"))
         self._bookmarks_heading_label.setText(self._translator.tr("home-card-bookmarks"))
         self._research_notes_heading_label.setText(self._translator.tr("viewer-research-notes-heading"))
@@ -614,6 +647,13 @@ class ViewerScreen(QWidget):
     def _on_contents_toggled(self, checked: bool) -> None:
         target = NAV_PANEL_WIDTH if checked else 0
         self._nav_panel_animation = animate_splitter_size(self._body_splitter, index=0, end=target)
+
+    def _on_ai_tools_toggled(self, checked: bool) -> None:
+        """Show/hide the collapsed-by-default second toolbar row holding
+        the AI-generation buttons - real fix for the toolbar-crowding
+        bug, mirrors `main_window.py`'s `_show_rail_group()` (a real
+        sibling widget's own `setVisible()`, not a popup)."""
+        self._ai_tools_scroll.setVisible(checked)
 
     def _on_toc_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
         page_number = item.data(0, Qt.ItemDataRole.UserRole)

@@ -1,5 +1,32 @@
 # Changelog
 
+## Real UX fix: reader toolbar's AI tools grouped into a collapsible row
+
+Reported directly by the user: the reader toolbar had grown to 20+
+real controls, requiring horizontal scrolling just to find a button -
+a genuine crowding problem beyond what the existing scrollbar (added
+earlier for `PdfViewerScreen`'s own toolbar-crowding bug) could fix on
+its own, since scrolling itself became the friction.
+
+Every AI-generation button (Extract Events/Narrators, Generate
+Flashcards/MCQs/Slide Deck/Podcast/Lecture Notes - all gated behind
+the same opt-in AI Agent Settings toggle, all occasional/heavier
+actions rather than core reading controls) now lives in a real,
+collapsed-by-default second toolbar row, shown/hidden by a new "AI
+Tools" toggle button. Each button object is otherwise unchanged - same
+attribute name, same `setVisible()` gate, same click handler.
+
+First tried `QMenu`/`QWidgetAction` (the standard Qt idiom for
+embedding real widgets in a dropdown) but reverted it after finding a
+real testability dead end: Qt reports any widget inside an unshown
+popup as `isHidden()` regardless of its own explicit visibility,
+which would make every one of these buttons untestable without
+actually opening the popup in every test. Used a real sibling
+`QWidget` instead, mirroring `main_window.py`'s already-proven
+`_show_rail_group()` pattern - keeps every existing visibility test
+passing unchanged. 6 new tests. Full suite: 1310 passed, no
+regressions.
+
 ## Real UX fix: reader auto-sizes to ~half the workspace width on open
 
 Reported directly by the user: opening a book left the reader at

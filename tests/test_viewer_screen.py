@@ -624,6 +624,80 @@ def test_generate_lecture_notes_button_does_nothing_with_no_book_loaded(qtbot, t
     assert received == []
 
 
+def test_ai_tools_toggle_hidden_when_ai_agent_disabled_by_default(qtbot, tmp_path: Path) -> None:
+    """Real fix for the toolbar-crowding bug: with no AI-generation
+    features enabled, there's nothing real to group behind the toggle,
+    so it doesn't show at all - same visible-only-when-enabled
+    philosophy as every individual AI button it now contains."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path))
+    qtbot.addWidget(screen)
+
+    assert screen._ai_tools_toggle_button.isHidden() is True
+
+
+def test_ai_tools_toggle_visible_when_ai_agent_enabled(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+
+    assert screen._ai_tools_toggle_button.isHidden() is False
+
+
+def test_ai_tools_row_starts_collapsed(qtbot, tmp_path: Path) -> None:
+    """Real fix for the toolbar-crowding bug: the AI-generation buttons
+    are grouped into a real second row, collapsed by default so they
+    don't add to the primary row's own horizontal-scroll friction."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+
+    assert screen._ai_tools_scroll.isHidden() is True
+
+
+def test_clicking_ai_tools_toggle_expands_the_second_row(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+
+    screen._ai_tools_toggle_button.click()
+
+    assert screen._ai_tools_scroll.isHidden() is False
+
+
+def test_clicking_ai_tools_toggle_again_collapses_the_second_row(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen._ai_tools_toggle_button.click()
+
+    screen._ai_tools_toggle_button.click()
+
+    assert screen._ai_tools_scroll.isHidden() is True
+
+
+def test_ai_tool_buttons_still_work_from_inside_the_second_row(qtbot, tmp_path: Path) -> None:
+    """Real regression guard: moving these buttons into the collapsible
+    second row must not change their own real behavior - each one still
+    emits its real signal exactly as before."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_ai_agent=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    received = []
+    screen.generate_flashcards_requested.connect(received.append)
+
+    screen._generate_flashcards_button.click()
+
+    assert received == [1]
+
+
 def test_generate_podcast_button_hidden_when_neither_ai_agent_nor_tts_enabled(
     qtbot, tmp_path: Path
 ) -> None:
