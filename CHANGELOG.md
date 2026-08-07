@@ -1,5 +1,29 @@
 # Changelog
 
+## Real addition: local AI via Ollama, as a 4th provider option
+
+Requested directly by the user: a way to avoid real per-call cloud API
+costs. Before building, flagged a real constraint and asked - this
+app's whole AI Agent architecture depends on real tool-calling (the
+model decides which pages to search/read, every answer is grounded in
+those real results with citations), and most small local models don't
+support it reliably. User chose: Ollama, tool-calling-capable models
+only (e.g. Qwen2.5, Llama 3.1/3.3, Mistral) - not a simpler no-tools
+mode that would break the grounded-citation guarantee.
+
+New `OllamaLlmProvider` reuses `OpenAiLlmProvider`'s exact message/
+tool-call translation logic (Ollama's OpenAI-compatible endpoint
+speaks the identical wire format) - only the base URL, the lack of a
+real API key, and one completion-token parameter name differ. New
+"Local (Ollama)" provider option in Settings, with model name/server
+URL fields replacing the API key field for that provider.
+`resolve_ai_agent_api_key()` returns a real, non-secret sentinel for
+Ollama so all 11 existing "is this provider configured?" pre-flight
+checks across the app work unmodified. No new pip dependency.
+
+9 new tests. Full suite: 1319 passed, no regressions. Not yet
+live-tested against a real Ollama server.
+
 ## Real UX fix: reader toolbar's AI tools grouped into a collapsible row
 
 Reported directly by the user: the reader toolbar had grown to 20+

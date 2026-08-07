@@ -51,11 +51,12 @@ or was renamed (confirmed: the user's own machine migration did exactly
 this). Settings-backed instead, with the old hardcoded value still used
 as the one-time default for a user who has never opened this picker -
 see `_build_library_paths_block()` below."""
-AI_AGENT_PROVIDERS: tuple[str, ...] = ("anthropic", "openai", "gemini")
+AI_AGENT_PROVIDERS: tuple[str, ...] = ("anthropic", "openai", "gemini", "ollama")
 AI_AGENT_PROVIDER_LABELS: dict[str, str] = {
     "anthropic": "Claude (Anthropic)",
     "openai": "ChatGPT (OpenAI)",
     "gemini": "Gemini (Google)",
+    "ollama": "Local (Ollama)",
 }
 AI_AGENT_API_KEY_ENV_VARS: dict[str, str] = {
     "anthropic": "ISLAMIC_RESEARCH_HUB_ANTHROPIC_API_KEY",
@@ -66,7 +67,10 @@ AI_AGENT_API_KEY_ENV_VARS: dict[str, str] = {
 lets a security-conscious user avoid ever having the key touch local
 settings storage. Each provider gets its own real key, both in QSettings
 and as an env var, so switching providers doesn't lose a key already
-entered for another one."""
+entered for another one. "ollama" deliberately has no entry here - a
+local model needs no real API key at all (see `resolve_ai_agent_api_key()`)."""
+OLLAMA_MODEL_KEY = "ai_agent/ollama_model"
+OLLAMA_BASE_URL_KEY = "ai_agent/ollama_base_url"
 FONT_SIZE_CHOICES = (14, 16, 18, 20, 22, 24, 28)
 FONT_SCALE_CHOICES = (0.9, 1.0, 1.1, 1.25, 1.5)
 _THEME_NAME_KEYS = (("light", "theme-light"), ("dark", "theme-dark"), ("high_contrast", "theme-high-contrast"))
@@ -353,6 +357,31 @@ class SettingsScreen(QWidget):
         key_row.addWidget(self._ai_agent_api_key_edit, stretch=1)
         block_layout.addLayout(key_row)
 
+        # Ollama-only fields (no real API key - a local model needs a
+        # model name and a server address instead). Visible only when
+        # "ollama" is the selected provider, same `setVisible()`-gating
+        # philosophy this app already uses everywhere else for opt-in
+        # AI features - see `_apply_ai_agent_provider_field_visibility()`.
+        model_row = QHBoxLayout()
+        self._ollama_model_label = QLabel(self._translator.tr("settings-ollama-model"))
+        model_row.addWidget(self._ollama_model_label)
+        self._ollama_model_edit = QLineEdit()
+        self._ollama_model_edit.setText(self.ollama_model())
+        self._ollama_model_edit.editingFinished.connect(self._on_ollama_model_changed)
+        model_row.addWidget(self._ollama_model_edit, stretch=1)
+        block_layout.addLayout(model_row)
+
+        base_url_row = QHBoxLayout()
+        self._ollama_base_url_label = QLabel(self._translator.tr("settings-ollama-base-url"))
+        base_url_row.addWidget(self._ollama_base_url_label)
+        self._ollama_base_url_edit = QLineEdit()
+        self._ollama_base_url_edit.setText(self.ollama_base_url())
+        self._ollama_base_url_edit.editingFinished.connect(self._on_ollama_base_url_changed)
+        base_url_row.addWidget(self._ollama_base_url_edit, stretch=1)
+        block_layout.addLayout(base_url_row)
+
+        self._apply_ai_agent_provider_field_visibility()
+
         self._ai_agent_disclosure_label = QLabel(
             self._translator.tr("settings-ai-agent-disclosure")
         )
@@ -478,6 +507,14 @@ class SettingsScreen(QWidget):
             self._settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
         )
 
+    def ollama_model(self) -> str:
+        """Return the real Ollama model name currently in effect."""
+        return resolve_ollama_model(self._settings)
+
+    def ollama_base_url(self) -> str:
+        """Return the real Ollama server URL currently in effect."""
+        return resolve_ollama_base_url(self._settings)
+
     def maknoon_pdf_folder(self) -> Path:
         """Return the real Maknoon PDF Archive folder currently in
         effect - whatever the user picked here, or the app's own
@@ -540,6 +577,27 @@ class SettingsScreen(QWidget):
         # each provider keeps its own real key, switching never loses or
         # overwrites another provider's already-entered key.
         self._ai_agent_api_key_edit.setText(self._stored_api_key_for(provider))
+        self._apply_ai_agent_provider_field_visibility()
+        self._flash_saved()
+
+    def _apply_ai_agent_provider_field_visibility(self) -> None:
+        """Real API key fields for the 3 cloud providers, model/server
+        fields for Ollama - never both at once, since a local model
+        needs no real API key at all."""
+        is_ollama = self.ai_agent_provider() == "ollama"
+        self._ai_agent_api_key_label.setVisible(not is_ollama)
+        self._ai_agent_api_key_edit.setVisible(not is_ollama)
+        self._ollama_model_label.setVisible(is_ollama)
+        self._ollama_model_edit.setVisible(is_ollama)
+        self._ollama_base_url_label.setVisible(is_ollama)
+        self._ollama_base_url_edit.setVisible(is_ollama)
+
+    def _on_ollama_model_changed(self) -> None:
+        self._settings.setValue(OLLAMA_MODEL_KEY, self._ollama_model_edit.text())
+        self._flash_saved()
+
+    def _on_ollama_base_url_changed(self) -> None:
+        self._settings.setValue(OLLAMA_BASE_URL_KEY, self._ollama_base_url_edit.text())
         self._flash_saved()
 
     def _on_ai_agent_api_key_changed(self) -> None:
@@ -576,7 +634,18 @@ def resolve_ai_agent_api_key(settings: QSettings, provider: str) -> str | None:
     Checks that provider's own env var first (lets a security-conscious
     user avoid ever storing the key in QSettings), falls back to the
     QSettings-stored value from the Settings screen.
+
+    "ollama" always returns a real, non-empty sentinel rather than a
+    stored key - a local model needs no real API key at all, but every
+    "is this provider configured?" pre-flight check across this app
+    (`main_window.py`'s AI-generation handlers, `ai_panel_screen.py`'s
+    lazy-build) treats a falsy return as "not configured, don't
+    proceed" - returning a real value here means Ollama never has to
+    duplicate that same gate with a provider-specific bypass everywhere
+    it's checked.
     """
+    if provider == "ollama":
+        return "ollama-local"
     import os
 
     env_var = AI_AGENT_API_KEY_ENV_VARS.get(provider)
@@ -588,6 +657,25 @@ def resolve_ai_agent_api_key(settings: QSettings, provider: str) -> str | None:
         settings.value(_ai_agent_api_key_settings_key(provider), "", type=str)
     ).strip()
     return settings_value or None
+
+
+def resolve_ollama_model(settings: QSettings) -> str:
+    """Return the real Ollama model name to use - whatever the user has
+    entered in Settings, or a real, well-established tool-calling-
+    capable default if they haven't."""
+    from islamic_research_hub.infrastructure.ai.ollama_llm_provider import DEFAULT_MODEL
+
+    stored = str(settings.value(OLLAMA_MODEL_KEY, "", type=str)).strip()
+    return stored or DEFAULT_MODEL
+
+
+def resolve_ollama_base_url(settings: QSettings) -> str:
+    """Return the real Ollama server URL to use - whatever the user has
+    entered in Settings, or Ollama's own default local address."""
+    from islamic_research_hub.infrastructure.ai.ollama_llm_provider import DEFAULT_BASE_URL
+
+    stored = str(settings.value(OLLAMA_BASE_URL_KEY, "", type=str)).strip()
+    return stored or DEFAULT_BASE_URL
 
 
 def resolve_maknoon_pdf_folder(settings: QSettings, default: Path) -> Path:

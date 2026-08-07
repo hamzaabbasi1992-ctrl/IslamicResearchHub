@@ -381,6 +381,104 @@ def test_resolve_api_key_returns_none_when_nothing_is_set(tmp_path: Path) -> Non
     assert resolve_ai_agent_api_key(settings, "anthropic") is None
 
 
+def test_resolve_api_key_for_ollama_is_always_a_real_truthy_sentinel(tmp_path: Path) -> None:
+    """Ollama needs no real API key at all (it's a local model) - a
+    truthy sentinel here means every "is this provider configured?"
+    pre-flight check across the app (all written as `if not
+    resolve_ai_agent_api_key(...)`) treats Ollama as ready without a
+    provider-specific bypass at every one of those call sites."""
+    settings = _isolated_settings(tmp_path)
+
+    assert resolve_ai_agent_api_key(settings, "ollama")
+
+
+def test_ollama_model_defaults_when_nothing_is_stored(tmp_path: Path) -> None:
+    from islamic_research_hub.infrastructure.ai.ollama_llm_provider import DEFAULT_MODEL
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import resolve_ollama_model
+
+    settings = _isolated_settings(tmp_path)
+
+    assert resolve_ollama_model(settings) == DEFAULT_MODEL
+
+
+def test_ollama_base_url_defaults_when_nothing_is_stored(tmp_path: Path) -> None:
+    from islamic_research_hub.infrastructure.ai.ollama_llm_provider import DEFAULT_BASE_URL
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        resolve_ollama_base_url,
+    )
+
+    settings = _isolated_settings(tmp_path)
+
+    assert resolve_ollama_base_url(settings) == DEFAULT_BASE_URL
+
+
+def test_switching_to_ollama_shows_model_and_server_fields_hides_api_key(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+    assert screen._ollama_model_edit.isHidden() is True
+
+    ollama_index = screen._ai_agent_provider_combo.findData("ollama")
+    screen._ai_agent_provider_combo.setCurrentIndex(ollama_index)
+
+    assert screen._ai_agent_api_key_edit.isHidden() is True
+    assert screen._ollama_model_edit.isHidden() is False
+    assert screen._ollama_base_url_edit.isHidden() is False
+
+
+def test_switching_away_from_ollama_restores_the_api_key_field(qtbot, tmp_path: Path) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+    ollama_index = screen._ai_agent_provider_combo.findData("ollama")
+    screen._ai_agent_provider_combo.setCurrentIndex(ollama_index)
+
+    openai_index = screen._ai_agent_provider_combo.findData("openai")
+    screen._ai_agent_provider_combo.setCurrentIndex(openai_index)
+
+    assert screen._ai_agent_api_key_edit.isHidden() is False
+    assert screen._ollama_model_edit.isHidden() is True
+    assert screen._ollama_base_url_edit.isHidden() is True
+
+
+def test_entering_an_ollama_model_persists_it(qtbot, tmp_path: Path) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import resolve_ollama_model
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._ollama_model_edit.setText("llama3.1")
+    screen._ollama_model_edit.editingFinished.emit()
+
+    assert resolve_ollama_model(settings) == "llama3.1"
+
+
+def test_entering_an_ollama_base_url_persists_it(qtbot, tmp_path: Path) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        resolve_ollama_base_url,
+    )
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    settings = _isolated_settings(tmp_path)
+    screen = SettingsScreen(database_path, settings, Translator(settings))
+    qtbot.addWidget(screen)
+
+    screen._ollama_base_url_edit.setText("http://192.168.1.50:11434/v1")
+    screen._ollama_base_url_edit.editingFinished.emit()
+
+    assert resolve_ollama_base_url(settings) == "http://192.168.1.50:11434/v1"
+
+
 def test_maknoon_pdf_folder_falls_back_to_the_default_when_nothing_is_stored(
     qtbot, tmp_path: Path
 ) -> None:

@@ -427,6 +427,38 @@ def test_build_llm_provider_returns_none_for_an_unknown_provider(qtbot, tmp_path
     assert panel._build_llm_provider("not-a-real-provider", "some-key") is None
 
 
+def test_build_llm_provider_for_ollama_needs_no_real_api_key(qtbot, tmp_path: Path) -> None:
+    """Ollama is a real local model - it never uses the `api_key` arg at
+    all, unlike the 3 cloud providers."""
+    from islamic_research_hub.infrastructure.ai.ollama_llm_provider import OllamaLlmProvider
+
+    panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
+    qtbot.addWidget(panel)
+
+    provider = panel._build_llm_provider("ollama", "ollama-local")
+
+    assert isinstance(provider, OllamaLlmProvider)
+
+
+def test_build_llm_provider_for_ollama_reads_the_real_model_and_url_from_settings(
+    qtbot, tmp_path: Path
+) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        OLLAMA_BASE_URL_KEY,
+        OLLAMA_MODEL_KEY,
+    )
+
+    settings = _isolated_settings(tmp_path)
+    settings.setValue(OLLAMA_MODEL_KEY, "llama3.1")
+    settings.setValue(OLLAMA_BASE_URL_KEY, "http://192.168.1.50:11434/v1")
+    panel = AiAssistantPanel(settings, _translator(tmp_path))
+    qtbot.addWidget(panel)
+
+    provider = panel._build_llm_provider("ollama", "ollama-local")
+
+    assert provider._model == "llama3.1"
+
+
 def test_lazy_ai_agent_is_not_attempted_by_default(qtbot, tmp_path: Path) -> None:
     panel = AiAssistantPanel(_isolated_settings(tmp_path), _translator(tmp_path))
     qtbot.addWidget(panel)

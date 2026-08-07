@@ -1075,6 +1075,32 @@ not just prose in the existing answer area) - a real, separate
 follow-up once the underlying comparison quality itself is verified
 against a real provider.
 
+**Real addition, requested directly by the user**: a 4th AI Agent
+provider, "Local (Ollama)" - runs a real local model (Qwen2.5,
+Llama 3.1/3.3, Mistral, or any other tool-calling-capable model the
+user has pulled via `ollama pull <model>`) instead of a cloud API
+call. Explicitly scoped to tool-calling-capable models only: this
+app's entire AI Agent architecture depends on the model deciding which
+pages to search/read and grounding every answer in those real results
+with real citations - a model that can't call tools would silently
+produce untethered, unverified answers instead of failing loudly, so
+that tradeoff was surfaced to the user directly rather than guessed.
+`OllamaLlmProvider` (`infrastructure/ai/ollama_llm_provider.py`) reuses
+`OpenAiLlmProvider`'s exact message/tool-call translation logic rather
+than duplicating it - Ollama's OpenAI-compatible endpoint speaks the
+identical wire format, with only the base URL, the lack of any real
+API key, and one completion-token parameter name differing. New
+"Ollama model"/"Ollama server URL" Settings fields replace the API key
+field when "Local (Ollama)" is selected (a local model needs neither a
+real key nor the same-shaped configuration as a cloud provider).
+`resolve_ai_agent_api_key()` returns a real, non-secret sentinel for
+Ollama so every existing "is this provider configured?" pre-flight
+check across the app (11 call sites) works unmodified, without a
+provider-specific bypass at each one. No new pip dependency (`openai`
+was already in the `agent` extra for the existing ChatGPT provider).
+9 new tests. **Not yet live-tested against a real Ollama server** -
+same caveat as every other local-model adapter this project ships.
+
 ### Phase 12 — Translation engine: **Milestone 2 done**
 
 Real per-paragraph translation chain: original Arabic → Urdu → English,

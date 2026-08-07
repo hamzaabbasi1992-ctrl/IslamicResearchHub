@@ -496,6 +496,19 @@ class AiAssistantPanel(QWidget):
                 )
 
                 return GeminiLlmProvider(api_key=api_key)
+            if provider_code == "ollama":
+                from islamic_research_hub.infrastructure.ai.ollama_llm_provider import (
+                    OllamaLlmProvider,
+                )
+                from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+                    resolve_ollama_base_url,
+                    resolve_ollama_model,
+                )
+
+                return OllamaLlmProvider(
+                    model=resolve_ollama_model(self._settings),
+                    base_url=resolve_ollama_base_url(self._settings),
+                )
             LOGGER.warning("Unknown AI Agent provider: %s", provider_code)
             return None
         except Exception:
