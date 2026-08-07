@@ -1,5 +1,35 @@
 # Changelog
 
+## Phase 12, Milestone 2: Real direct Arabic<->Urdu translation
+
+Researched properly before building: Helsinki-NLP (already used for
+the existing "Translate to English" feature) has no direct Arabic<->Urdu
+pair, and pivoting ar->en->ur would compound two models' worth of
+error - not a real capability, just a guess. `facebook/m2m100_418M` is
+a single real model trained many-to-many across 100 languages
+including a genuine direct Arabic<->Urdu path, and is the smallest
+published checkpoint that still covers both languages.
+
+New `M2M100Translator` adapter and `DirectTranslator` protocol,
+injected into `PageTranslationService` as a second backend alongside
+the existing `MarianTranslator` - fully additive, the to-English path
+is untouched and keeps working even if the new direct model fails to
+load. `PageTranslationService.translate(text, source, target)` routes
+`target == "English"` through the same Milestone 1 path and a real
+Arabic<->Urdu target through the new direct backend.
+
+Viewer's "Translate" context-menu item became a submenu ("To English"
+/ "To Urdu" or "To Arabic") - the translation dialog now picks the
+right heading and RTL styling for whichever language was actually
+translated to. No new pip dependency (`sentencepiece` was already
+in the `translation` extra).
+
+10 new tests (6 in `test_text_translation.py`, 4 in
+`test_viewer_screen.py`). Full suite: 1250 passed, no regressions.
+Not yet live-tested with the real ~1.9GB model download - same caveat
+as Milestone 1's MarianMT models. Word-by-word breakdown, grammar
+notes, and root-word analysis remain open within this phase.
+
 ## Phase 14, Milestone 3: Saved AI conversations (Phase 14 complete)
 
 AI panel can now save a real question/answer pair under a name and

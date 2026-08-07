@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from islamic_research_hub.application.page_narration import PageNarrationService
 from islamic_research_hub.application.text_translation import (
+    DIRECT_TRANSLATION_TARGETS,
     SUPPORTED_SOURCE_LANGUAGES,
     PageTranslationService,
 )
@@ -725,9 +726,20 @@ class ViewerScreen(QWidget):
         for action in actions.values():
             action.setEnabled(bool(selected_text))
         if self._translation_offered():
-            translate_action = menu.addAction(self._translator.tr("viewer-translate-selection"))
+            translate_menu = menu.addMenu(self._translator.tr("viewer-translate-selection"))
+            translate_action = translate_menu.addAction(
+                self._translator.tr("viewer-translate-to-english")
+            )
             translate_action.setEnabled(bool(selected_text))
             actions["translate"] = translate_action
+            direct_target = _direct_translation_target(self._current_language)
+            if direct_target is not None:
+                direct_key = "viewer-translate-to-" + direct_target.lower()
+                translate_direct_action = translate_menu.addAction(
+                    self._translator.tr(direct_key)
+                )
+                translate_direct_action.setEnabled(bool(selected_text))
+                actions["translate_direct"] = translate_direct_action
         if self._enable_lazy_ai_agent:
             explain_action = menu.addAction(self._translator.tr("viewer-explain-selection"))
             explain_action.setEnabled(bool(selected_text))
@@ -761,7 +773,11 @@ class ViewerScreen(QWidget):
         elif action == "open_notes":
             open_current_notes(self)
         elif action == "translate":
-            self._translate_selection(selected_text)
+            self._translate_selection(selected_text, "English")
+        elif action == "translate_direct":
+            direct_target = _direct_translation_target(self._current_language)
+            if direct_target is not None:
+                self._translate_selection(selected_text, direct_target)
         elif action == "explain":
             self.explain_selection_requested.emit(selected_text)
         elif action == "summarize":
@@ -859,7 +875,7 @@ class ViewerScreen(QWidget):
             comparison,
         )
 
-    def _translate_selection(self, selected_text: str) -> None:
+    def _translate_selection(self, selected_text: str, target_language: str = "English") -> None:
         if not selected_text or self._current_language not in SUPPORTED_SOURCE_LANGUAGES:
             return
         request_key = self._current_narration_key()
@@ -869,19 +885,30 @@ class ViewerScreen(QWidget):
             self._current_language,
             request_key,
             self,
+            target_language=target_language,
         )
         worker.translation_ready.connect(
-            lambda translated, key: self._on_translation_ready(selected_text, translated, key)
+            lambda translated, key: self._on_translation_ready(
+                selected_text, translated, key, target_language
+            )
         )
         worker.translation_failed.connect(self._on_translation_failed)
         worker.translation_unavailable.connect(self._on_translation_unavailable)
         self._translation_worker = worker
         worker.start()
 
-    def _on_translation_ready(self, original_text: str, translated_text: str, request_key: object) -> None:
+    def _on_translation_ready(
+        self,
+        original_text: str,
+        translated_text: str,
+        request_key: object,
+        target_language: str = "English",
+    ) -> None:
         if request_key != self._current_narration_key():
             return  # stale - the reader turned the page while this was translating
-        _show_translation_dialog(self, self._translator, original_text, translated_text)
+        _show_translation_dialog(
+            self, self._translator, original_text, translated_text, target_language
+        )
 
     def _on_translation_failed(self, request_key: object) -> None:
         if request_key != self._current_narration_key():
@@ -1266,17 +1293,31 @@ class ViewerScreen(QWidget):
             return self._translation_service
 
     def _build_real_translation_service(self) -> PageTranslationService | None:
-        """Build the real local MarianMT translation service, or None on
-        any failure - the optional "translation" extra
+        """Build the real local MarianMT (to-English) translation service,
+        or None on any failure - the optional "translation" extra
         (`transformers`/`torch`/`sentencepiece`) may not be installed, or
         model loading may fail for other reasons. Either way,
-        reading/navigation must keep working unaffected."""
+        reading/navigation must keep working unaffected.
+
+        The real direct Arabic<->Urdu model (M2M100, Phase 12 Milestone
+        2) is attached separately and its own failure never takes down
+        the to-English path - "Translate to English" must keep working
+        even if the newer direct-translation model can't load."""
         try:
             from islamic_research_hub.infrastructure.ai.marian_translator import MarianTranslator
 
-            return PageTranslationService(MarianTranslator())
+            return PageTranslationService(MarianTranslator(), self._build_direct_translator())
         except Exception:
             LOGGER.exception("Translation unavailable.")
+            return None
+
+    def _build_direct_translator(self) -> object | None:
+        try:
+            from islamic_research_hub.infrastructure.ai.m2m100_translator import M2M100Translator
+
+            return M2M100Translator()
+        except Exception:
+            LOGGER.exception("Direct Arabic<->Urdu translation unavailable.")
             return None
 
     def _on_chunk_ready(self, wav_path: str, chunk_index: int, is_last: bool, request_key: object) -> None:
@@ -1388,13 +1429,36 @@ class ViewerScreen(QWidget):
             pass
 
 
+def _direct_translation_target(source_language: str) -> str | None:
+    """The one real direct (non-English) target `source_language` can
+    translate to, or None if it has none - Phase 12 Milestone 2's
+    real Arabic<->Urdu pair. A thin wrapper around
+    `DIRECT_TRANSLATION_TARGETS` since callers here just need "the"
+    target, not the full set (there's only ever at most one)."""
+    targets = DIRECT_TRANSLATION_TARGETS.get(source_language)
+    return next(iter(targets), None) if targets else None
+
+
+_TRANSLATION_HEADING_KEYS_BY_LANGUAGE = {
+    "English": "viewer-translation-english-heading",
+    "Arabic": "viewer-translation-arabic-heading",
+    "Urdu": "viewer-translation-urdu-heading",
+}
+
+
 def _show_translation_dialog(
-    parent: QWidget, translator: Translator, original_text: str, translated_text: str
+    parent: QWidget,
+    translator: Translator,
+    original_text: str,
+    translated_text: str,
+    target_language: str = "English",
 ) -> None:
     """A real, read-only dialog showing the original selection alongside
-    its English translation, plus an honest disclaimer - local machine
-    translation, not a substitute for a qualified human translator,
-    especially for anything touching a real ruling or legal question."""
+    its translation (English, or - Phase 12 Milestone 2 - a real direct
+    Arabic<->Urdu translation), plus an honest disclaimer - local
+    machine translation, not a substitute for a qualified human
+    translator, especially for anything touching a real ruling or legal
+    question."""
     dialog = QDialog(parent)
     dialog.setWindowTitle(translator.tr("viewer-translation-dialog-title"))
     dialog.resize(560, 480)
@@ -1410,12 +1474,20 @@ def _show_translation_dialog(
     original_label.setStyleSheet(RTL_TEXT_STYLE)
     layout.addWidget(original_label)
 
-    translated_heading = QLabel(translator.tr("viewer-translation-english-heading"))
+    heading_key = _TRANSLATION_HEADING_KEYS_BY_LANGUAGE.get(
+        target_language, "viewer-translation-english-heading"
+    )
+    translated_heading = QLabel(translator.tr(heading_key))
     translated_heading.setStyleSheet(f"font-weight: 600; {MUTED_LABEL_STYLE}")
     layout.addWidget(translated_heading)
     translated_label = QLabel(translated_text)
     translated_label.setWordWrap(True)
     translated_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    if target_language != "English":
+        # A real direct Arabic/Urdu translation reads right-to-left too,
+        # same styling as the original passage above it.
+        translated_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        translated_label.setStyleSheet(RTL_TEXT_STYLE)
     layout.addWidget(translated_label)
     layout.addStretch(1)
 

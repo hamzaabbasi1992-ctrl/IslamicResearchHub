@@ -832,16 +832,39 @@ class _FakeTranslator:
         return f"[EN] {text}"
 
 
+class _FakeDirectTranslator:
+    """A real-shaped, controllable stand-in for the direct Arabic<->Urdu
+    (Phase 12 Milestone 2) translation backend."""
+
+    def __init__(self, raise_on_translate: bool = False) -> None:
+        self.raise_on_translate = raise_on_translate
+        self.last_text: str | None = None
+        self.last_source_language: str | None = None
+        self.last_target_language: str | None = None
+
+    def translate(self, text: str, source_language: str, target_language: str) -> str:
+        if self.raise_on_translate:
+            raise RuntimeError("translation failed")
+        self.last_text = text
+        self.last_source_language = source_language
+        self.last_target_language = target_language
+        return f"[{target_language}] {text}"
+
+
 def _install_fake_translation(
-    screen: "ViewerScreen", unavailable: bool = False, raise_on_translate: bool = False
+    screen: "ViewerScreen",
+    unavailable: bool = False,
+    raise_on_translate: bool = False,
+    direct: "_FakeDirectTranslator | None" = None,
 ) -> _FakeTranslator:
     """Inject a fake translator in place of the real MarianTranslator,
-    mirroring `_install_fake_tts`."""
+    mirroring `_install_fake_tts`. `direct`, if given, is wired in as
+    the real direct Arabic<->Urdu (Phase 12 Milestone 2) backend too."""
     from islamic_research_hub.application.text_translation import PageTranslationService
 
     fake = _FakeTranslator(raise_on_translate=raise_on_translate)
     screen._build_real_translation_service = lambda: (
-        None if unavailable else PageTranslationService(fake)
+        None if unavailable else PageTranslationService(fake, direct)
     )
     return fake
 
@@ -1132,9 +1155,10 @@ def test_translating_a_selection_shows_a_real_translation_dialog(
     assert fake.last_text == "بسم الله"
     assert fake.last_source_language == "Arabic"
     assert len(calls) == 1
-    _parent, _translator_arg, original, translated = calls[0]
+    _parent, _translator_arg, original, translated, target_language = calls[0]
     assert original == "بسم الله"
     assert translated == "[EN] بسم الله"
+    assert target_language == "English"
 
 
 def test_translation_unavailable_shows_a_warning_not_a_crash(qtbot, tmp_path: Path) -> None:
@@ -1152,6 +1176,99 @@ def test_translation_unavailable_shows_a_warning_not_a_crash(qtbot, tmp_path: Pa
         pass
 
     assert len(warnings) == 1
+
+
+def test_direct_translation_target_is_the_real_arabic_urdu_pair() -> None:
+    """Phase 12 Milestone 2: each of this corpus's two real languages
+    has exactly one real direct (non-English) target - each other."""
+    from islamic_research_hub.interfaces.desktop_app.viewer_screen import (
+        _direct_translation_target,
+    )
+
+    assert _direct_translation_target("Arabic") == "Urdu"
+    assert _direct_translation_target("Urdu") == "Arabic"
+    assert _direct_translation_target("English") is None
+
+
+def test_translating_a_selection_directly_to_urdu_shows_a_real_dialog(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Phase 12 Milestone 2: a real direct Arabic->Urdu translation, not
+    a pivot through English - routes through `PageTranslationService.
+    translate()`, not `translate_to_english()`."""
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    direct = _FakeDirectTranslator()
+    _install_fake_translation(screen, direct=direct)
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "_show_translation_dialog", lambda *args: calls.append(args)
+    )
+
+    screen._handle_context_menu_action("translate_direct", "بسم الله")
+    with qtbot.waitSignal(screen._translation_worker.finished, timeout=5000):
+        pass
+
+    assert direct.last_text == "بسم الله"
+    assert direct.last_source_language == "Arabic"
+    assert direct.last_target_language == "Urdu"
+    assert len(calls) == 1
+    _parent, _translator_arg, original, translated, target_language = calls[0]
+    assert original == "بسم الله"
+    assert translated == "[Urdu] بسم الله"
+    assert target_language == "Urdu"
+
+
+def test_direct_translation_unavailable_shows_a_warning_not_a_crash(
+    qtbot, tmp_path: Path
+) -> None:
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    _install_fake_translation(screen, direct=None)  # no direct translator injected
+
+    warnings = []
+    screen._on_translation_failed = lambda key: warnings.append(key)
+    screen._handle_context_menu_action("translate_direct", "بسم الله")
+    with qtbot.waitSignal(screen._translation_worker.finished, timeout=5000):
+        pass
+
+    assert len(warnings) == 1
+
+
+def test_translate_to_english_still_works_when_a_direct_translator_is_also_installed(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Confirms the two real backends are genuinely independent seams -
+    installing a direct translator never changes the existing to-
+    English path's own real behavior."""
+    import islamic_research_hub.interfaces.desktop_app.viewer_screen as viewer_screen_module
+
+    database_path = tmp_path / "books.db"
+    _seed_database_with_language(database_path, "Arabic")
+    screen = ViewerScreen(database_path, _translator(tmp_path), enable_lazy_translation=True)
+    qtbot.addWidget(screen)
+    screen.load_book(1)
+    fake = _install_fake_translation(screen, direct=_FakeDirectTranslator())
+    calls = []
+    monkeypatch.setattr(
+        viewer_screen_module, "_show_translation_dialog", lambda *args: calls.append(args)
+    )
+
+    screen._handle_context_menu_action("translate", "بسم الله")
+    with qtbot.waitSignal(screen._translation_worker.finished, timeout=5000):
+        pass
+
+    assert fake.last_text == "بسم الله"
+    assert len(calls) == 1
+    assert calls[0][4] == "English"
 
 
 def test_turning_the_page_while_playing_stops_and_cleans_up(qtbot, tmp_path: Path) -> None:

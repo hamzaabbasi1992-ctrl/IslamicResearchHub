@@ -32,12 +32,14 @@ class TranslationWorker(QThread):
         source_language: str,
         request_key: Any,
         parent=None,
+        target_language: str = "English",
     ) -> None:
         super().__init__(parent)
         self._get_service = get_service
         self._text = text
         self._source_language = source_language
         self._request_key = request_key
+        self._target_language = target_language
 
     def run(self) -> None:
         service = self._get_service()
@@ -45,7 +47,12 @@ class TranslationWorker(QThread):
             self.translation_unavailable.emit(self._request_key)
             return
         try:
-            translated = service.translate_to_english(self._text, self._source_language)
+            if self._target_language == "English":
+                translated = service.translate_to_english(self._text, self._source_language)
+            else:
+                translated = service.translate(
+                    self._text, self._source_language, self._target_language
+                )
         except Exception:
             LOGGER.exception("Translation failed.")
             self.translation_failed.emit(self._request_key)

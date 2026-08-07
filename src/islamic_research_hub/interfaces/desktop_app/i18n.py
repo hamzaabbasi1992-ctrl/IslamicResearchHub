@@ -295,7 +295,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "Copy with Citation",
         "viewer-save-to-notes": "Save to Research Notes",
         "viewer-open-notes": "Open Current Notes",
-        "viewer-translate-selection": "Translate to English",
+        "viewer-translate-selection": "Translate",
+        "viewer-translate-to-english": "To English",
+        "viewer-translate-to-arabic": "To Arabic",
+        "viewer-translate-to-urdu": "To Urdu",
         "viewer-explain-selection": "Explain this passage (AI)",
         "viewer-explain-dialog-title": "Explanation",
         "viewer-explain-passage-heading": "Passage",
@@ -323,6 +326,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-translation-dialog-title": "Translation",
         "viewer-translation-original-heading": "Original",
         "viewer-translation-english-heading": "English",
+        "viewer-translation-arabic-heading": "Arabic",
+        "viewer-translation-urdu-heading": "Urdu",
         "viewer-translation-copy": "Copy translation",
         "viewer-translation-disclaimer": (
             "Machine-translated locally on this device - a real, honest first "
@@ -761,7 +766,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "حوالے کے ساتھ کاپی کریں",
         "viewer-save-to-notes": "ریسرچ نوٹس میں محفوظ کریں",
         "viewer-open-notes": "موجودہ نوٹس کھولیں",
-        "viewer-translate-selection": "انگریزی میں ترجمہ کریں",
+        "viewer-translate-selection": "ترجمہ کریں",
+        "viewer-translate-to-english": "انگریزی میں",
+        "viewer-translate-to-arabic": "عربی میں",
+        "viewer-translate-to-urdu": "اردو میں",
         "viewer-explain-selection": "اس عبارت کی وضاحت کریں (AI)",
         "viewer-explain-dialog-title": "وضاحت",
         "viewer-explain-passage-heading": "عبارت",
@@ -788,6 +796,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-translation-dialog-title": "ترجمہ",
         "viewer-translation-original-heading": "اصل متن",
         "viewer-translation-english-heading": "انگریزی",
+        "viewer-translation-arabic-heading": "عربی",
+        "viewer-translation-urdu-heading": "اردو",
         "viewer-translation-copy": "ترجمہ کاپی کریں",
         "viewer-translation-disclaimer": (
             "اس ڈیوائس پر مقامی طور پر مشینی ترجمہ کیا گیا ہے - ایک حقیقی، ایماندار پہلا "
@@ -1223,7 +1233,10 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-copy-with-citation": "نسخ مع الاستشهاد",
         "viewer-save-to-notes": "حفظ في ملاحظات البحث",
         "viewer-open-notes": "فتح الملاحظات الحالية",
-        "viewer-translate-selection": "ترجمة إلى الإنجليزية",
+        "viewer-translate-selection": "ترجمة",
+        "viewer-translate-to-english": "إلى الإنجليزية",
+        "viewer-translate-to-arabic": "إلى العربية",
+        "viewer-translate-to-urdu": "إلى الأردية",
         "viewer-explain-selection": "اشرح هذا المقطع (AI)",
         "viewer-explain-dialog-title": "الشرح",
         "viewer-explain-passage-heading": "المقطع",
@@ -1250,6 +1263,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "viewer-translation-dialog-title": "الترجمة",
         "viewer-translation-original-heading": "النص الأصلي",
         "viewer-translation-english-heading": "الإنجليزية",
+        "viewer-translation-arabic-heading": "العربية",
+        "viewer-translation-urdu-heading": "الأردية",
         "viewer-translation-copy": "نسخ الترجمة",
         "viewer-translation-disclaimer": (
             "تُرجم آليًا محليًا على هذا الجهاز - خطوة أولى حقيقية وصادقة، وليست بديلاً "

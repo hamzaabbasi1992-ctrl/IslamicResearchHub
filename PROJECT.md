@@ -1075,7 +1075,7 @@ not just prose in the existing answer area) - a real, separate
 follow-up once the underlying comparison quality itself is verified
 against a real provider.
 
-### Phase 12 — Translation engine: **Milestone 1 done**
+### Phase 12 — Translation engine: **Milestone 2 done**
 
 Real per-paragraph translation chain: original Arabic → Urdu → English,
 plus word-by-word breakdown, grammar notes, and root-word analysis
@@ -1107,6 +1107,33 @@ built and automated-tested (fake translator, same technique as
 `_FakeTtsSpeaker`) against the exact same architecture MMS-TTS already
 proved out for real; the actual ~300MB-per-language download and real
 translation quality haven't been checked by a human yet.
+
+**Milestone 2 (done)**: real direct Arabic↔Urdu translation - genuinely
+direct, not a pivot through English. Researched first: Helsinki-NLP has
+no direct pair, so pivoting ar→en→ur would compound two models' worth
+of error - `facebook/m2m100_418M` is a single real model FAIR trained
+many-to-many across 100 languages, including a real direct Arabic↔Urdu
+path, and is the smallest published checkpoint that still covers both
+(vs. the 1.2B variant, not justified for this corpus's real accuracy
+needs). New `M2M100Translator` adapter and a `DirectTranslator`
+Protocol, injected into `PageTranslationService` as a second, separate
+backend alongside the existing `MarianTranslator` - the to-English path
+is untouched and keeps working even if the new direct model fails to
+load (each backend's failure is isolated). `PageTranslationService.
+translate(text, source_language, target_language)` is additive:
+`target_language == "English"` routes to the same real Milestone 1
+path; a real Arabic↔Urdu target routes to the new direct backend.
+Viewer's "Translate" context-menu item became a submenu ("To English" /
+"To Urdu" or "To Arabic", whichever this book's real language doesn't
+already match) - the translation dialog picks up the right RTL styling
+and heading for whichever real language was translated to. No new pip
+dependency (`sentencepiece` was already in the `translation` extra for
+MarianMT's own tokenizer). Word-by-word breakdown, grammar notes, and
+root-word analysis remain open within this phase, not missed. **Not yet
+live-tested with the real model** - same caveat as Milestone 1, built
+and automated-tested (10 new tests) against fakes; the real ~1.9GB
+`facebook/m2m100_418M` download and real translation quality haven't
+been checked by a human yet.
 
 ### Phase 13 — AI reading assistant: **Milestone 2 done**
 
