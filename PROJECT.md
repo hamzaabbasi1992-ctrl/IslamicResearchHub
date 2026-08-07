@@ -1432,7 +1432,7 @@ shape (two independent services, not one). Exports straight to a real
 milestones' document types are now shipped; this phase's original scope
 is complete.
 
-### Phase 18 — Mobile companion app: **Milestone 1, desktop half done**
+### Phase 18 — Mobile companion app: **Milestone 2, real first slice building**
 
 The project's own stated goal already names this ("Windows desktop app
 first, Android app later" - see Goal, above) - this phase is that
@@ -1460,13 +1460,70 @@ serialization layer needed. Both guard for `Books.SeriesID`/
 `VolumeNumber` not existing yet on an unmigrated database, mirroring
 `BookBrowserRepository._has_series_support()`'s exact pattern. The
 Android app itself (Jetpack Compose + Room, catalog browse/search,
-book-package import via the system file picker, an offline reader) is
-deliberately not started yet - no mobile dev tooling exists on this
-machine (confirmed: no flutter/dart/gradle/kotlinc/adb/java installed),
-sequenced as its own next step once Android Studio is set up. Live
-network sync (extending `web_app.py`), camera OCR search, and bookmark
-sync back to the desktop all remain explicitly deferred to later
-milestones, not attempted here.
+book-package import via the system file picker, an offline reader) was
+deliberately not started at the time - no mobile dev tooling existed
+on this machine. Live network sync (extending `web_app.py`), camera
+OCR search, and bookmark sync back to the desktop all remain
+explicitly deferred to later milestones, not attempted here.
+
+Also found and fixed a real schema gap while starting Milestone 2:
+`book_package_export_cli.py`'s `Pages`/`Chapters` tables had no
+declared primary key - harmless for the desktop's own SQL queries, but
+Room (the Android app's SQLite ORM) requires one on every table it
+opens. `Pages` gets a real synthesized `PageID` (a 1-based row number
+over `PageNo` order, via `ROW_NUMBER()` - the source schema has no
+natural per-row page ID); `Chapters`' existing `ChapterID` became a
+real declared `PRIMARY KEY` instead of a plain column. Verified
+against real production data (BookID 1328).
+
+**Milestone 2 (real first slice building, verified via a real
+`gradlew assembleDebug` success)**: Android Studio installed, its SDK
+redirected to F: drive (confirmed working: `adb.exe` and the bundled
+JDK both run for real), unblocking the Kotlin side for real. New
+`mobile/` Gradle project (Kotlin + Jetpack Compose + Room), bootstrapped
+with a real Gradle 9.7.0 wrapper. Real Room layer for both desktop
+export formats - `BookEntity`/`LibraryEntity` (shared, since both
+`catalog.db` and `book_<id>.db` carry identical `Books`/`Libraries`
+tables), `PageEntity`/`ChapterEntity`, `CatalogDatabase`/
+`BookPackageDatabase` (each opens its real pre-populated SQLite file
+via Room's `createFromFile()`, never lets Room create/migrate a schema
+of its own). First real screen, `MainActivity.kt`: import a real
+`catalog.db` via the system file picker (Storage Access Framework),
+browse its real books fully offline through Room - proves the whole
+desktop-to-mobile data contract end to end.
+
+Getting a real, clean `gradlew assembleDebug` took several rounds of
+genuine version-compatibility debugging against this very new toolchain
+generation (2026-era Android SDK/AGP/Gradle/Kotlin, not the versions
+this project's training data assumed) - each fix confirmed against a
+real build failure, not guessed preemptively:
+- AGP 8.7.2 didn't understand this SDK's newer platform-folder naming
+  (`platforms/android-37.0` vs the older `platforms/android-37`) -
+  bumped to AGP 9.3.1, the latest real stable release.
+- AGP 9.x turned out to have real built-in Kotlin support, making the
+  separate `org.jetbrains.kotlin.android` plugin (and its `kotlinOptions
+  {}` DSL) both redundant and conflicting - removed both; Kotlin JVM
+  target now comes from `compileOptions` alone.
+- KSP 2.0.21-era still registers its generated-source directories
+  through the `kotlin.sourceSets` DSL internally, which AGP 9.x's
+  built-in Kotlin support rejects by default - real, documented
+  suppression flag applied (`android.disallowKotlinSourceSets=false`
+  in `gradle.properties`), not a project misconfiguration.
+- Room 2.6.1's KSP-generated Java (suspend-fun DAO implementations)
+  produced a real `javac` "erasure name clash" against Kotlin 2.0.21's
+  newer suspend-fun-to-Java codegen - bumped Room to 2.8.4, the latest
+  real stable release, which resolved it cleanly.
+- One Compose API (`TopAppBar`) is still marked experimental in the
+  pinned Compose BOM - added the real `@OptIn(ExperimentalMaterial3Api::class)`.
+
+**Deliberately not built yet**: book-package import/offline reading,
+chapter list, real catalog search/filtering UI, camera OCR search,
+bookmark sync. The Room layer for book packages
+(`BookPackageDatabase`/`PageDao`) is already real and ready; only its
+own Compose screens remain. Not live-tested on a real device or
+emulator yet either - `gradlew assembleDebug`'s success proves the code
+compiles and packages into a real, installable APK, not that it
+behaves correctly at runtime.
 
 ### Phase 19 — Developer APIs: **scheduled after Phase 18, not started**
 

@@ -54,3 +54,13 @@ Thumbs.db
 # Claude Code conversation history export (spans unrelated projects -
 # never belongs in this repo's history)
 claude-history-export/
+
+# Android companion app (Phase 18) - real per-machine SDK path/build output,
+# same reasoning as .venv/ above for the Python side.
+mobile/local.properties
+mobile/.gradle/
+mobile/**/build/
+mobile/.idea/
+mobile/*.iml
+mobile/**/*.iml
+

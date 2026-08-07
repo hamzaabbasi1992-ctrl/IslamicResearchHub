@@ -1,5 +1,42 @@
 # Changelog
 
+## Phase 18, Milestone 2: mobile app's real first slice, verified building
+
+Android Studio's SDK, redirected to F: drive, confirmed working for
+real (adb.exe and the bundled JDK both run) - unblocking the actual
+Kotlin/Compose/Room side of the mobile companion app.
+
+New `mobile/` Gradle project. Real Room layer for both desktop export
+formats (`BookEntity`/`LibraryEntity` shared across `catalog.db` and
+`book_<id>.db`, `PageEntity`/`ChapterEntity`, `CatalogDatabase`/
+`BookPackageDatabase` - each opens its real pre-populated SQLite file
+via Room's `createFromFile()`). First real screen: import a real
+`catalog.db` via the system file picker, browse real books fully
+offline through Room.
+
+Also fixed a real schema gap found along the way:
+`book_package_export_cli.py`'s `Pages`/`Chapters` tables had no
+declared primary key - harmless for the desktop's own queries, but
+Room requires one on every table it opens. `Pages` gets a real
+synthesized `PageID`; `Chapters`' existing `ChapterID` became a real
+declared `PRIMARY KEY`. Verified against real production data.
+
+Getting a clean `gradlew assembleDebug` took several rounds of real
+version-compatibility fixes against this very new (2026-era) Android
+toolchain generation - AGP bumped to 9.3.1 (SDK platform-folder naming
+changed), AGP 9.x's built-in Kotlin support made the standalone
+kotlin-android plugin redundant/conflicting (removed), a KSP/built-in-
+Kotlin interaction needed a documented suppression flag, and Room
+bumped to 2.8.4 (2.6.1's generated code clashed with Kotlin 2.0.21's
+newer suspend-fun codegen). Each fix confirmed against a real build
+failure, not guessed. **BUILD SUCCESSFUL** - real 10.2MB debug APK
+produced.
+
+Book-package import/offline reading, chapter list, and real catalog
+search remain open - the Room layer for book packages is ready, only
+their own Compose screens are left. Not live-tested on a real device
+yet either.
+
 ## Real addition: local AI via Ollama, as a 4th provider option
 
 Requested directly by the user: a way to avoid real per-call cloud API
