@@ -8,8 +8,6 @@ from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
-    QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -145,10 +143,11 @@ and "Knowledge Gaps" didn't fit even wrapped to two lines, so Qt's own
 tool-button layout silently mid-word-elided them ("Kno...aps") - real,
 reported UI text loss, not a cosmetic nit. Widened so every real rail
 label (English is the widest of the three supported languages) fits
-without elision. Still the right width for the grouped-tab redesign
-below: the group tabs are full-width text buttons (same text-fitting
-need as before), and a 2-column icon grid needs far less width per
-icon than one text-under-icon column did."""
+without elision. Still the right width after moving the group tabs up
+into `_build_rail_group_bar()`'s own horizontal strip (real user
+request, matching Shamila/Jibreel's top-menu convention) - the rail
+itself is back to a single column of real icon+text buttons, the same
+layout this width was originally tuned for."""
 # "rail-viewer" is gone: the reader no longer has its own destination - it
 # opens inline inside the Search/Workspace screen (see WorkspaceScreen).
 _RAIL_KEYS = (
@@ -194,12 +193,14 @@ _RAIL_GROUPS: tuple[tuple[str, tuple[int, ...]], ...] = (
 """Real fix for a real reported problem: 15 rail entries in one long
 single-column strip meant scrolling/overflow on typical window heights.
 Grouped into 4 real categories (by what each screen is *for*, not just
-import order) shown as a vertical tab strip; only the active group's
-icons render, in a 2-column grid instead of one long column - each
-number here is a real index into `_RAIL_KEYS`/`_RAIL_ICON_NAMES`/
-`self._rail_buttons`, which stay flat and index-addressable exactly as
-before (Quick Open, the header breadcrumb, and `_show_screen()` all
-still work by plain index - only the *visual* arrangement changed)."""
+import order); only the active group's icons render in the rail (one
+column of real icon+text buttons), while the group tabs themselves
+live in `_build_rail_group_bar()`'s own horizontal strip above the
+rail - each number here is a real index into `_RAIL_KEYS`/
+`_RAIL_ICON_NAMES`/`self._rail_buttons`, which stay flat and index-
+addressable exactly as before (Quick Open, the header breadcrumb, and
+`_show_screen()` all still work by plain index - only the *visual*
+arrangement changed)."""
 
 
 def _rail_group_index_for(rail_index: int) -> int:
@@ -487,6 +488,7 @@ class MainWindow(QMainWindow):
             for title in _PLACEHOLDER_TITLES:
                 self._stack.addWidget(_placeholder_screen(title, missing_database_message))
 
+        self._rail_group_bar = self._build_rail_group_bar()
         rail = self._build_rail()
         self._apply_layout_direction()
 
@@ -503,6 +505,7 @@ class MainWindow(QMainWindow):
         central_layout.setSpacing(0)
         if self._header_bar is not None:
             central_layout.addWidget(self._header_bar)
+        central_layout.addWidget(self._rail_group_bar)
         central_layout.addWidget(body, stretch=1)
         self.setCentralWidget(central)
 
@@ -530,13 +533,17 @@ class MainWindow(QMainWindow):
         if self._home_screen is not None:
             self._home_screen.refresh()
 
-    def _build_rail(self) -> QWidget:
-        rail = QWidget()
-        rail.setObjectName("navRail")
-        rail.setFixedWidth(RAIL_WIDTH)
-        rail_layout = QVBoxLayout(rail)
-        rail_layout.setContentsMargins(8, 14, 8, 14)
-        rail_layout.setSpacing(4)
+    def _build_rail_group_bar(self) -> QWidget:
+        """A horizontal menu strip naming each of the 4 real rail groups
+        (Browse/Research Tools/Study/System) - moved up out of the side
+        rail into its own heading-line bar, matching the top-menu
+        convention of Shamila/Jibreel (real user request) rather than a
+        vertical tab stack competing for the rail's own limited width."""
+        bar = QWidget()
+        bar.setObjectName("railGroupBar")
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(20, 4, 20, 4)
+        layout.setSpacing(4)
 
         self._rail_group_buttons: list[QToolButton] = []
         for group_index, (group_key, _member_indices) in enumerate(_RAIL_GROUPS):
@@ -548,40 +555,49 @@ class MainWindow(QMainWindow):
             group_button.clicked.connect(
                 lambda _checked, g=group_index: self._show_rail_group(g)
             )
-            rail_layout.addWidget(group_button)
+            layout.addWidget(group_button)
             self._rail_group_buttons.append(group_button)
+        layout.addStretch(1)
+        return bar
 
-        divider = QFrame()
-        divider.setFrameShape(QFrame.Shape.HLine)
-        rail_layout.addWidget(divider)
+    def _build_rail(self) -> QWidget:
+        rail = QWidget()
+        rail.setObjectName("navRail")
+        rail.setFixedWidth(RAIL_WIDTH)
+        rail_layout = QVBoxLayout(rail)
+        rail_layout.setContentsMargins(8, 14, 8, 14)
+        rail_layout.setSpacing(4)
 
         # Flat, index-addressable in `_RAIL_KEYS` order regardless of which
         # group widget a button actually lives in - Quick Open, the header
         # breadcrumb, and `_show_screen()` all still index into this list
-        # directly, unchanged from before the grouped-tab redesign.
+        # directly, unchanged from before the grouped-tab redesign. Each
+        # button shows a real text label under its icon (real user
+        # request: icon-only wasn't enough), one column per group now
+        # that the group tabs themselves moved to `_build_rail_group_bar()`
+        # and no longer compete with the icon grid for the rail's width.
         rail_buttons_by_index: list[QToolButton | None] = [None] * len(_RAIL_KEYS)
         self._rail_group_widgets: list[QWidget] = []
         for group_index, (_group_key, member_indices) in enumerate(_RAIL_GROUPS):
             group_widget = QWidget()
-            group_grid = QGridLayout(group_widget)
-            group_grid.setContentsMargins(0, 0, 0, 0)
-            group_grid.setSpacing(4)
-            for position, rail_index in enumerate(member_indices):
+            group_column = QVBoxLayout(group_widget)
+            group_column.setContentsMargins(0, 0, 0, 0)
+            group_column.setSpacing(4)
+            for rail_index in member_indices:
                 key = _RAIL_KEYS[rail_index]
                 icon_name = _RAIL_ICON_NAMES[rail_index]
                 button = QToolButton()
                 button.setText(self._translator.tr(key))
                 button.setToolTip(self._translator.tr(key))
                 button.setIcon(rail_icon(icon_name))
-                button.setIconSize(QSize(20, 20))
-                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+                button.setIconSize(QSize(26, 26))
+                button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
                 button.setCheckable(True)
                 button.setChecked(rail_index == 0)
                 button.clicked.connect(
                     lambda _checked, i=rail_index: self._show_screen(i)
                 )
-                row, column = divmod(position, 2)
-                group_grid.addWidget(button, row, column)
+                group_column.addWidget(button)
                 rail_buttons_by_index[rail_index] = button
             rail_layout.addWidget(group_widget)
             self._rail_group_widgets.append(group_widget)

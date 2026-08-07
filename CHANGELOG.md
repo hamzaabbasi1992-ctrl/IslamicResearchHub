@@ -1,5 +1,26 @@
 # Changelog
 
+## Real UX fix: nav rail group tabs moved to a top menu bar, icons gained text labels
+
+Reported directly by the user, with a screenshot of the grouped-tab
+rail shipped earlier this session: icon-only buttons weren't enough,
+and they wanted the group tabs (Browse/Research Tools/Study/System)
+moved out of the side rail into a horizontal heading-line bar, the
+same convention Shamila and Jibreel use.
+
+New `_build_rail_group_bar()` - the 4 group tabs now live in their own
+horizontal strip between the header bar and the body, styled via a new
+`#railGroupBar` stylesheet block (mirrors `#navRail QToolButton`'s
+hover/checked states, since the buttons left `#navRail`'s scope).
+`_build_rail()` itself is back to a single column of real icon+text
+buttons (`ToolButtonTextUnderIcon`, 26x26 icons, up from 20x20
+icon-only) - the same layout `RAIL_WIDTH` was originally tuned for,
+now with room to spare since the group tabs no longer share the rail's
+width. `_rail_buttons`/`_rail_group_buttons`/`_rail_group_widgets` stay
+flat and index-addressable exactly as before, so Quick Open, the
+header breadcrumb, and `_show_screen()`'s auto-group-switch are all
+unaffected. 2 new tests. Full suite: 1302 passed, no regressions.
+
 ## Phase 16, Milestone 2: Real lecture-notes generation
 
 First Phase 16 document type built from fresh evidence-gathering

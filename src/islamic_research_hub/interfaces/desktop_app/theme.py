@@ -239,6 +239,28 @@ QLabel, QScrollArea, QScrollArea > QWidget > QWidget {{
     color: {palette.accent_ink};
 }}
 
+#railGroupBar {{
+    background: {palette.surface};
+    border-bottom: 1px solid {palette.line};
+}}
+#railGroupBar QToolButton {{
+    background: transparent;
+    border: none;
+    border-radius: {RADIUS}px;
+    color: {palette.ink_soft};
+    padding: {sp(8)} {sp(14)};
+    font-size: {px(Type.BODY_SM)};
+    font-weight: 600;
+}}
+#railGroupBar QToolButton:hover {{
+    background: {palette.line_soft};
+    color: {palette.ink};
+}}
+#railGroupBar QToolButton:checked {{
+    background: {palette.accent_soft};
+    color: {palette.accent_ink};
+}}
+
 QPushButton {{
     background: {palette.surface_raised};
     border: 1px solid {palette.line};

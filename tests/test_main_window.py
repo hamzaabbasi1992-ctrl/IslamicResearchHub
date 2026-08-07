@@ -134,6 +134,41 @@ def test_rail_starts_with_only_the_browse_group_visible(qtbot, tmp_path: Path) -
     assert window._rail_group_buttons[0].isChecked()
 
 
+def test_group_tabs_live_in_the_top_bar_not_the_side_rail(qtbot, tmp_path: Path) -> None:
+    """Real user request: the group tabs (Browse/Research Tools/Study/
+    System) moved out of the side rail into their own horizontal
+    heading-line bar above it, matching Shamila/Jibreel's top-menu
+    convention - the rail itself now holds only the icon+text buttons."""
+    from PySide6.QtWidgets import QToolButton
+
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    for group_button in window._rail_group_buttons:
+        assert group_button.parentWidget() is window._rail_group_bar
+
+    rail_group_bar_buttons = window._rail_group_bar.findChildren(QToolButton)
+    for real_rail_button in window._rail_buttons:
+        assert real_rail_button not in rail_group_bar_buttons
+
+
+def test_rail_buttons_show_a_real_text_label_under_the_icon(qtbot, tmp_path: Path) -> None:
+    """Real user request: icon-only buttons weren't enough - every real
+    rail button now shows its label as real visible text, not just a
+    hover tooltip."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    for button in window._rail_buttons:
+        assert button.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextUnderIcon
+        assert button.text() != ""
+        assert button.iconSize().width() >= 24
+
+
 def test_clicking_a_group_tab_switches_which_icons_are_visible(qtbot, tmp_path: Path) -> None:
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
