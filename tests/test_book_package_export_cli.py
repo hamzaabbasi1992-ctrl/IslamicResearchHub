@@ -68,6 +68,30 @@ def test_exports_a_real_book_with_pages_and_chapters(tmp_path: Path, capsys) -> 
         assert library_row is not None
 
 
+def test_pages_and_chapters_get_a_real_primary_key(tmp_path: Path) -> None:
+    """Real fix: Room (the Android companion app's SQLite ORM) requires
+    a declared primary key on every table it opens - Pages/Chapters
+    originally had none. PageID is a real, synthesized 1-based row
+    number (Pages has no natural per-row ID in the source schema);
+    ChapterID reuses the source database's own real chapter ID."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "book_1.db"
+    _seed_database(database_path)
+
+    exit_code = main(
+        ["--database", str(database_path), "--book-id", "1", "--output", str(output_path)]
+    )
+
+    assert exit_code == 0
+    with sqlite3.connect(output_path) as connection:
+        page_ids = [
+            row[0] for row in connection.execute("SELECT PageID FROM Pages ORDER BY PageNo")
+        ]
+        assert page_ids == [1, 2]
+        chapter_ids = [row[0] for row in connection.execute("SELECT ChapterID FROM Chapters")]
+        assert chapter_ids == [1]
+
+
 def test_fails_cleanly_when_database_is_missing(tmp_path: Path) -> None:
     exit_code = main(
         [

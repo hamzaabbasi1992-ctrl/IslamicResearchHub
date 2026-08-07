@@ -100,7 +100,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
             return 1
 
         pages = source.execute(
-            "SELECT PageNo, Content, HadeesNumber, AyahNumber FROM Pages "
+            "SELECT ROW_NUMBER() OVER (ORDER BY PageNo) AS PageID, "
+            "PageNo, Content, HadeesNumber, AyahNumber FROM Pages "
             "WHERE BookID = ? ORDER BY PageNo",
             (args.book_id,),
         ).fetchall()
@@ -142,7 +143,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
             ),
         )
         destination.executemany(
-            "INSERT INTO Pages (PageNo, Content, HadeesNumber, AyahNumber) VALUES (?, ?, ?, ?)",
+            "INSERT INTO Pages (PageID, PageNo, Content, HadeesNumber, AyahNumber) "
+            "VALUES (?, ?, ?, ?, ?)",
             [tuple(row) for row in pages],
         )
         destination.executemany(
@@ -192,13 +194,14 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             VolumeNumber INTEGER
         );
         CREATE TABLE Pages (
+            PageID INTEGER PRIMARY KEY,
             PageNo INTEGER,
             Content TEXT,
             HadeesNumber INTEGER,
             AyahNumber INTEGER
         );
         CREATE TABLE Chapters (
-            ChapterID INTEGER,
+            ChapterID INTEGER PRIMARY KEY,
             ParentChapterID INTEGER,
             Title TEXT,
             PageNo INTEGER,
