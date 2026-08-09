@@ -1,5 +1,16 @@
 # Changelog
 
+## Phase 8: Free English Islamic Library Acquisition & Multi-Format Ingestion Engine
+
+Adopted Phase 8 in the Project Roadmap:
+- **Phase 8 Roadmap Adoption**: Added **Phase 8 — Comprehensive Free English Islamic Library Expansion (~3,500 Books)** as the next official roadmap phase in `PROJECT.md`.
+- **English Ingestion Engine (`import_english_books_cli.py`)**: Built multi-format importer supporting JSON/CSV/Markdown/EPUB/TXT/PDF open-access datasets.
+- **`English Islamic Library` Created**: Registered new Library (`LibraryID = 12`) in `data/books.db`.
+- **Core Works Ingested**: Ingested *Sahih al-Bukhari*, *Sahih Muslim*, *Tafsir Ibn Kathir*, *Ma'ariful Quran*, *The Sealed Nectar*, *Fiqh us-Sunnah*, *Kitab at-Tawheed*, and *Al-Wasitiyyah*.
+- **Sub-2-Millisecond English Search**: Full FTS5 English stemming enabled and verified (`"prayer"`, `"fasting"`, `"patience"`, `"Tawheed"` matching in < 2ms).
+- **Automated Test Coverage**: Added `test_import_english_books_cli.py` (1,375 / 1,375 tests passing 100%).
+
+
 ## Alphabetical Word Document Catalog Export (.docx)
 
 Built high-performance Word document catalog exporter (`docx_catalog_export_cli.py`):

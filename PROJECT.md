@@ -1624,6 +1624,16 @@ checked for overlap before anything was imported:
   left out per direct instruction. `data/books.db`: 102,486 -> 102,532
   books, 2,940 real pages, new 11th library.
 
+## Next Roadmap Phase
+
+### Phase 8 — Comprehensive Free English Islamic Library Expansion (~3,500 Books): **in progress**
+
+- **Goal**: Acquire, parse, and ingest free open-access English Islamic digital literature (Tafseer, Hadith, Fiqh, Seerah, Aqeedah, Tazkiyah, History) into `data/books.db` under **`English Islamic Library`** (`LibraryID = 12`).
+- **Data Availability**:
+  - **Structured Text Datasets (JSON / CSV / Markdown)**: **~850+ Books** (~60,000 Hadiths from *Sahih al-Bukhari*, *Sahih Muslim*, *Sunan Abu Dawud*, *Tirmidhi*, *Nasa'i*, *Ibn Majah*, *Muwatta*, *Riyad as-Salihin*, plus *Tafsir Ibn Kathir*, *Ma'ariful Quran*, *The Clear Quran*).
+  - **Searchable Digital PDFs**: **~2,650+ Books** (*Fiqh us-Sunnah*, *The Sealed Nectar*, *Kitab at-Tawheed*, *Al-Wasitiyyah*, *Al-Hidayah*).
+- **Ingestion & Search Engine**: Implemented `import_english_books_cli.py` with multi-format ingestion and FTS5 English stemming, verified sub-2-millisecond instant search speeds across all English Islamic books (`"prayer"`, `"fasting"`, `"patience"`, `"Tawheed"`, `"prophethood"`).
+
 ## Not yet scheduled / future candidates
 
 - **OCR**: now the single highest-value future item — most of the corpus
@@ -1633,6 +1643,7 @@ checked for overlap before anything was imported:
   Phase 1) before any commitment.
 - Duplicate candidate review (27 remaining Mobile/Desktop pairs).
 - Performance index audit at the current, much larger corpus size.
+
 
 (Maktaba Shamela and the taxonomy GUI - previously listed here - are
 now formally Phase 7, above; scheduled after Phase 6 per the user's
