@@ -505,10 +505,12 @@ class BookBrowserRepository:
                 category_count = connection.execute(
                     "SELECT COUNT(*) FROM CategoryTaxonomy"
                 ).fetchone()[0]
-            else:
+            elif self._table_exists(connection, "Categories"):
                 category_count = connection.execute(
                     "SELECT COUNT(DISTINCT MJCN) FROM Categories WHERE MJCN IS NOT NULL"
                 ).fetchone()[0]
+            else:
+                category_count = 0
 
             if self._table_exists(connection, "Series"):
                 series_count = connection.execute("SELECT COUNT(*) FROM Series").fetchone()[0]
@@ -562,7 +564,7 @@ class BookBrowserRepository:
         always exists), one node per distinct MJCN.
         """
         with closing(sqlite3.connect(self._database_path)) as connection:
-            if self._table_exists(connection, "CategoryTaxonomy"):
+            if self._table_exists(connection, "CategoryTaxonomy") and self._table_exists(connection, "Categories"):
                 nodes = connection.execute(
                     """
                     SELECT t.MJCN, t.Name, t.ParentMJCN, COUNT(DISTINCT c.BookID)
@@ -572,7 +574,17 @@ class BookBrowserRepository:
                     ORDER BY t.Name
                     """
                 ).fetchall()
-            else:
+            elif self._table_exists(connection, "CategoryTaxonomy"):
+                nodes = connection.execute(
+                    """
+                    SELECT t.MJCN, t.Name, t.ParentMJCN, COUNT(DISTINCT b.BookID)
+                    FROM CategoryTaxonomy t
+                    LEFT JOIN Books b ON b.Category = t.Name
+                    GROUP BY t.MJCN
+                    ORDER BY t.Name
+                    """
+                ).fetchall()
+            elif self._table_exists(connection, "Categories"):
                 nodes = connection.execute(
                     """
                     SELECT MJCN, Name, ParentMJCN, COUNT(DISTINCT BookID)
@@ -582,6 +594,8 @@ class BookBrowserRepository:
                     ORDER BY Name
                     """
                 ).fetchall()
+            else:
+                nodes = []
         return _build_category_tree(nodes)
 
     @staticmethod
