@@ -21,7 +21,7 @@ All v1.0 core engine phases (1–7) and post-v1.0 roadmap phases (8 through 20) 
 
 ## Test Suite Verification
 
-- **Python Desktop Suite**: **1,373 / 1,373 tests passing** (`python -m pytest`).
+- **Python Desktop Suite**: **1,375 / 1,375 tests passing** (`python -m pytest`).
 - **Android Companion App Suite**: JVM unit tests (`ModelUnitTest`) passing; Gradle debug build (`./gradlew assembleDebug`) succeeded cleanly.
 
 ---
