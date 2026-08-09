@@ -10,12 +10,15 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMessageBox,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QTableWidget,
@@ -27,6 +30,10 @@ from PySide6.QtWidgets import (
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.book_package_export_cli import (
+    export_category_books_to_folder,
+)
+from islamic_research_hub.interfaces.catalog_export_cli import export_catalog_to_file
 from islamic_research_hub.interfaces.desktop_app.i18n import Translator
 from islamic_research_hub.interfaces.desktop_app.library_import_worker import (
     FORMAT_AUTO,
@@ -80,6 +87,14 @@ class ImportScreen(QWidget):
         self._heading_label = _heading(self._translator.tr("library-sources"))
         header_row.addWidget(self._heading_label)
         header_row.addStretch(1)
+        self._export_catalog_button = QPushButton("📱 Export Mobile Catalog (.db)")
+        self._export_catalog_button.setToolTip("Export lightweight catalog database for Android phone or tablet")
+        self._export_catalog_button.clicked.connect(self._export_mobile_catalog)
+        header_row.addWidget(self._export_catalog_button)
+        self._batch_export_button = QPushButton("📦 Batch Export Books...")
+        self._batch_export_button.setToolTip("Export multiple books or an entire category for mobile/tablet")
+        self._batch_export_button.clicked.connect(self._export_batch_mobile)
+        header_row.addWidget(self._batch_export_button)
         self._add_library_toggle = QPushButton(f"+ {self._translator.tr('add-library')}")
         self._add_library_toggle.setObjectName("primaryButton")
         self._add_library_toggle.clicked.connect(self._toggle_add_library_form)
@@ -149,11 +164,18 @@ class ImportScreen(QWidget):
         for key, label_key in _FORMAT_CHOICES:
             self._format_combo.addItem(self._translator.tr(label_key), userData=key)
         self._format_combo.setToolTip(self._translator.tr("format"))
+        self._format_combo.currentIndexChanged.connect(self._on_format_changed)
         options_row.addWidget(self._format_combo)
         self._library_name_edit = QLineEdit()
         self._library_name_edit.setPlaceholderText(self._translator.tr("library-name"))
         options_row.addWidget(self._library_name_edit, stretch=1)
         form_layout.addLayout(options_row)
+
+        self._format_hint_label = QLabel()
+        self._format_hint_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: 12px; margin-bottom: 4px;")
+        self._format_hint_label.setWordWrap(True)
+        form_layout.addWidget(self._format_hint_label)
+        self._on_format_changed()
 
         action_row = QHBoxLayout()
         self._scan_import_button = QPushButton(self._translator.tr("scan-import"))
@@ -167,6 +189,11 @@ class ImportScreen(QWidget):
         form_layout.addLayout(action_row)
 
         return form
+
+    def _on_format_changed(self) -> None:
+        key = self._format_combo.currentData() or FORMAT_AUTO
+        hint_key = f"import-hint-{key}"
+        self._format_hint_label.setText(self._translator.tr(hint_key))
 
     def _set_status(self, kind: str, **args: object) -> None:
         self._status_kind = kind
@@ -192,6 +219,145 @@ class ImportScreen(QWidget):
 
     def _toggle_add_library_form(self) -> None:
         self._add_library_form.setVisible(not self._add_library_form.isVisible())
+
+    def _export_mobile_catalog(self) -> None:
+        save_path, _filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Mobile Catalog File",
+            "catalog.db",
+            "SQLite Database (*.db);;All Files (*)",
+        )
+        if not save_path:
+            return
+        try:
+            num_libs, num_books, size_mb = export_catalog_to_file(
+                self._database_path, Path(save_path)
+            )
+        except Exception as err:
+            QMessageBox.critical(
+                self,
+                "Catalog Export Failed",
+                f"Could not export mobile catalog:\n{err}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Catalog Exported Successfully",
+            f"Mobile Catalog exported successfully!\n\n"
+            f"File: {save_path}\n"
+            f"Libraries: {num_libs} | Books: {num_books}\n"
+            f"Size: {size_mb:.1f} MB\n\n"
+            f"How to use on Mobile / Tablet:\n"
+            f"1. Copy 'catalog.db' to your mobile device via USB or Drive.\n"
+            f"2. Open Islamic Research Hub on your phone/tablet and tap 'Import Catalog'.",
+        )
+
+    def _export_batch_mobile(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Batch Export Books for Mobile / Tablet")
+        dialog.setMinimumWidth(480)
+
+        d_layout = QVBoxLayout(dialog)
+        d_layout.setSpacing(10)
+        d_layout.setContentsMargins(16, 16, 16, 16)
+
+        title_lbl = QLabel("Export Multiple Books / Category")
+        title_lbl.setStyleSheet(f"font-size: 15px; font-weight: 700; color: {INK};")
+        d_layout.addWidget(title_lbl)
+
+        info_lbl = QLabel("Select a category and target folder (e.g. USB Flash Drive or Desktop folder) to export all book package files (.db) at once.")
+        info_lbl.setWordWrap(True)
+        info_lbl.setStyleSheet(MUTED_LABEL_STYLE)
+        d_layout.addWidget(info_lbl)
+
+        cat_row = QHBoxLayout()
+        cat_lbl = QLabel("Category:")
+        cat_row.addWidget(cat_lbl)
+        cat_combo = QComboBox()
+        categories = ["All Categories"]
+        try:
+            raw_cats = self._browser.list_categories()
+            categories.extend(sorted(c.name for c in raw_cats))
+        except Exception:
+            pass
+        cat_combo.addItems(categories)
+        cat_row.addWidget(cat_combo, stretch=1)
+        d_layout.addLayout(cat_row)
+
+        folder_row = QHBoxLayout()
+        folder_edit = QLineEdit()
+        folder_edit.setPlaceholderText("Select Destination Folder...")
+        browse_btn = QPushButton("Browse...")
+
+        def _pick_out_folder():
+            picked = QFileDialog.getExistingDirectory(dialog, "Select Export Destination Folder")
+            if picked:
+                folder_edit.setText(picked)
+
+        browse_btn.clicked.connect(_pick_out_folder)
+        folder_row.addWidget(folder_edit, stretch=1)
+        folder_row.addWidget(browse_btn)
+        d_layout.addLayout(folder_row)
+
+        progress_bar = QProgressBar()
+        progress_bar.setVisible(False)
+        d_layout.addWidget(progress_bar)
+
+        btn_row = QHBoxLayout()
+        export_btn = QPushButton("📦 Export Batch")
+        export_btn.setObjectName("primaryButton")
+        cancel_btn = QPushButton("Cancel")
+        btn_row.addStretch(1)
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(export_btn)
+        d_layout.addLayout(btn_row)
+
+        cancel_btn.clicked.connect(dialog.reject)
+
+        def _do_export():
+            target_folder = folder_edit.text().strip()
+            if not target_folder:
+                QMessageBox.warning(dialog, "Missing Folder", "Please choose a destination folder first.")
+                return
+            selected_cat = cat_combo.currentText()
+            export_btn.setEnabled(False)
+            cancel_btn.setEnabled(False)
+            progress_bar.setValue(0)
+            progress_bar.setVisible(True)
+
+            def _on_progress(cur, total):
+                progress_bar.setMaximum(total)
+                progress_bar.setValue(cur)
+
+            try:
+                count, size_mb = export_category_books_to_folder(
+                    self._database_path,
+                    selected_cat,
+                    Path(target_folder),
+                    progress_callback=_on_progress,
+                )
+            except Exception as err:
+                QMessageBox.critical(dialog, "Export Failed", f"Batch export failed:\n{err}")
+                export_btn.setEnabled(True)
+                cancel_btn.setEnabled(True)
+                return
+
+            QMessageBox.information(
+                dialog,
+                "Batch Export Completed",
+                f"Batch Export Completed Successfully!\n\n"
+                f"Category: {selected_cat}\n"
+                f"Books Exported: {count}\n"
+                f"Total Size: {size_mb:.2f} MB\n"
+                f"Destination: {target_folder}\n\n"
+                f"How to use on Mobile / Tablet:\n"
+                f"Copy the exported .db files from this folder to your phone/tablet and tap 'Import Book Package' in the app.",
+            )
+            dialog.accept()
+
+        export_btn.clicked.connect(_do_export)
+        dialog.exec()
 
     def _pick_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, self._translator.tr("folder-to-scan"))

@@ -50,20 +50,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(arguments: Sequence[str] | None = None) -> int:
-    """Export the real catalog and print a real row-count/size summary."""
-    _configure_unicode_output()
-    configure_logging()
-    args = build_parser().parse_args(arguments)
+def export_catalog_to_file(database_path: Path, output_path: Path) -> tuple[int, int, float]:
+    """Export a lightweight catalog database for mobile directly to output_path."""
+    if not database_path.is_file():
+        raise FileNotFoundError(f"Database file not found: {database_path}")
 
-    if not args.database.is_file():
-        LOGGER.error("Database does not exist: %s", args.database)
-        return 1
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.unlink(missing_ok=True)
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.unlink(missing_ok=True)
-
-    with closing(sqlite3.connect(args.database)) as source:
+    with closing(sqlite3.connect(database_path)) as source:
         libraries = source.execute("SELECT LibraryID, Name FROM Libraries").fetchall()
         if _has_series_columns(source):
             books = source.execute(
@@ -82,7 +77,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 """
             ).fetchall()
 
-    with closing(sqlite3.connect(args.output)) as destination:
+    with closing(sqlite3.connect(output_path)) as destination:
         _create_schema(destination)
         destination.executemany(
             "INSERT INTO Libraries (LibraryID, Name) VALUES (?, ?)", libraries
@@ -98,11 +93,30 @@ def main(arguments: Sequence[str] | None = None) -> int:
         )
         destination.commit()
 
-    output_size_mb = args.output.stat().st_size / 1_048_576
+    output_size_mb = output_path.stat().st_size / 1_048_576
+    return len(libraries), len(books), output_size_mb
+
+
+def main(arguments: Sequence[str] | None = None) -> int:
+    """Export the real catalog and print a real row-count/size summary."""
+    _configure_unicode_output()
+    configure_logging()
+    args = build_parser().parse_args(arguments)
+
+    if not args.database.is_file():
+        LOGGER.error("Database does not exist: %s", args.database)
+        return 1
+
+    try:
+        num_libs, num_books, size_mb = export_catalog_to_file(args.database, args.output)
+    except Exception as err:
+        LOGGER.error("Catalog export failed: %s", err)
+        return 1
+
     print("Catalog Export Summary")
-    print(f"Libraries: {len(libraries)}")
-    print(f"Books: {len(books)}")
-    print(f"Output: {args.output} ({output_size_mb:.1f} MB)")
+    print(f"Libraries: {num_libs}")
+    print(f"Books: {num_books}")
+    print(f"Output: {args.output} ({size_mb:.1f} MB)")
     return 0
 
 

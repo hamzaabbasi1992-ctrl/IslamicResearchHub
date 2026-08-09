@@ -317,6 +317,8 @@ def test_entering_an_api_key_persists_it_for_the_selected_provider(
     settings = _isolated_settings(tmp_path)
     screen = SettingsScreen(database_path, settings, Translator(settings))
     qtbot.addWidget(screen)
+    anthropic_index = screen._ai_agent_provider_combo.findData("anthropic")
+    screen._ai_agent_provider_combo.setCurrentIndex(anthropic_index)
 
     screen._ai_agent_api_key_edit.setText("sk-ant-real-looking-key")
     screen._ai_agent_api_key_edit.editingFinished.emit()
@@ -328,11 +330,17 @@ def test_entering_an_api_key_shows_a_real_saved_confirmation(qtbot, tmp_path: Pa
     """Every field on this screen already auto-saves - this confirms the
     previously-invisible save now shows real, visible feedback instead of
     reading as "is there a Save button I'm missing?"."""
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_PROVIDER_KEY,
+    )
+
     database_path = tmp_path / "books.db"
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     screen = SettingsScreen(database_path, settings, Translator(settings))
     qtbot.addWidget(screen)
+    screen._save_status_label.setText("")
     assert screen._save_status_label.text() == ""
 
     screen._ai_agent_api_key_edit.setText("sk-ant-real-looking-key")
@@ -349,6 +357,8 @@ def test_switching_provider_keeps_each_providers_own_key_separate(
     settings = _isolated_settings(tmp_path)
     screen = SettingsScreen(database_path, settings, Translator(settings))
     qtbot.addWidget(screen)
+    anthropic_index = screen._ai_agent_provider_combo.findData("anthropic")
+    screen._ai_agent_provider_combo.setCurrentIndex(anthropic_index)
     screen._ai_agent_api_key_edit.setText("anthropic-key")
     screen._ai_agent_api_key_edit.editingFinished.emit()
 
@@ -420,6 +430,8 @@ def test_switching_to_ollama_shows_model_and_server_fields_hides_api_key(
     settings = _isolated_settings(tmp_path)
     screen = SettingsScreen(database_path, settings, Translator(settings))
     qtbot.addWidget(screen)
+    anthropic_index = screen._ai_agent_provider_combo.findData("anthropic")
+    screen._ai_agent_provider_combo.setCurrentIndex(anthropic_index)
     assert screen._ollama_model_edit.isHidden() is True
 
     ollama_index = screen._ai_agent_provider_combo.findData("ollama")
@@ -549,3 +561,15 @@ def test_resolve_maknoon_pdf_folder_falls_back_when_nothing_is_stored(tmp_path: 
     settings = _isolated_settings(tmp_path)
 
     assert resolve_maknoon_pdf_folder(settings, tmp_path / "default") == tmp_path / "default"
+
+
+def test_ollama_is_default_ai_provider(tmp_path: Path) -> None:
+    from islamic_research_hub.interfaces.desktop_app.settings_screen import (
+        AI_AGENT_PROVIDER_KEY,
+        AI_AGENT_PROVIDERS,
+    )
+
+    settings = _isolated_settings(tmp_path)
+    default_provider = settings.value(AI_AGENT_PROVIDER_KEY, AI_AGENT_PROVIDERS[0], type=str)
+    assert default_provider == "ollama"
+

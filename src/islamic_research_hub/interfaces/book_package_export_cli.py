@@ -57,19 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(arguments: Sequence[str] | None = None) -> int:
-    """Export one real book's full content and print a real summary."""
-    _configure_unicode_output()
-    configure_logging()
-    args = build_parser().parse_args(arguments)
+def export_book_package_to_file(
+    database_path: Path, book_id: int, output_path: Path
+) -> tuple[str, int, int, float]:
+    """Export one book's full page and chapter content directly to output_path."""
+    if not database_path.is_file():
+        raise FileNotFoundError(f"Database file not found: {database_path}")
 
-    if not args.database.is_file():
-        LOGGER.error("Database does not exist: %s", args.database)
-        return 1
-
-    output_path = args.output or (DEFAULT_OUTPUT_FOLDER / f"book_{args.book_id}.db")
-
-    with closing(sqlite3.connect(args.database)) as source:
+    with closing(sqlite3.connect(database_path)) as source:
         source.row_factory = sqlite3.Row
         if _has_series_columns(source):
             book_row = source.execute(
@@ -81,7 +76,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
                 WHERE b.BookID = ?
                 """,
-                (args.book_id,),
+                (book_id,),
             ).fetchone()
         else:
             book_row = source.execute(
@@ -93,22 +88,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
                 WHERE b.BookID = ?
                 """,
-                (args.book_id,),
+                (book_id,),
             ).fetchone()
         if book_row is None:
-            LOGGER.error("No book found with BookID=%d", args.book_id)
-            return 1
+            raise KeyError(f"No book found with BookID={book_id}")
 
         pages = source.execute(
             "SELECT ROW_NUMBER() OVER (ORDER BY PageNo) AS PageID, "
             "PageNo, Content, HadeesNumber, AyahNumber FROM Pages "
             "WHERE BookID = ? ORDER BY PageNo",
-            (args.book_id,),
+            (book_id,),
         ).fetchall()
         chapters = source.execute(
             "SELECT ChapterID, ParentChapterID, Title, PageNo, SortKey FROM Chapters "
             "WHERE BookID = ? ORDER BY SortKey, ChapterID",
-            (args.book_id,),
+            (book_id,),
         ).fetchall()
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,11 +149,78 @@ def main(arguments: Sequence[str] | None = None) -> int:
         destination.commit()
 
     output_size_mb = output_path.stat().st_size / 1_048_576
+    return str(book_row["Title"]), len(pages), len(chapters), output_size_mb
+
+
+def export_category_books_to_folder(
+    database_path: Path,
+    category_name: str | None,
+    output_folder: Path,
+    progress_callback=None,
+) -> tuple[int, float]:
+    """Export all books (or all books matching category_name) as book_<id>.db packages into output_folder."""
+    if not database_path.is_file():
+        raise FileNotFoundError(f"Database file not found: {database_path}")
+
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    with closing(sqlite3.connect(database_path)) as source:
+        if category_name and category_name != "All Categories":
+            rows = source.execute(
+                "SELECT BookID FROM Books WHERE Category = ? ORDER BY BookID",
+                (category_name,),
+            ).fetchall()
+        else:
+            rows = source.execute("SELECT BookID FROM Books ORDER BY BookID").fetchall()
+
+    exported_count = 0
+    total_size_mb = 0.0
+    total_books = len(rows)
+
+    for index, (book_id,) in enumerate(rows, start=1):
+        out_file = output_folder / f"book_{book_id}.db"
+        try:
+            _title, _pages, _chapters, size_mb = export_book_package_to_file(
+                database_path, book_id, out_file
+            )
+            exported_count += 1
+            total_size_mb += size_mb
+        except Exception:
+            pass
+        if progress_callback is not None:
+            progress_callback(index, total_books)
+
+    return exported_count, total_size_mb
+
+
+def main(arguments: Sequence[str] | None = None) -> int:
+    """Export one real book's full content and print a real summary."""
+    _configure_unicode_output()
+    configure_logging()
+    args = build_parser().parse_args(arguments)
+
+    if not args.database.is_file():
+        LOGGER.error("Database does not exist: %s", args.database)
+        return 1
+
+    output_path = args.output or (DEFAULT_OUTPUT_FOLDER / f"book_{args.book_id}.db")
+
+    try:
+        title, num_pages, num_chapters, size_mb = export_book_package_to_file(
+            args.database, args.book_id, output_path
+        )
+    except KeyError:
+        LOGGER.error("No book found with BookID=%d", args.book_id)
+        return 1
+    except Exception as err:
+        LOGGER.error("Book package export failed: %s", err)
+        return 1
+
     print("Book Package Export Summary")
-    print(f"Book: {book_row['Title']} (BookID={book_row['BookID']})")
-    print(f"Pages: {len(pages)}")
-    print(f"Chapters: {len(chapters)}")
-    print(f"Output: {output_path} ({output_size_mb:.2f} MB)")
+    print(f"Book: {title} (BookID={args.book_id})")
+    print(f"Pages: {num_pages}")
+    print(f"Chapters: {num_chapters}")
+    print(f"Output: {output_path} ({size_mb:.2f} MB)")
     return 0
 
 

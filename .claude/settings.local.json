@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(python -m pip install --quiet pytest 2>&1)",
+      "PowerShell(python -m pytest -q 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\fts_repro.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\fts_search_repro.py\")",
+      "PowerShell(winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements 2>&1)",
+      "PowerShell(python -m pytest --version)",
+      "PowerShell(python -m pip install -e \".[dev]\" 2>&1)",
+      "PowerShell(python -m pip install --quiet sentence-transformers 2>&1)",
+      "PowerShell(python -c \"import sentence_transformers, torch; print\\('sentence-transformers', sentence_transformers.__version__\\); print\\('torch', torch.__version__\\); print\\('cuda available:', torch.cuda.is_available\\(\\)\\)\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\inspect_mjbx.py\" \"F:\\\\Maktaba Jibreel\\\\Books\\\\10.mjbx\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\inspect_shamela4.py\" \"F:\\\\shamela4\\\\database\\\\master.db\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\extract_strings.py\" \"F:\\\\Maktaba Jibreel\\\\MaktabaJibreel.exe\" 6 2>&1)",
+      "PowerShell(Get-ChildItem \"F:\\\\Maknoon Mufahris Almakhtotaat \\(Search Able Urdu Pdf books Library\\)\\\\Maknoon Manuscripts Indexer\\\\db\" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })",
+      "PowerShell(python -m pip install --quiet pyodbc 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\check_maknoon_text.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\verify_migration.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\fix_mistagged.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\investigate_mjbn_mismatch.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\scope_duplicates.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\identify_confirmed_dupes.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\remove_confirmed_dupes.py\" 2>&1)",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\check_libraries.py\")",
+      "PowerShell(python \"C:\\\\Users\\\\MY\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--ISLAMIC-RESEARCH-HUB-AI\\\\ab849da3-a94a-4c8b-9c61-ae941b75e0fc\\\\scratchpad\\\\pdf_archive_overlap.py\" 2>&1)",
+      "PowerShell(python -m islamic_research_hub.interfaces.hybrid_search_cli \"?�?�\" --limit 2 --keyword-only 2>$null)",
+      "Bash(python -m pytest tests/test_search_screen.py -q)",
+      "Bash(python -m pytest tests/test_migration_runner.py -q)",
+      "Bash(python -c ' *)",
+      "Bash(HF_HUB_OFFLINE=1 python -c ' *)"
+    ]
+  }
+}

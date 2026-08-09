@@ -51,12 +51,12 @@ or was renamed (confirmed: the user's own machine migration did exactly
 this). Settings-backed instead, with the old hardcoded value still used
 as the one-time default for a user who has never opened this picker -
 see `_build_library_paths_block()` below."""
-AI_AGENT_PROVIDERS: tuple[str, ...] = ("anthropic", "openai", "gemini", "ollama")
+AI_AGENT_PROVIDERS: tuple[str, ...] = ("ollama", "anthropic", "openai", "gemini")
 AI_AGENT_PROVIDER_LABELS: dict[str, str] = {
+    "ollama": "Local (Ollama)",
     "anthropic": "Claude (Anthropic)",
     "openai": "ChatGPT (OpenAI)",
     "gemini": "Gemini (Google)",
-    "ollama": "Local (Ollama)",
 }
 AI_AGENT_API_KEY_ENV_VARS: dict[str, str] = {
     "anthropic": "ISLAMIC_RESEARCH_HUB_ANTHROPIC_API_KEY",

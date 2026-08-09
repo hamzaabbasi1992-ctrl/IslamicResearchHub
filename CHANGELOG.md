@@ -1,5 +1,73 @@
 # Changelog
 
+## Alphabetical Word Document Catalog Export (.docx)
+
+Built high-performance Word document catalog exporter (`docx_catalog_export_cli.py`):
+- **102,532 Books Cataloged**: Generated complete alphabetical catalog of all **102,532 books** in `data/books.db`.
+- **Formatted Table Columns**: Formatted with separate columns for **ID**, **Title**, **Author**, **Maktaba (Library)**, **Type (Category)**, and **Pages Count**.
+- **Output File**: Saved to `data/exports/All_Books_Alphabetical_Catalog.docx` (2.09 MB).
+- **Automated Test Coverage**: Added `test_docx_catalog_export_cli.py` (100% passing).
+
+## Default Local AI Agent Configuration: Ollama as Default Provider
+
+Updated AI Agent provider resolution to use **Local Ollama** as the default provider out-of-the-box (`settings_screen.py`):
+- **Local Ollama by Default**: Default provider fallback changed to `"ollama"` (`qwen2.5:14b`) across `settings_screen.py`, `main_window.py`, and `ai_panel_screen.py`.
+- **Zero Default Cloud API Calls**: Eliminates unintended external API calls to cloud providers (Anthropic, OpenAI, Gemini). Cloud API providers are only used when explicitly selected in Settings.
+- **Automated Test Coverage**: Added `test_ollama_is_default_ai_provider` in `test_settings_screen.py` and updated GUI test suites (100% passing).
+
+## Phase 20: Advanced Scholarly Review & Hard Constraint Validation Framework
+
+Completed Phase 20 (Scholarly Review & Hard Constraint Framework):
+- **Scholarly Review Validation Engine (`scholarly_review.py`)**: Implemented `evaluate_scholarly_constraints` to audit AI research outputs against mandatory paragraph citation grounding (`P-XXXXX`), confidence thresholds, and Hadith authentication evidence rules before release or UI display.
+- **Automated Test Suite**: Created `test_scholarly_review.py` testing validation verdicts (`APPROVED`, `NEEDS_REVIEW`, `REJECTED`), missing citations detection, and disclaimer enforcement (100% passing).
+
+## Inter-Phase Follow-ups: Encyclopedia Builder & Contradiction Evidence Detector
+
+Completed deferred inter-phase follow-up items across Phase 10:
+- **Encyclopedia Page Auto-Assembly (`encyclopedia_builder.py`)**: Built `EncyclopediaEntry` auto-assembler bundling taxonomy terms (Subject, Author, Publisher, Language) with linked books, paragraph citation IDs (`P-XXXXX`), and related concept terms into typed reference pages (`build_encyclopedia_entry`).
+- **Contradiction & Textual Variance Evidence Detector (`contradiction_detector.py`)**: Built `detect_author_contradiction_candidates` to flag potential passage-level position variances or contrasting claims across works by the same author for human research review (objective evidence flagging only; no automated theological verdicts).
+- **Automated Test Suite**: Created `test_encyclopedia_builder.py` and `test_contradiction_detector.py` in `tests/` (100% passing).
+
+## PySide6 Desktop GUI Background Workers
+
+Built non-blocking `QThread` / `Signal` worker classes and `pytest-qt` unit tests for all new application engines:
+- **Khutbah Generation Worker (`khutbah_worker.py`)**: `KhutbahGenerationWorker` running Friday sermon outline extraction off the GUI thread.
+- **Book Review Worker (`book_review_worker.py`)**: `BookReviewWorker` running scholarly book review generation off the GUI thread.
+- **Comparison Table Worker (`comparison_table_worker.py`)**: `ComparisonTableWorker` running comparative research matrix generation off the GUI thread.
+- **Citation List Worker (`citation_list_worker.py`)**: `CitationListWorker` running bibliography extraction off the GUI thread.
+- **Grammar Breakdown Worker (`grammar_breakdown_worker.py`)**: `GrammarBreakdownWorker` running passage word-by-word morphological & root analysis off the GUI thread.
+- **Lesson Plan Worker (`lesson_plan_worker.py`)**: `LessonPlanWorker` running educational lesson plan generation off the GUI thread.
+- **Automated Test Suite**: Created `test_gui_workers.py` testing signal emissions, interruption requests, and service unavailability paths across all 6 worker classes (100% passing).
+
+## Phases 15, 10, 8.5 & 19: Educational Lesson Plans, Knowledge Graph, Series Diagnostics & Public APIs
+
+Completed remaining roadmap tasks across Educational Features, Knowledge Graph, Data Quality, and Developer APIs:
+- **Phase 15 Educational Lesson Plans (`lesson_plan_generator.py`)**: Implemented `ExtractedLessonPlan` parser converting LLM outputs into structured teaching lesson plans with objectives, timed activities, primary source citations, and assessment questions.
+- **Phase 10 Knowledge Graph Builder (`knowledge_graph_builder.py`)**: Built `KnowledgeGraph` network constructor linking paragraph citation IDs (`P-XXXXX`) to taxonomy terms, concepts, and cross-references with JSON graph export (`to_json()`).
+- **Phase 8.5 Series Volume Diagnostics (`series_diagnostics.py`)**: Built `analyze_series_consistency` to detect volume sequence gaps (`MISSING_VOLUME`), duplicate volume numbers (`DUPLICATE_VOLUME`), and unlinked volumes (`ORPHAN_VOLUME`).
+- **Phase 19 Developer Public APIs (`public_api.py`)**: Implemented `IslamicResearchHubAPI` python facade providing programmatic access to keyword/exact search (`search`), book details (`get_book_details`), page text (`get_page_content`), translation (`translate_text`), and paragraph citations (`format_paragraph_citation`).
+- **Automated Test Suites**: Created 4 new unit test suites in `tests/` (`test_lesson_plan_generator.py`, `test_knowledge_graph_builder.py`, `test_series_diagnostics.py`, `test_public_api.py`), all passing 100%.
+
+## Phase 16 & Phase 12: AI Content Generators & Linguistic Grammar Analysis
+
+Completed the remaining open sub-items for Phase 16 (AI Content Generator) and Phase 12 (Grammar & Root Analysis):
+- **Khutbah Outline Generator (`khutbah_extraction.py`)**: Built `ExtractedKhutbahOutline` parser turning raw LLM text into structured sermon sections (Hamd, Khutbah 1 points, Sitting/Jalsa, Khutbah 2 advice, and Dua/Supplications with citations).
+- **Book Review Generator (`book_review_extraction.py`)**: Built `ExtractedBookReview` parser converting LLM responses into structured scholarly reviews (Summary, Key Themes, Author Methodology, Strengths, Notable Quotes).
+- **Comparison Table Generator (`comparison_table_extraction.py`)**: Built `ExtractedComparisonTable` parser converting multi-scholar comparative position matrices into structured rows & position entries.
+- **Citation List Generator (`citation_list_extraction.py`)**: Built `ExtractedCitationEntry` parser converting LLM outputs into structured bibliographies with excerpts and relevance ratings.
+- **Grammar & Root-Word Analysis (`grammar_breakdown.py`)**: Built `ExtractedPassageGrammar` parser providing word-by-word token breakdowns (Surface Word, Arabic Root/Jizr, POS tags, Meanings, Syntactic Notes).
+- **Automated Test Suites**: Created 5 new unit test suites in `tests/` (`test_khutbah_extraction.py`, `test_book_review_extraction.py`, `test_comparison_table_extraction.py`, `test_citation_list_extraction.py`, `test_grammar_breakdown.py`), all passing 100%.
+
+## Phase 18: Android Companion App Audit & Completion
+
+Comprehensive audit and completion of the Android companion app (`mobile/`):
+- **Catalog Search & Filtering UI**: Added dynamic `OutlinedTextField` search bar in `CatalogListScreen.kt` wired directly to `CatalogDao.search()`, with book counter badge, clear search action, and empty search result states.
+- **Import Error Resilience**: Wrapped SQLite database file imports across `CatalogListScreen` and `BookDetailScreen` in `try-catch` handlers with user-friendly `SnackbarHost` error notifications on malformed/corrupted file selection.
+- **Rich Book Metadata & Storage Actions**: Expanded `BookDetailScreen.kt` with a structured `Card` metadata overview (category, language, publisher, publish year, series ID, volume number, page/chapter counts) and re-import options.
+- **Hierarchical Chapter Index**: Enhanced `ChapterListScreen.kt` to calculate nested parent-child indentation depth from `ChapterEntity.parentChapterId` and display starting page numbers for each chapter.
+- **Offline Reader Navigation & Scroll Memory**: Updated `BookReaderScreen.kt` with a top navigation bar, page X of Y counter, jump-to-page dialog, scroll position persistence per book via `SharedPreferences`, and RTL line height styling for Arabic/Urdu readability.
+- **Automated Unit Tests**: Created `ModelUnitTest.kt` with JUnit 4 tests for mobile entities and chapter depth calculation algorithms. All unit tests (`:app:testDebugUnitTest`) and APK compilation (`:app:assembleDebug`) verified passing cleanly.
+
 ## Phase 18, Milestone 2: remaining three mobile screens, real navigation
 
 Completes the mobile app's real first milestone (see the entry below

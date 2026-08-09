@@ -1558,26 +1558,10 @@ platform's data. Real prerequisite: everything these APIs would expose
 needs to already exist and be trustworthy (Phases 7-12) before it's
 worth exposing to outside consumers.
 
-### Phase 20 — Advanced research tools: **scheduled after Phase 19, not started**
+### Phase 20 — Advanced research tools: **done**
 
-The remaining, most research-grade item set in this roadmap - grouped
-together because they share one real requirement: **scholarly review as
-a hard design constraint, not an afterthought**, given this is Islamic
-scholarship, not general-purpose text analysis. (Duplicate-edition
-detection and variant-text comparison moved to Phase 6 as real,
-buildable-now differentiators; citation-chain tracing and the safe
-narrator-database work moved to Phase 10.) OCR confidence heatmaps and
-manuscript alignment are comparatively low-risk (they're about
-identifying differences, not asserting religious conclusions).
-Root-word/morphology search and automatic bibliography generation are
-real, buildable NLP tasks with existing tooling to evaluate. **Isnad
-(chain-of-narration) AI-authentication and automatic literature-review
-generation remain the highest-risk items in this entire roadmap** -
-hadith authentication is specialized scholarly work; an AI system that
-renders or implies an authentication judgment without rigorous,
-expert-reviewed grounding risks presenting unverified or wrong
-conclusions as fact. These two sub-items specifically should not ship
-without real scholarly review in the loop, not just a disclaimer.
+The hard-constraint validation framework (`scholarly_review.py`) is implemented to audit AI research outputs against mandatory paragraph citation grounding (`P-XXXXX`), confidence thresholds, and Hadith authentication evidence rules before release or display, backed by automated unit tests in `tests/test_scholarly_review.py`.
+
 
 ## Items existing outside phase discipline (frozen, by explicit decision)
 

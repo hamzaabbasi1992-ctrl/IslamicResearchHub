@@ -2,13 +2,25 @@ package com.islamicresearchhub.companion.ui.bookdetail
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -28,11 +40,9 @@ import com.islamicresearchhub.companion.data.local.copyPickedFileToCache
 import kotlinx.coroutines.launch
 
 /**
- * One real book's metadata (from the already-imported catalog), plus
- * the real "import this specific book to read it offline" flow - a
- * separate, smaller file from the catalog (`book_<id>.db`, produced by
- * the desktop's `book_package_export_cli.py`) the user picks via the
- * system file picker, same real SAF pattern as the catalog import.
+ * Phase 18 Book Detail & Import Screen:
+ * Displays rich book metadata, handles offline book package import with error feedback,
+ * and allows launching the offline reader or chapter index.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,10 +54,13 @@ fun BookDetailScreen(
     val context = LocalContext.current
     var book by remember { mutableStateOf<BookEntity?>(null) }
     var packageImported by remember { mutableStateOf(BookPackageDatabase.isImported(context, bookId)) }
+    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(bookId) {
-        book = CatalogDatabase.openExisting(context).catalogDao().getBook(bookId)
+        if (CatalogDatabase.isImported(context)) {
+            book = CatalogDatabase.openExisting(context).catalogDao().getBook(bookId)
+        }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -55,43 +68,121 @@ fun BookDetailScreen(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
-            val tempFile = copyPickedFileToCache(context, uri, "import_book_$bookId.db")
-            BookPackageDatabase.open(context, bookId, tempFile)
-            packageImported = true
+            try {
+                val tempFile = copyPickedFileToCache(context, uri, "import_book_$bookId.db")
+                BookPackageDatabase.open(context, bookId, tempFile)
+                packageImported = true
+                snackbarHostState.showSnackbar("Book package imported successfully!")
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar("Failed to import book package: ${e.localizedMessage ?: "Invalid file"}")
+            }
         }
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(book?.title ?: "Book") }) }
+        topBar = { TopAppBar(title = { Text(book?.title ?: "Book Detail") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            Text(book?.title ?: "Untitled", style = MaterialTheme.typography.titleLarge)
-            Text(book?.author ?: "Unknown author", style = MaterialTheme.typography.bodyMedium)
-            if (packageImported) {
-                Button(
-                    onClick = { onReadClick(bookId) },
-                    modifier = Modifier.padding(top = 16.dp),
-                ) {
-                    Text("Read")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(book?.title ?: "Untitled Book", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                book?.author ?: "Unknown Author",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Metadata Overview", style = MaterialTheme.typography.titleSmall)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    MetadataRow("Category", book?.category)
+                    MetadataRow("Language", book?.language)
+                    MetadataRow("Publisher", book?.publisher)
+                    MetadataRow("Publish Year", book?.publishYear)
+                    MetadataRow("Page Count", book?.pageCount?.let { "$it pages" })
+                    MetadataRow("Chapter Count", book?.chapterCount?.let { "$it chapters" })
+                    if (book?.seriesId != null) {
+                        MetadataRow("Series ID", book?.seriesId.toString())
+                    }
+                    if (book?.volumeNumber != null) {
+                        MetadataRow("Volume Number", book?.volumeNumber.toString())
+                    }
                 }
-                Button(
-                    onClick = { onChaptersClick(bookId) },
-                    modifier = Modifier.padding(top = 8.dp),
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            if (packageImported) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Chapters")
+                    Button(
+                        onClick = { onReadClick(bookId) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Read Book")
+                    }
+                    OutlinedButton(
+                        onClick = { onChaptersClick(bookId) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Chapters")
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { importLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Re-import Book Package")
                 }
             } else {
                 Text(
-                    "This book isn't downloaded to this device yet.",
-                    modifier = Modifier.padding(top = 16.dp),
+                    "This book package is not imported on this device yet. Import the 'book_$bookId.db' file to enable offline reading.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Import this book")
+                    Text("Import Book Package")
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MetadataRow(label: String, value: String?) {
+    if (value.isNullOrBlank()) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }

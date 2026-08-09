@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QInputDialog,
@@ -42,6 +43,7 @@ from islamic_research_hub.domain.models.book import Chapter
 from islamic_research_hub.infrastructure.persistence.book_browser_repository import (
     BookBrowserRepository,
 )
+from islamic_research_hub.interfaces.book_package_export_cli import export_book_package_to_file
 from islamic_research_hub.infrastructure.persistence.collection_repository import (
     CollectionNameTakenError,
     CollectionRepository,
@@ -289,6 +291,11 @@ class ViewerScreen(QWidget):
         )
         self._add_to_collection_button.clicked.connect(self._on_add_to_collection_clicked)
         toolbar.addWidget(self._add_to_collection_button)
+
+        self._export_mobile_button = QPushButton("📱 Export for Mobile...")
+        self._export_mobile_button.setToolTip("Export this book package (.db) for Android mobile/tablet")
+        self._export_mobile_button.clicked.connect(self._on_export_mobile_clicked)
+        toolbar.addWidget(self._export_mobile_button)
 
         self._play_pause_button = QPushButton()
         self._play_pause_button.setIcon(button_icon("play"))
@@ -933,6 +940,49 @@ class ViewerScreen(QWidget):
             self._current_title,
             page_number,
             comparison,
+        )
+
+    def _on_export_mobile_clicked(self) -> None:
+        if self._current_book_id is None:
+            QMessageBox.warning(
+                self,
+                "No Book Open",
+                "Please open a book first before exporting for mobile.",
+            )
+            return
+
+        default_filename = f"book_{self._current_book_id}.db"
+        save_path, _filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Book Package for Mobile",
+            default_filename,
+            "SQLite Database (*.db);;All Files (*)",
+        )
+        if not save_path:
+            return
+
+        try:
+            title, num_pages, num_chapters, size_mb = export_book_package_to_file(
+                self._database_path, self._current_book_id, Path(save_path)
+            )
+        except Exception as err:
+            QMessageBox.critical(
+                self,
+                "Export Failed",
+                f"Could not export book package for mobile:\n{err}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Book Exported Successfully",
+            f"Book package exported successfully!\n\n"
+            f"Book: {title} (ID: {self._current_book_id})\n"
+            f"Pages: {num_pages} | Chapters: {num_chapters}\n"
+            f"File: {save_path} ({size_mb:.2f} MB)\n\n"
+            f"How to use on Mobile / Tablet:\n"
+            f"1. Copy this file to your mobile device via USB or Drive.\n"
+            f"2. Open Islamic Research Hub on your phone/tablet and tap 'Import Book Package'.",
         )
 
     def _translate_selection(self, selected_text: str, target_language: str = "English") -> None:

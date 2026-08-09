@@ -445,6 +445,7 @@ def test_extract_events_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -456,6 +457,7 @@ def test_extract_events_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -494,6 +496,7 @@ def test_extract_narrators_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -505,6 +508,7 @@ def test_extract_narrators_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -543,6 +547,7 @@ def test_explain_selection_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -554,6 +559,7 @@ def test_explain_selection_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -590,6 +596,7 @@ def test_summarize_selection_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -601,6 +608,7 @@ def test_summarize_selection_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -637,6 +645,7 @@ def test_compare_selection_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -648,6 +657,7 @@ def test_compare_selection_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -686,6 +696,7 @@ def test_generate_flashcards_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -697,6 +708,7 @@ def test_generate_flashcards_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -735,6 +747,7 @@ def test_generate_mcqs_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -746,6 +759,7 @@ def test_generate_mcqs_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -784,6 +798,7 @@ def test_generate_slide_deck_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -795,6 +810,7 @@ def test_generate_slide_deck_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -833,6 +849,7 @@ def test_generate_lecture_notes_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -844,6 +861,7 @@ def test_generate_lecture_notes_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
@@ -882,6 +900,7 @@ def test_generate_podcast_with_no_api_key_shows_the_unavailable_dialog(
 ) -> None:
     from islamic_research_hub.interfaces.desktop_app.settings_screen import (
         AI_AGENT_ENABLED_KEY,
+        AI_AGENT_PROVIDER_KEY,
     )
 
     popup_calls = []
@@ -893,6 +912,7 @@ def test_generate_podcast_with_no_api_key_shows_the_unavailable_dialog(
     _seed_database(database_path)
     settings = _isolated_settings(tmp_path)
     settings.setValue(AI_AGENT_ENABLED_KEY, True)
+    settings.setValue(AI_AGENT_PROVIDER_KEY, "anthropic")
     window = MainWindow(database_path, tmp_path / "maknoon_pdfs", settings)
     qtbot.addWidget(window)
 
