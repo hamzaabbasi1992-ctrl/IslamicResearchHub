@@ -1,5 +1,12 @@
 # Changelog
 
+## Library Search Fix: Correct FTS Table Fallback Order
+
+Fixed the library (Maktaba) search returning no/incorrect results on compacted or imported databases (`sqlite_book_search_repository.py`):
+- **Root Cause**: `_search_content` preferred `PagesFTS` over `Pages_fts` (snake_case), but `PagesFTS` is a content-backed FTS table created by migration 1 that is frequently empty on compacted/imported databases, while the real page content lives in `Pages_fts`.
+- **Fix**: Reordered the fallback so `Pages_fts` is checked and preferred immediately after `PagesFTSNormalized`, before the (possibly empty) `PagesFTS`.
+- **Verified**: Manual end-to-end check across Arabic and English queries (`إحياء`, `hadith`, `القرآن`, `فقه`, `prayer`) now all return results; targeted suite (`test_sqlite_book_search_repository.py`, `test_book_search.py`, `test_search_screen.py`, `test_search_cli.py`) passes 90/90.
+
 ## Phase 8: Free English Islamic Library Acquisition & Multi-Format Ingestion Engine
 
 Adopted Phase 8 in the Project Roadmap:

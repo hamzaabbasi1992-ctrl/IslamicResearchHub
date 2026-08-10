@@ -107,10 +107,13 @@ class SqliteBookSearchRepository:
         """Search main page content via PagesFTS/PagesFTSNormalized."""
         if not exact and self._index_exists(connection, "PagesFTSNormalized"):
             fts_table = "PagesFTSNormalized"
+        elif self._index_exists(connection, "Pages_fts"):
+            # Compacted/imported databases use Pages_fts (snake_case) as the
+            # FTS table name; prefer it over PagesFTS which may exist but be
+            # empty (content-backed FTS created by migration 1 but never rebuilt).
+            fts_table = "Pages_fts"
         elif self._index_exists(connection, "PagesFTS"):
             fts_table = "PagesFTS"
-        elif self._index_exists(connection, "Pages_fts"):
-            fts_table = "Pages_fts"
         else:
             fts_table = "PagesFTS"
 
