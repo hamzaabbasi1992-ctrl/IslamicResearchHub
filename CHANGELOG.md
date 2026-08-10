@@ -1,5 +1,12 @@
 # Changelog
 
+## PDF Source Path Recovery: Missing Books.Source Column
+
+Fixed a real crash and its root cause, then recovered lost data (`book_browser_repository.py`, `compact_database_cli.py`, `data/books.db`):
+- **Crash fix**: `get_book_source()` raised `sqlite3.OperationalError` on `data/books.db` because its `Books` table has no `Source` column at all - this ran unconditionally every time a book's detail panel rendered, so opening any book's source PDF was broken on this database. Now degrades to a `None` source path when the column is missing, same guard pattern as `_has_series_support`.
+- **Root cause fixed**: `compact_database_cli.py`'s own `CREATE TABLE Books` never included `Source`/`SourceBookID`/`AuthorID`, so every compaction run silently dropped them - this is what left `data/books.db` without the column in the first place, with no pre-compaction backup left to recover from. Now copies all three through (or degrades to `NULL` on an older source database that also lacks them).
+- **Data recovered**: Backfilled `Books.Source` for the two "PDF Archive" libraries whose titles are clean filename-derived text - **3,723/3,723 books** (610 Maktaba Jibreel + 3,113 Maktaba Al-Maknoon) matched their real file on the connected external drives by exact normalized filename, spot-verified end-to-end via `resolve_pdf_path()`. `Jumma Bayanat` (2,290 books) and `Maktaba Islam (PDF Archive)` (81 books) use a different title/filename shape and were deliberately left for a follow-up rather than guessed.
+
 ## Library Search Fix: Correct FTS Table Fallback Order
 
 Fixed the library (Maktaba) search returning no/incorrect results on compacted or imported databases (`sqlite_book_search_repository.py`):
