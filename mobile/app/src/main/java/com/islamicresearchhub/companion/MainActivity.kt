@@ -3,7 +3,6 @@ package com.islamicresearchhub.companion
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,6 +12,7 @@ import com.islamicresearchhub.companion.ui.bookdetail.BookDetailScreen
 import com.islamicresearchhub.companion.ui.catalog.CatalogListScreen
 import com.islamicresearchhub.companion.ui.reader.BookReaderScreen
 import com.islamicresearchhub.companion.ui.reader.ChapterListScreen
+import com.islamicresearchhub.companion.ui.theme.IslamicResearchHubTheme
 
 /**
  * Milestone 2 (Phase 18): real navigation between the four real screens
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            IslamicResearchHubTheme {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "catalog") {
                     composable("catalog") {

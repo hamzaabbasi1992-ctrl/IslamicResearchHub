@@ -1,5 +1,13 @@
 # Changelog
 
+## Mobile App: Consistent Theme Across All 4 Screens
+
+Fixed the Android companion app looking "plain"/inconsistent (`mobile/app/src/main/java/.../ui/theme/`, `MainActivity.kt`, `CatalogListScreen.kt`, `BookDetailScreen.kt`, `build.gradle.kts`):
+- **Root cause**: Only `CatalogListScreen` had a real look (a dark emerald/teal palette), hardcoded as local hex values inside that one screen. `MainActivity` wrapped the whole app in a bare, uncustomized `MaterialTheme {}`, so `BookDetailScreen`, `ChapterListScreen`, and `BookReaderScreen` - which already correctly referenced `MaterialTheme.colorScheme`/`typography` - fell back to Compose's default lavender theme, clashing with the catalog screen.
+- **Fix**: Added a real `ui/theme/` package (`Color.kt`, `Type.kt`, `Theme.kt`) defining the emerald/teal/gold dark scheme once as a proper Material3 `darkColorScheme`, applied via `IslamicResearchHubTheme` in `MainActivity`. Removed the duplicated hex values from `CatalogListScreen` (now reads the shared theme like every other screen already did) and added a small visual uplift to `BookDetailScreen` (icon avatar header, icon in the metadata card title) since it was the plainest of the four.
+- **Found and fixed along the way**: `material-icons-extended` was never added as a dependency, even though `Icons.Default.Book`/`FolderOpen` (pre-existing) require it - the app was only building before because nothing had exercised a real compile of those specific icon references recently. Added the dependency in `build.gradle.kts`.
+- **Verified**: `gradlew assembleDebug` and `gradlew testDebugUnitTest` both pass.
+
 ## PDF Source Path Recovery: Missing Books.Source Column
 
 Fixed a real crash and its root cause, then recovered lost data (`book_browser_repository.py`, `compact_database_cli.py`, `data/books.db`):

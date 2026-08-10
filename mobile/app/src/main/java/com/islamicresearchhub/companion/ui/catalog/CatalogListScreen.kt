@@ -55,7 +55,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -128,11 +127,11 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
         loadBooks(searchQuery, selectedCategory)
     }
 
-    val emeraldDark = Color(0xFF0F172A)
-    val cardBg = Color(0xFF1E293B)
-    val accentTeal = Color(0xFF0D9488)
-    val lightText = Color(0xFFF8FAFC)
-    val subText = Color(0xFF94A3B8)
+    val accentTeal = MaterialTheme.colorScheme.primary
+    val cardBg = MaterialTheme.colorScheme.surface
+    val lightText = MaterialTheme.colorScheme.onSurface
+    val subText = MaterialTheme.colorScheme.onSurfaceVariant
+    val outlineColor = MaterialTheme.colorScheme.outline
 
     Scaffold(
         topBar = {
@@ -147,11 +146,11 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = emeraldDark)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = emeraldDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             // Header stats and Custom Import Bar
@@ -202,7 +201,7 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
                     focusedContainerColor = cardBg,
                     unfocusedContainerColor = cardBg,
                     focusedBorderColor = accentTeal,
-                    unfocusedBorderColor = Color(0xFF334155),
+                    unfocusedBorderColor = outlineColor,
                     focusedTextColor = lightText,
                     unfocusedTextColor = lightText
                 )
@@ -223,12 +222,12 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
                         label = { Text(cat, fontSize = 13.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = accentTeal,
-                            selectedLabelColor = Color.White,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
                             containerColor = cardBg,
                             labelColor = subText
                         ),
                         border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (isSelected) accentTeal else Color(0xFF334155),
+                            borderColor = if (isSelected) accentTeal else outlineColor,
                             enabled = true,
                             selected = isSelected
                         )
@@ -295,7 +294,7 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Surface(
                                             shape = RoundedCornerShape(4.dp),
-                                            color = Color(0xFF334155)
+                                            color = outlineColor
                                         ) {
                                             Text(
                                                 text = book.category,
