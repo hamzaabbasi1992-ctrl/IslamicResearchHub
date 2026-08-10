@@ -364,8 +364,25 @@ class BookBrowserRepository:
         return tuple(BookSummary(*row) for row in rows)
 
     def get_book_source(self, book_id: int) -> tuple[str, str | None] | None:
-        """Return (source path, library name) for one book, or None if missing."""
+        """Return (source path, library name) for one book, or None if missing.
+
+        `Books.Source` doesn't exist on every database (confirmed missing
+        entirely on a real compacted/recovered database, where this used
+        to raise `sqlite3.OperationalError` on every single book-detail
+        view) - degrades to a `None` source path there, same guard
+        pattern as `_has_series_support`.
+        """
         with closing(sqlite3.connect(self._database_path)) as connection:
+            if not self._has_source_column(connection):
+                row = connection.execute(
+                    """
+                    SELECT NULL, l.Name FROM Books b
+                    LEFT JOIN Libraries l ON l.LibraryID = b.LibraryID
+                    WHERE b.BookID = ?
+                    """,
+                    (book_id,),
+                ).fetchone()
+                return (row[0], row[1]) if row else None
             row = connection.execute(
                 """
                 SELECT b.Source, l.Name FROM Books b
@@ -623,6 +640,14 @@ class BookBrowserRepository:
             return False
         columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)")}
         return "SeriesID" in columns
+
+    @staticmethod
+    def _has_source_column(connection: sqlite3.Connection) -> bool:
+        """Return whether Books.Source exists, so a database missing it
+        (confirmed for real: an entire compacted database with no
+        Source column at all) degrades gracefully instead of raising."""
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(Books)")}
+        return "Source" in columns
 
 
 def _build_category_tree(
