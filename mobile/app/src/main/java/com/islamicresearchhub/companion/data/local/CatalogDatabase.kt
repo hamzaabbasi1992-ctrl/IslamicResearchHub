@@ -29,16 +29,19 @@ abstract class CatalogDatabase : RoomDatabase() {
                 .build()
         }
 
-        /** Whether a real catalog has already been imported into this
-         * app's private storage (survives app restarts). */
+        /** Whether a real catalog is available (true out-of-the-box via bundled assets). */
         fun isImported(context: Context): Boolean {
-            return context.getDatabasePath(DATABASE_NAME).exists()
+            return true
         }
 
-        /** Reopen the already-imported real catalog without needing the
-         * original source file again. */
+        /** Reopen the catalog, copying from bundled asset catalog.db on first launch if needed. */
         fun openExisting(context: Context): CatalogDatabase {
-            return Room.databaseBuilder(context, CatalogDatabase::class.java, DATABASE_NAME).build()
+            val dbFile = context.getDatabasePath(DATABASE_NAME)
+            val builder = Room.databaseBuilder(context, CatalogDatabase::class.java, DATABASE_NAME)
+            if (!dbFile.exists()) {
+                builder.createFromAsset("catalog.db")
+            }
+            return builder.build()
         }
     }
 }

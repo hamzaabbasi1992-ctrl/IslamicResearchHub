@@ -105,8 +105,16 @@ class SqliteBookSearchRepository:
         exact: bool,
     ) -> tuple[SearchResult, ...]:
         """Search main page content via PagesFTS/PagesFTSNormalized."""
-        use_normalized_index = not exact and self._index_exists(connection, "PagesFTSNormalized")
-        fts_table = "PagesFTSNormalized" if use_normalized_index else "PagesFTS"
+        if not exact and self._index_exists(connection, "PagesFTSNormalized"):
+            fts_table = "PagesFTSNormalized"
+        elif self._index_exists(connection, "PagesFTS"):
+            fts_table = "PagesFTS"
+        elif self._index_exists(connection, "Pages_fts"):
+            fts_table = "Pages_fts"
+        else:
+            fts_table = "PagesFTS"
+
+        use_normalized_index = fts_table == "PagesFTSNormalized"
         match_query = normalize_search_text(query) if use_normalized_index else query
         sql = f"""
             SELECT
