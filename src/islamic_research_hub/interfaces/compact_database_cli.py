@@ -61,6 +61,9 @@ def compact_and_reclaim_space(
                 PublishYear INTEGER,
                 SeriesID INTEGER,
                 VolumeNumber INTEGER,
+                Source TEXT,
+                SourceBookID TEXT,
+                AuthorID INTEGER,
                 FOREIGN KEY (LibraryID) REFERENCES Libraries (LibraryID) ON DELETE SET NULL
             );
 
@@ -101,15 +104,19 @@ def compact_and_reclaim_space(
 
         # 3. Copy Books
         books = src.execute("SELECT * FROM Books").fetchall()
+        source_columns = {row[1] for row in src.execute("PRAGMA table_info(Books)")}
         for b in books:
             dst.execute(
                 """
-                INSERT OR IGNORE INTO Books VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO Books VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     b["BookID"], b["LibraryID"], b["Title"], b["Author"],
                     b["Publisher"], b["Language"], b["Category"], b["PageCount"],
-                    b["ChapterCount"], b["PublishYear"], b["SeriesID"], b["VolumeNumber"]
+                    b["ChapterCount"], b["PublishYear"], b["SeriesID"], b["VolumeNumber"],
+                    b["Source"] if "Source" in source_columns else None,
+                    b["SourceBookID"] if "SourceBookID" in source_columns else None,
+                    b["AuthorID"] if "AuthorID" in source_columns else None,
                 )
             )
         dst.commit()
