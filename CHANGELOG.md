@@ -7,6 +7,19 @@ Fixed the library (Maktaba) search returning no/incorrect results on compacted o
 - **Fix**: Reordered the fallback so `Pages_fts` is checked and preferred immediately after `PagesFTSNormalized`, before the (possibly empty) `PagesFTS`.
 - **Verified**: Manual end-to-end check across Arabic and English queries (`إحياء`, `hadith`, `القرآن`, `فقه`, `prayer`) now all return results; targeted suite (`test_sqlite_book_search_repository.py`, `test_book_search.py`, `test_search_screen.py`, `test_search_cli.py`) passes 90/90.
 
+## Category Browsing Fix: Backfilled Missing Categories.MJCN
+
+Fixed every Browse-tab category showing `(0)` books on the compacted `data/books.db` (`scratch/backfill_categories_mjcn.py`):
+- **Root Cause**: An earlier ad-hoc recovery backfill populated `Categories.Name` but left `Categories.MJCN` `NULL` on all 3,764 rows, so `get_category_tree()`'s `LEFT JOIN Categories c ON c.MJCN = t.MJCN` never matched anything — the correct join key confirmed by `TaxonomyRepository.link_books_to_populated_taxonomy()`, which already reads `Categories.MJCN` as the real per-book category link.
+- **Fix**: One-time backfill matching `Categories.Name` to `CategoryTaxonomy.Name` (verified unique, so unambiguous) to fill in `MJCN`. All 655 category nodes now show real book counts.
+
+## Category Browsing Cleanup: Drop Numeric-Only Categories, Add EN/UR/AR Names
+
+Removed the remaining category-browsing noise and added real multi-language display names (`book_browser_repository.py`, `shared/category_names.py`, `search_screen.py`):
+- **Numeric-only categories dropped**: `get_category_tree()` now excludes any node whose `Name` is purely digits (a raw MJCN code the ad-hoc backfill never resolved to a real name) — 623 of the 655 nodes were placeholders like `'862'`/`'88'` with no real identity; only the 32 genuinely named categories (Aqeedah, Fiqh, Hadith, Tafseer, ...) now appear. The filter is script-agnostic (`Name GLOB '*[^0-9]*'`), so it does not affect a properly-imported database's real Arabic-named categories.
+- **English/Urdu/Arabic category names**: Added `CATEGORY_NAME_TRANSLATIONS` (`shared/category_names.py`) covering all 32 real categories; the Browse-tab category tree now displays the translated name for the app's current UI language while still filtering/searching on the real canonical `Categories.Name` underneath. The tree is rebuilt on every language switch (`_retranslate`), matching how every other piece of app chrome already re-localizes live.
+- **Verified library/book click-through already worked**: `list_books_in_library()`, `list_books_in_category()`, and `get_book_detail()` all confirmed end-to-end against the real 36,249-book database (e.g. clicking "Maktaba Al-Maknoon" → 200 books; opening a book → 358 real pages); the earlier appearance of "nothing happens" was the `(0)`-count categories, not a broken click handler. Targeted suite (`test_search_screen.py`, `test_book_browser_repository.py`, `test_taxonomy_browser_screen.py`, plus the search suites above) passes 137/137.
+
 ## Phase 8: Free English Islamic Library Acquisition & Multi-Format Ingestion Engine
 
 Adopted Phase 8 in the Project Roadmap:

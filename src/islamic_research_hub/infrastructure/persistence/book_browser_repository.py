@@ -562,6 +562,12 @@ class BookBrowserRepository:
         (migration 3) for cross-library canonical names; otherwise builds
         the tree directly from the per-book `Categories` table (which
         always exists), one node per distinct MJCN.
+
+        Excludes any node whose `Name` is purely numeric - a raw MJCN
+        code with no real taxonomy name resolved for it (confirmed on a
+        recovered database: 623 of 655 categories were bare numeric
+        placeholders left over from an ad-hoc recovery backfill), never
+        a legitimate category name in any script.
         """
         with closing(sqlite3.connect(self._database_path)) as connection:
             if self._table_exists(connection, "CategoryTaxonomy") and self._table_exists(connection, "Categories"):
@@ -570,6 +576,7 @@ class BookBrowserRepository:
                     SELECT t.MJCN, t.Name, t.ParentMJCN, COUNT(DISTINCT c.BookID)
                     FROM CategoryTaxonomy t
                     LEFT JOIN Categories c ON c.MJCN = t.MJCN
+                    WHERE t.Name GLOB '*[^0-9]*'
                     GROUP BY t.MJCN
                     ORDER BY t.Name
                     """
@@ -580,6 +587,7 @@ class BookBrowserRepository:
                     SELECT t.MJCN, t.Name, t.ParentMJCN, COUNT(DISTINCT b.BookID)
                     FROM CategoryTaxonomy t
                     LEFT JOIN Books b ON b.Category = t.Name
+                    WHERE t.Name GLOB '*[^0-9]*'
                     GROUP BY t.MJCN
                     ORDER BY t.Name
                     """
@@ -589,7 +597,7 @@ class BookBrowserRepository:
                     """
                     SELECT MJCN, Name, ParentMJCN, COUNT(DISTINCT BookID)
                     FROM Categories
-                    WHERE MJCN IS NOT NULL
+                    WHERE MJCN IS NOT NULL AND Name GLOB '*[^0-9]*'
                     GROUP BY MJCN
                     ORDER BY Name
                     """

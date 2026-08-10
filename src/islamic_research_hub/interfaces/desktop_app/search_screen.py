@@ -72,6 +72,7 @@ from islamic_research_hub.interfaces.desktop_app.search_history import RecentSea
 from islamic_research_hub.interfaces.desktop_app.semantic_search_worker import (
     SemanticSearchWorker,
 )
+from islamic_research_hub.shared.category_names import translated_category_name
 from islamic_research_hub.interfaces.desktop_app.theme import (
     DANGER,
     MUTED_LABEL_STYLE,
@@ -213,6 +214,7 @@ class SearchScreen(QWidget):
         self._browse_filter_edit.setPlaceholderText(tr("search-filter-placeholder"))
         self._libraries_pane_title_label.setText(tr("pane-libraries"))
         self._rebuild_library_chips()
+        self._populate_category_tree(self._category_tree)
         if self._browse_stack.currentIndex() == 2:
             self._refresh_recent_list()
         self._query_edit.setPlaceholderText(tr("search-query-placeholder"))
@@ -327,10 +329,15 @@ class SearchScreen(QWidget):
         tree = QTreeWidget()
         tree.setHeaderHidden(True)
         tree.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        for node in self._browser.get_category_tree():
-            tree.addTopLevelItem(_category_tree_item(node))
+        self._populate_category_tree(tree)
         tree.itemClicked.connect(self._on_category_clicked)
         return tree
+
+    def _populate_category_tree(self, tree: QTreeWidget) -> None:
+        tree.clear()
+        language = self._translator.language
+        for node in self._browser.get_category_tree():
+            tree.addTopLevelItem(_category_tree_item(node, language))
 
     def _build_author_list(self) -> tuple[QScrollArea, list[tuple[str, QPushButton]]]:
         scroll_area = QScrollArea()
@@ -1703,11 +1710,15 @@ def _detail_row(label_text: str, value: str | None, unknown_text: str) -> QWidge
     return row
 
 
-def _category_tree_item(node: CategoryNode) -> QTreeWidgetItem:
-    item = QTreeWidgetItem([f"{node.name}  ({node.book_count})"])
+def _category_tree_item(node: CategoryNode, language: str) -> QTreeWidgetItem:
+    display_name = translated_category_name(node.name, language)
+    item = QTreeWidgetItem([f"{display_name}  ({node.book_count})"])
+    # UserRole stays the raw canonical name (never the translated display
+    # text) - it's what `_on_category_clicked` passes straight into
+    # `list_books_in_category()`, which filters on the real `Categories.Name`.
     item.setData(0, Qt.ItemDataRole.UserRole, node.name)
     for child in node.children:
-        item.addChild(_category_tree_item(child))
+        item.addChild(_category_tree_item(child, language))
     return item
 
 

@@ -1,3 +1,10 @@
+> **RESOLVED 2026-08-10.** Both bugs below are fixed (search: commit
+> `fe69a75`; categories `(0)` counts + numeric-only category cleanup +
+> multi-language names: see `CHANGELOG.md`). Kept for historical
+> investigation detail only - `CHANGELOG.md` is the source of truth on
+> current state, per `CLAUDE.md`'s single-handoff-file rule this file
+> should not be used for future handoffs; use `HANDOFF.md` instead.
+
 # 🔧 Search & Categories Bug — Investigation Handover
 
 **Project:** Islamic Research Hub AI  
