@@ -1,5 +1,90 @@
 # Changelog
 
+## MCP server: bookmarks, collections, research notes, citation curation, docx/article exports
+
+Grew the MCP server from 3 tools to ~20, restructured
+`interfaces/mcp_server/` into a `tools/` package (one `register_*_tools()`
+module per capability group - `search_tools.py`, `bookmark_tools.py`,
+`collection_tools.py`, `note_tools.py`, `citation_tools.py`,
+`export_tools.py`) since a single file was about to hold 20+ tool
+functions. Every tool is still a thin wrapper over an existing
+repository/module - no new persistence logic:
+
+- **Bookmarks** (`BookmarkRepository`): `add_bookmark`, `remove_bookmark`,
+  `list_bookmarked_pages`, `list_recent_bookmarks`.
+- **Collections** (`CollectionRepository`): `create_collection`,
+  `rename_collection`, `delete_collection`, `list_collections`,
+  `add_to_collection`, `remove_from_collection`, `list_collection_items`.
+- **Research notes** (`LocalDocxStorage`, not `ResearchNotesManager`):
+  `create_note_document`, `list_note_documents`, `save_quotation`,
+  `find_notes_mentioning_book`. Deliberately wraps the storage class
+  directly rather than the manager - the manager's only extra behavior is
+  a `QSettings`-backed "current document" memory, a desktop-app
+  convenience that doesn't fit a stateless MCP tool call and would have
+  pulled PySide6 into this server's dependencies for nothing.
+- **Citation candidates** (`CitationCandidateRepository`):
+  `list_citation_candidates`, `count_citation_candidates`,
+  `dismiss_citation_candidate`. Deliberately does NOT expose
+  `detect_and_store()` - a corpus-wide rebuild (minutes to hours) that's
+  closer to admin/maintenance than a research action; stays a CLI a human
+  runs directly.
+- **Exports** (`research_notes/*_export.py`): `export_answer_to_docx`,
+  `export_collection_to_docx` (hydrates `CollectionExportItem` from
+  `CollectionRepository` + `BookBrowserRepository`, caching each book's
+  detail once per unique `book_id` rather than once per item),
+  `export_article_to_docx`.
+
+New module: `research_notes/article_export.py` (`ArticleSection`,
+`build_article_document()`, `export_article_to_docx()`) - the one piece
+that didn't already exist. Follows the exact same pattern as
+`ai_answer_export.py`/`collection_export.py`: a pure `build_*() ->
+Document` plus a thin save wrapper, no DB access, no content generation.
+It formats an already-composed article (sections + a already-formatted
+works-cited list) into a `.docx` - the AI composes the article itself
+using `search_text`/`get_citation` in conversation first, this tool only
+saves the result. No server-side "research and draft" engine was built,
+since that would just duplicate what the AI already does by calling the
+existing search/citation tools.
+
+Covered by 9 new tests in `tests/test_mcp_server.py` (now 15 total).
+
+## MCP server: expose search and citation lookup to MCP clients (e.g. Claude Desktop)
+
+New interface, `interfaces/mcp_server/` (`server.py`, `__main__.py`), sibling
+to `interfaces/desktop_app/`, exposing three tools over the Model Context
+Protocol: `search_text` (wraps the existing `BookSearchService` +
+`SqliteBookSearchRepository`, same ranked full-text search the desktop
+Search screen uses), `get_citation` (wraps `shared/citation_formatting.py`'s
+`format_citation()` plus `BookBrowserRepository.get_book_metadata()` for the
+volume number), and `health_check`. No new search, citation, or persistence
+logic - every tool is a thin read-only wrapper over code the desktop app and
+CLIs already exercise. Added `mcp` as a new optional dependency group
+(`pip install -e .[mcp]`); run via
+`python -m islamic_research_hub.interfaces.mcp_server --database data/books.db`.
+Covered by `tests/test_mcp_server.py` (6 tests: ranked search, blank-query
+validation, citation formatting, unknown-book error, and both health-check
+states).
+
+One real bug found getting this running against actual Claude Desktop (not
+caught by the test suite, which never launches the module as a real
+subprocess): `configure_logging()`'s default `logs/` directory is relative,
+which is fine for every CLI (always run from the project root by
+convention) but not for this server, since Claude Desktop spawns it with
+`cwd = C:\Windows\system32` - it tried to create `system32\logs\` and
+crashed on `PermissionError` before the connection ever completed, logged
+in Claude Desktop's own `logs/mcp-server-islamic-research-hub.log` as
+"Server disconnected" with no further detail on the client side. Fixed the
+same way the packaged desktop exe already handles this
+(`interfaces/desktop_app/__main__.py`'s `_BASE_DIR`): resolve
+`DEFAULT_DATABASE_PATH`/`DEFAULT_LOG_DIRECTORY` from `server.py`'s own file
+location instead of trusting the caller's cwd. Also had to add the MCP
+server entry to the *actual* config path this Windows Store/sideloaded
+build reads -
+`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
+- not the normal `%APPDATA%\Claude\` path, which MSIX file-system
+virtualization only redirects for the packaged process itself, not for
+external tools writing to it.
+
 ## Search: Match-Mode Buttons + Multi-Library Scope Picker
 
 Brought search closer to feature parity with Maktaba Jibreel's own search dialog, after direct screenshot comparison (`search_screen.py`, `sqlite_book_search_repository.py`, `book_browser_repository.py`, `shared/sql_filters.py`, `library_scope_dialog.py`, `i18n.py`):
