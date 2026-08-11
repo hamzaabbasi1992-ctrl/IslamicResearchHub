@@ -1,0 +1,270 @@
+15840	AZIZ_WA_AQARIB_KE_HUQOOQ
+    NO MATCH
+
+15841	BADGUMANI_AUR_USS_KA_ILAAJ
+    (0.94) [Maktaba Al-Maknoon (PDF Archive)] BookID 10359 "BADGUMANI_AUR_US_KA_ILLAJ" PageCount=0
+    (0.94) [Maktaba Al-Maknoon (PDF Archive)] BookID 10358 "Badgumani aur uska Ilaj" PageCount=0
+
+15842	DAWAT_E_ABDIYAT_1
+    (1.00) [Maktaba Jibreel (PDF Archive)] BookID 5777 "Dawat e Abdiyat Vol 1" PageCount=0
+    (1.00) [Maktaba Al-Maknoon (PDF Archive)] BookID 10497 "Dawat_e_Abdiyat_Vol_1" PageCount=0
+
+15843	DAWAT_E_ABDIYAT_2
+    (1.00) [Maktaba Al-Maknoon (PDF Archive)] BookID 10498 "Dawat_e_Abdiyat_Vol_2" PageCount=0
+    (1.00) [Maktaba Jibreel (PDF Archive)] BookID 107188 "Dawat_e_Abdiyat_Vol_2" PageCount=0
+
+15844	DAWAT_E_ABDIYAT_3
+    (1.00) [Maktaba Al-Maknoon (PDF Archive)] BookID 10499 "Dawat_e_Abdiyat_Vol_3" PageCount=0
+    (1.00) [Maktaba Jibreel (PDF Archive)] BookID 107189 "Dawat_e_Abdiyat_Vol_3" PageCount=0
+
+15845	DAWAT_E_ABDIYAT_4
+    (1.00) [Maktaba Al-Maknoon (PDF Archive)] BookID 10500 "Dawat_e_Abdiyat_Vol_4" PageCount=0
+    (1.00) [Maktaba Jibreel (PDF Archive)] BookID 107190 "Dawat_e_Abdiyat_Vol_4" PageCount=0
+
+15846	DAWAT_E_ABDIYAT_5
+    (1.00) [Maktaba Al-Maknoon (PDF Archive)] BookID 10501 "Dawat_e_Abdiyat_Vol_5" PageCount=0
+    (1.00) [Maktaba Jibreel (PDF Archive)] BookID 107191 "Dawat_e_Abdiyat_Vol_5" PageCount=0
+
+15847	IFADAAT_E_FAROQI_VOL_2
+    NO MATCH
+
+15848	IFADAAT_E_FAROQI_VOL_4
+    NO MATCH
+
+15849	IFADAAT_E_FAROQI_VOL_5
+    NO MATCH
+
+15850	IFADAAT_E_FAROQI_VOL_6
+    NO MATCH
+
+15851	IFADAAT_E_FAROQI_VOL_7
+    NO MATCH
+
+15852	IFADAAT_E_FAROQI_VOL_8
+    NO MATCH
+
+15853	IFADAAT_E_FAROQI_VOL_9
+    NO MATCH
+
+15854	ISLAHI_KHUTBAAT_VOL_01
+    NO MATCH
+
+15855	ISLAHI_KHUTBAAT_VOL_02
+    NO MATCH
+
+15856	ISLAHI_KHUTBAAT_VOL_03
+    NO MATCH
+
+15857	ISLAHI_KHUTBAAT_VOL_04
+    NO MATCH
+
+15858	ISLAHI_KHUTBAAT_VOL_05
+    NO MATCH
+
+15859	ISLAHI_KHUTBAAT_VOL_06
+    NO MATCH
+
+15860	ISLAHI_KHUTBAAT_VOL_07
+    NO MATCH
+
+15861	ISLAHI_KHUTBAAT_VOL_08
+    NO MATCH
+
+15862	ISLAHI_KHUTBAAT_VOL_09
+    NO MATCH
+
+15863	ISLAHI_KHUTBAAT_VOL_10
+    NO MATCH
+
+15864	ISLAHI_KHUTBAAT_VOL_11
+    NO MATCH
+
+15865	ISLAHI_KHUTBAAT_VOL_12
+    NO MATCH
+
+15866	ISLAHI_KHUTBAAT_VOL_13
+    (1.00) [Maktaba Al-Maknoon] BookID 8689 "Islahi Khutbaat Vol 13" PageCount=309
+
+15867	ISLAHI_KHUTBAAT_VOL_14
+    NO MATCH
+
+15868	ISLAHI_KHUTBAAT_VOL_15
+    NO MATCH
+
+15869	ISLAHI_KHUTBAAT_VOL_16
+    NO MATCH
+
+15870	ISLAHI_MAJALIS_VOL_1
+    NO MATCH
+
+15871	ISLAHI_MAJALIS_VOL_2
+    NO MATCH
+
+15872	ISLAHI_MAJALIS_VOL_3
+    NO MATCH
+
+15873	ISLAHI_MAJALIS_VOL_4
+    NO MATCH
+
+15874	ISLAHI_MAJALIS_VOL_5
+    NO MATCH
+
+15875	ISLAHI_MAJALIS_VOL_6
+    NO MATCH
+
+15876	ISLAHI_MAJALIS_VOL_7
+    NO MATCH
+
+15877	ISLAHI_TAQREEREN_VOL_2
+    NO MATCH
+
+15878	ISLAHI_TAQREEREN_VOL_3
+    NO MATCH
+
+15879	ISLAHI_TAQREEREN_VOL_4
+    NO MATCH
+
+15880	ISLAHI_TAQREEREN_VOL_5
+    NO MATCH
+
+15881	ISLAHI_TAQREEREN_VOL_6
+    NO MATCH
+
+15882	ISLAHI_TAQREEREN_VOL_7
+    NO MATCH
+
+15883	ISLAHI_TAQREEREN_VOL_8
+    NO MATCH
+
+15884	ISLAHI_TAQREEREN_VOL_9
+    NO MATCH
+
+15885	ISTIGHFAR_K_SAMRAAT
+    (0.95) [Maktaba Al-Maknoon (PDF Archive)] BookID 11212 "Istighfar kay Samraat" PageCount=0
+    (0.89) [Maktaba Jibreel (PDF Archive)] BookID 6367 "istaghfar k samarat" PageCount=0
+    (0.89) [Maktaba Al-Maknoon (PDF Archive)] BookID 11209 "istaghfar_k_samarat" PageCount=0
+
+15886	KHUTBAAT_E_FAQEER_VOL_11
+    NO MATCH
+
+15887	KHUTBAAT_E_FAQEER_VOL_27
+    NO MATCH
+
+15888	KHUTBAAT_E_FAQEER_VOL_28
+    NO MATCH
+
+15889	KHUTBAAT_E_FAQEER_VOL_29
+    NO MATCH
+
+15890	KHUTBAAT_E_FAQEER_VOL_30
+    NO MATCH
+
+15891	KHUTBAAT_E_FAQEER_VOL_31
+    NO MATCH
+
+15892	KHUTBAAT_E_FAQEER_VOL_32
+    NO MATCH
+
+15893	KHUTBAAT_E_FAQEER_VOL_33
+    NO MATCH
+
+15894	KHUTBAAT_E_FAQEER_VOL_34
+    NO MATCH
+
+15895	KHUTBAAT_E_FAQEER_VOL_35
+    NO MATCH
+
+15896	KHUTBAAT_E_FAQEER_VOL_36
+    NO MATCH
+
+15897	KHUTBAAT_E_FAQEER_VOL_37
+    NO MATCH
+
+15898	KHUTBAAT_E_FAQEER_VOL_38
+    NO MATCH
+
+15899	KHUTBAAT_E_FAQEER_VOL_39
+    NO MATCH
+
+15900	KHUTBAAT_E_FAQEER_VOL_41
+    NO MATCH
+
+15901	KHUTBAAT_E_FAQEER_VOL_42
+    NO MATCH
+
+15902	KHUTBAAT_E_FAQEER_VOL_43
+    NO MATCH
+
+15903	KHUTBAAT_E_QASMI_01
+    (0.78) [Maktaba Al-Maknoon] BookID 8806 "Khutbaat E Ahtishaam Vol 1" PageCount=219
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11459 "KHUTBAAT_E_AHTISHAAM_VOL_1" PageCount=0
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11465 "KHUTBAAT_E_ALI_MIYAN_VOL_1" PageCount=0
+
+15904	KHUTBAAT_E_QASMI_02
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11460 "KHUTBAAT_E_AHTISHAAM_VOL_2" PageCount=0
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11466 "KHUTBAAT_E_ALI_MIYAN_VOL_2" PageCount=0
+    (0.78) [Maktaba Jibreel (PDF Archive)] BookID 107920 "KHUTBAAT_E_AHTISHAAM_VOL_2" PageCount=0
+
+15905	KHUTBAAT_E_QASMI_05
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11463 "KHUTBAAT_E_AHTISHAAM_VOL_5" PageCount=0
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11469 "KHUTBAAT_E_ALI_MIYAN_VOL_5" PageCount=0
+    (0.78) [Maktaba Jibreel (PDF Archive)] BookID 107923 "KHUTBAAT_E_AHTISHAAM_VOL_5" PageCount=0
+
+15906	KHUTBAAT_E_QASMI_06
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11464 "KHUTBAAT_E_AHTISHAAM_VOL_6" PageCount=0
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11470 "KHUTBAAT_E_ALI_MIYAN_VOL_6" PageCount=0
+    (0.78) [Maktaba Jibreel (PDF Archive)] BookID 107924 "KHUTBAAT_E_AHTISHAAM_VOL_6" PageCount=0
+
+15907	KHUTBAAT_E_QASMI_07
+    (0.78) [Maktaba Al-Maknoon (PDF Archive)] BookID 11471 "KHUTBAAT_E_ALI_MIYAN_VOL_7" PageCount=0
+    (0.78) [Maktaba Jibreel (PDF Archive)] BookID 107931 "KHUTBAAT_E_ALI_MIYAN_VOL_7" PageCount=0
+    (0.73) [Maktaba Al-Maknoon (PDF Archive)] BookID 11480 "KHUTBAAT_E_FAQEER_VOL_07" PageCount=0
+
+15908	KHUTBAT_E_HAKEEM_UL_ISLAM_1
+    (0.96) [Maktaba Jibreel (PDF Archive)] BookID 6632 "Khutbaat e Hakeem ul Islaam Vol 1" PageCount=0
+    (0.96) [Maktaba Al-Maknoon (PDF Archive)] BookID 11499 "Khutbaat_e_Hakeem_ul_Islaam_Vol_1" PageCount=0
+    (0.82) [Maktaba Al-Maknoon (PDF Archive)] BookID 11504 "KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_01" PageCount=0
+
+15909	KHUTBAT_E_HAKEEM_UL_ISLAM_2
+    (0.96) [Maktaba Al-Maknoon (PDF Archive)] BookID 11500 "Khutbaat_e_Hakeem_ul_Islaam_Vol_2" PageCount=0
+    (0.96) [Maktaba Jibreel (PDF Archive)] BookID 107959 "Khutbaat_e_Hakeem_ul_Islaam_Vol_2" PageCount=0
+    (0.82) [Maktaba Al-Maknoon (PDF Archive)] BookID 11505 "KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_02" PageCount=0
+
+15910	KHUTBAT_E_HAKEEM_UL_ISLAM_3
+    (0.96) [Maktaba Al-Maknoon (PDF Archive)] BookID 11501 "Khutbaat_e_Hakeem_ul_Islaam_Vol_3" PageCount=0
+    (0.96) [Maktaba Jibreel (PDF Archive)] BookID 107960 "Khutbaat_e_Hakeem_ul_Islaam_Vol_3" PageCount=0
+    (0.82) [Maktaba Al-Maknoon (PDF Archive)] BookID 11506 "KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_03" PageCount=0
+
+15911	KHUTBAT_E_HAKEEM_UL_ISLAM_4
+    (0.96) [Maktaba Al-Maknoon (PDF Archive)] BookID 11502 "Khutbaat_e_Hakeem_ul_Islaam_Vol_4" PageCount=0
+    (0.96) [Maktaba Jibreel (PDF Archive)] BookID 107961 "Khutbaat_e_Hakeem_ul_Islaam_Vol_4" PageCount=0
+    (0.82) [Maktaba Al-Maknoon (PDF Archive)] BookID 11507 "KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_04" PageCount=0
+
+15912	KHUTBAT_E_HAKEEM_UL_ISLAM_5
+    (0.96) [Maktaba Al-Maknoon (PDF Archive)] BookID 11503 "Khutbaat_e_Hakeem_ul_Islaam_Vol_5" PageCount=0
+    (0.96) [Maktaba Jibreel (PDF Archive)] BookID 107962 "Khutbaat_e_Hakeem_ul_Islaam_Vol_5" PageCount=0
+    (0.82) [Maktaba Al-Maknoon (PDF Archive)] BookID 11508 "KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_05" PageCount=0
+
+15913	MAKTOOBAAT_E_SHEIKH_MUJADDID_ALIF_THANI
+    NO MATCH
+
+15914	MAKTOOBAT_E_MASOOMIA_VOL_1
+    NO MATCH
+
+15915	MAKTOOBAT_E_MASOOMIA_VOL_2
+    NO MATCH
+
+15916	MAKTOOBAT_E_MASOOMIA_VOL_3
+    NO MATCH
+
+15917	TAALIBANE_ULOOME_NUBUWWAT_KA_MAQAAM_AUR_UNKI_ZIMMEDARIYA_1
+    NO MATCH
+
+15918	TAALIBANE_ULOOME_NUBUWWAT_KA_MAQAAM_AUR_UNKI_ZIMMEDARIYA_2
+    NO MATCH
+
+15919	TARBIYAT_E_ASHIQAAN_E_KHUDA_VOL_1
+    NO MATCH
+
+15920	TARBIYAT_E_ASHIQAAN_E_KHUDA_VOL_2
+    (0.92) [Maktaba Al-Maknoon (PDF Archive)] BookID 12802 "TARBIYAT_E_ASHIQAAN_E_KHUDA_PART_2" PageCount=0

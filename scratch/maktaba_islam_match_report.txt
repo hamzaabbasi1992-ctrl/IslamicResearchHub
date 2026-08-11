@@ -1,0 +1,81 @@
+NO MATCH  15840	AZIZ_WA_AQARIB_KE_HUQOOQ
+MATCH(0.94)  15841	BADGUMANI_AUR_USS_KA_ILAAJ	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\BADGUMANI_AUR_US_KA_ILLAJ.pdf
+MATCH(0.88)  15842	DAWAT_E_ABDIYAT_1	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_1.pdf
+MATCH(0.88)  15843	DAWAT_E_ABDIYAT_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_2.pdf
+MATCH(0.88)  15844	DAWAT_E_ABDIYAT_3	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_3.pdf
+MATCH(0.88)  15845	DAWAT_E_ABDIYAT_4	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_4.pdf
+MATCH(0.88)  15846	DAWAT_E_ABDIYAT_5	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_5.pdf
+MATCH(0.67)  15847	IFADAAT_E_FAROQI_VOL_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_2.pdf
+MATCH(0.67)  15848	IFADAAT_E_FAROQI_VOL_4	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_4.pdf
+MATCH(0.67)  15849	IFADAAT_E_FAROQI_VOL_5	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Dawat_e_Abdiyat_Vol_5.pdf
+MATCH(0.65)  15850	IFADAAT_E_FAROQI_VOL_6	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KIFAYAT_UL_MUFTI_VOL_6.pdf
+MATCH(0.65)  15851	IFADAAT_E_FAROQI_VOL_7	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KIFAYAT_UL_MUFTI_VOL_7.pdf
+MATCH(0.65)  15852	IFADAAT_E_FAROQI_VOL_8	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KIFAYAT_UL_MUFTI_VOL_8.pdf
+MATCH(0.65)  15853	IFADAAT_E_FAROQI_VOL_9	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KIFAYAT_UL_MUFTI_VOL_9.pdf
+MATCH(0.62)  15854	ISLAHI_KHUTBAAT_VOL_01	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_JUMAH_VOL_1.pdf
+MATCH(0.62)  15855	ISLAHI_KHUTBAAT_VOL_02	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_JUMAH_VOL_2.pdf
+MATCH(0.60)  15856	ISLAHI_KHUTBAAT_VOL_03	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_03.pdf
+MATCH(0.60)  15857	ISLAHI_KHUTBAAT_VOL_04	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_04.pdf
+MATCH(0.60)  15858	ISLAHI_KHUTBAAT_VOL_05	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_05.pdf
+MATCH(0.60)  15859	ISLAHI_KHUTBAAT_VOL_06	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_06.pdf
+MATCH(0.60)  15860	ISLAHI_KHUTBAAT_VOL_07	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_07.pdf
+MATCH(0.60)  15861	ISLAHI_KHUTBAAT_VOL_08	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_08.pdf
+MATCH(0.60)  15862	ISLAHI_KHUTBAAT_VOL_09	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_09.pdf
+MATCH(0.60)  15863	ISLAHI_KHUTBAAT_VOL_10	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_10.pdf
+NO MATCH  15864	ISLAHI_KHUTBAAT_VOL_11
+MATCH(0.60)  15865	ISLAHI_KHUTBAAT_VOL_12	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_12.pdf
+MATCH(0.60)  15866	ISLAHI_KHUTBAAT_VOL_13	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_13.pdf
+MATCH(0.60)  15867	ISLAHI_KHUTBAAT_VOL_14	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_14.pdf
+MATCH(0.60)  15868	ISLAHI_KHUTBAAT_VOL_15	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_15.pdf
+MATCH(0.60)  15869	ISLAHI_KHUTBAAT_VOL_16	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_FAQEER_VOL_16.pdf
+MATCH(0.65)  15870	ISLAHI_MAJALIS_VOL_1	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\ROOHANI_MUAALIJ_VOL_1.pdf
+MATCH(0.65)  15871	ISLAHI_MAJALIS_VOL_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\ROOHANI_MUAALIJ_VOL_2.pdf
+MATCH(0.63)  15872	ISLAHI_MAJALIS_VOL_3	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\SAHI_MUSLIM_SHAREEF_VOL_3.pdf
+MATCH(0.62)  15873	ISLAHI_MAJALIS_VOL_4	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Jadeed_Fiqhi_Mabahis_Vol_4.pdf
+MATCH(0.62)  15874	ISLAHI_MAJALIS_VOL_5	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Jadeed_Fiqhi_Mabahis_Vol_5.pdf
+MATCH(0.62)  15875	ISLAHI_MAJALIS_VOL_6	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Jadeed_Fiqhi_Mabahis_Vol_6.pdf
+NO MATCH  15876	ISLAHI_MAJALIS_VOL_7
+MATCH(0.60)  15877	ISLAHI_TAQREEREN_VOL_2	-> D:\Maktaba Jibreel\PDF\IRSHADUL_MUFTEEN_VOL_2.pdf
+MATCH(0.60)  15878	ISLAHI_TAQREEREN_VOL_3	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\SAHI_MUSLIM_SHAREEF_VOL_3.pdf
+NO MATCH  15879	ISLAHI_TAQREEREN_VOL_4
+NO MATCH  15880	ISLAHI_TAQREEREN_VOL_5
+NO MATCH  15881	ISLAHI_TAQREEREN_VOL_6
+NO MATCH  15882	ISLAHI_TAQREEREN_VOL_7
+NO MATCH  15883	ISLAHI_TAQREEREN_VOL_8
+NO MATCH  15884	ISLAHI_TAQREEREN_VOL_9
+MATCH(0.95)  15885	ISTIGHFAR_K_SAMRAAT	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Istighfar kay Samraat.pdf
+MATCH(0.71)  15886	KHUTBAAT_E_FAQEER_VOL_11	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_11.pdf
+MATCH(0.71)  15887	KHUTBAAT_E_FAQEER_VOL_27	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_27.pdf
+MATCH(0.71)  15888	KHUTBAAT_E_FAQEER_VOL_28	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_28.pdf
+MATCH(0.71)  15889	KHUTBAAT_E_FAQEER_VOL_29	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_29.pdf
+MATCH(0.71)  15890	KHUTBAAT_E_FAQEER_VOL_30	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_30.pdf
+MATCH(0.71)  15891	KHUTBAAT_E_FAQEER_VOL_31	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_31.pdf
+MATCH(0.71)  15892	KHUTBAAT_E_FAQEER_VOL_32	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_HAKEEM_UL_UMMAT_VOL_32.pdf
+NO MATCH  15893	KHUTBAAT_E_FAQEER_VOL_33
+NO MATCH  15894	KHUTBAAT_E_FAQEER_VOL_34
+NO MATCH  15895	KHUTBAAT_E_FAQEER_VOL_35
+NO MATCH  15896	KHUTBAAT_E_FAQEER_VOL_36
+NO MATCH  15897	KHUTBAAT_E_FAQEER_VOL_37
+NO MATCH  15898	KHUTBAAT_E_FAQEER_VOL_38
+NO MATCH  15899	KHUTBAAT_E_FAQEER_VOL_39
+NO MATCH  15900	KHUTBAAT_E_FAQEER_VOL_41
+NO MATCH  15901	KHUTBAAT_E_FAQEER_VOL_42
+NO MATCH  15902	KHUTBAAT_E_FAQEER_VOL_43
+MATCH(0.70)  15903	KHUTBAAT_E_QASMI_01	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_AHTISHAAM_VOL_1.pdf
+MATCH(0.70)  15904	KHUTBAAT_E_QASMI_02	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_AHTISHAAM_VOL_2.pdf
+MATCH(0.70)  15905	KHUTBAAT_E_QASMI_05	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_AHTISHAAM_VOL_5.pdf
+MATCH(0.70)  15906	KHUTBAAT_E_QASMI_06	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_AHTISHAAM_VOL_6.pdf
+MATCH(0.70)  15907	KHUTBAAT_E_QASMI_07	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\KHUTBAAT_E_ALI_MIYAN_VOL_7.pdf
+MATCH(0.89)  15908	KHUTBAT_E_HAKEEM_UL_ISLAM_1	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Khutbaat_e_Hakeem_ul_Islaam_Vol_1.pdf
+MATCH(0.89)  15909	KHUTBAT_E_HAKEEM_UL_ISLAM_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Khutbaat_e_Hakeem_ul_Islaam_Vol_2.pdf
+MATCH(0.89)  15910	KHUTBAT_E_HAKEEM_UL_ISLAM_3	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Khutbaat_e_Hakeem_ul_Islaam_Vol_3.pdf
+MATCH(0.89)  15911	KHUTBAT_E_HAKEEM_UL_ISLAM_4	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Khutbaat_e_Hakeem_ul_Islaam_Vol_4.pdf
+MATCH(0.89)  15912	KHUTBAT_E_HAKEEM_UL_ISLAM_5	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Khutbaat_e_Hakeem_ul_Islaam_Vol_5.pdf
+NO MATCH  15913	MAKTOOBAAT_E_SHEIKH_MUJADDID_ALIF_THANI
+MATCH(0.65)  15914	MAKTOOBAT_E_MASOOMIA_VOL_1	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\Masail_e_Imamat_Vol_1.pdf
+MATCH(0.62)  15915	MAKTOOBAT_E_MASOOMIA_VOL_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\MAQALAAT_E_USMANI_VOL_2.pdf
+MATCH(0.62)  15916	MAKTOOBAT_E_MASOOMIA_VOL_3	-> D:\کتب فہرست\خطبات و مواعظ ۔\خطبات عثمانی\KHUTBAT_USMANI_VOL_03.pdf
+NO MATCH  15917	TAALIBANE_ULOOME_NUBUWWAT_KA_MAQAAM_AUR_UNKI_ZIMMEDARIYA_1
+NO MATCH  15918	TAALIBANE_ULOOME_NUBUWWAT_KA_MAQAAM_AUR_UNKI_ZIMMEDARIYA_2
+MATCH(0.64)  15919	TARBIYAT_E_ASHIQAAN_E_KHUDA_VOL_1	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\TABAQAAT_E_IBN_E_SAAD_VOL_1.pdf
+MATCH(0.89)  15920	TARBIYAT_E_ASHIQAAN_E_KHUDA_VOL_2	-> D:\Maknoon Mufahris Almakhtotaat (Search Able Urdu Pdf books Library)\PDF Data\TARBIYAT_E_ASHIQAAN_E_KHUDA_PART_2.pdf
