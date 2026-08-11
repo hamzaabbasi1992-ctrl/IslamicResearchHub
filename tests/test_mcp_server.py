@@ -98,6 +98,17 @@ def test_get_citation_returns_formatted_string(tmp_path: Path) -> None:
     assert citation == "Book Book of Fiqh, Page 1, Paragraph 3"
 
 
+def test_get_open_link_returns_a_maktaba_link(tmp_path: Path) -> None:
+    """get_open_link returns the same format build_maktaba_link() produces."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+    server = build_server(database_path)
+
+    link = _call(server, "get_open_link", {"book_id": 1, "page_number": 3})
+
+    assert link == "maktaba://open?book=1&page=3"
+
+
 def test_get_citation_raises_for_unknown_book(tmp_path: Path) -> None:
     """An unknown book_id raises a clear error rather than a blank citation."""
     database_path = tmp_path / "books.db"

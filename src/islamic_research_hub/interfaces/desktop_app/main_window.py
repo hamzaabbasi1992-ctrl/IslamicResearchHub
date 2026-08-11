@@ -639,6 +639,13 @@ class MainWindow(QMainWindow):
         if self._header_bar is not None and 0 <= index < len(self._rail_buttons):
             self._header_bar.set_current_location(self._rail_buttons[index].text())
 
+    def open_book_at_page(self, book_id: int, page_number: int) -> None:
+        """Public entry point for opening a book at a given page from
+        outside the app (e.g. a `maktaba://` link launched at startup,
+        see `__main__.py`) - a thin, stable name for external callers,
+        wrapping the same real navigation `QuickOpenDialog` already uses."""
+        self._open_in_viewer(book_id, page_number)
+
     def _open_in_viewer(self, book_id: int, page_number: int) -> None:
         """Load a book into the Viewer and switch to it.
 

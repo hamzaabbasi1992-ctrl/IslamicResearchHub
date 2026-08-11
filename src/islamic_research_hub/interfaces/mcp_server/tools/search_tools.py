@@ -18,10 +18,11 @@ from islamic_research_hub.infrastructure.persistence.sqlite_book_search_reposito
     SqliteBookSearchRepository,
 )
 from islamic_research_hub.shared.citation_formatting import format_citation
+from islamic_research_hub.shared.maktaba_link import build_maktaba_link
 
 
 def register_search_tools(mcp: MCPServer, database_path: Path) -> None:
-    """Register `search_text`, `get_citation`, and `health_check`."""
+    """Register `search_text`, `get_citation`, `get_open_link`, and `health_check`."""
     search_service = BookSearchService(SqliteBookSearchRepository(database_path))
     browser_repository = BookBrowserRepository(database_path)
 
@@ -72,6 +73,17 @@ def register_search_tools(mcp: MCPServer, database_path: Path) -> None:
             paragraph_index,
             metadata.volume_number,
         )
+
+    @mcp.tool()
+    def get_open_link(book_id: int, page_number: int) -> str:
+        """Return a maktaba:// link that opens this book at this page in
+        the desktop app's reader, for cross-checking a quoted/extracted
+        passage against its real source. Requires the maktaba:// protocol
+        handler to be registered on the user's machine (a one-time local
+        setup step, not something this tool does) - if links don't open,
+        that registration is what to check.
+        """
+        return build_maktaba_link(book_id, page_number)
 
     @mcp.tool()
     def health_check() -> dict:

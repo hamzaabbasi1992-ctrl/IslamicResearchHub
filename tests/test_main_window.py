@@ -303,6 +303,23 @@ def test_search_result_open_in_viewer_switches_screen_and_loads_the_book(
     assert window._viewer_screen._content_label.text() == "Some real page content"
 
 
+def test_open_book_at_page_switches_screen_and_loads_the_book(qtbot, tmp_path: Path) -> None:
+    """The public open_book_at_page() entry point (used by a maktaba:// link
+    launch, see __main__.py) opens the same as clicking a search result."""
+    database_path = tmp_path / "books.db"
+    _seed_database(database_path)
+
+    window = MainWindow(database_path, tmp_path / "maknoon_pdfs", _isolated_settings(tmp_path))
+    qtbot.addWidget(window)
+
+    window.open_book_at_page(1, 1)
+
+    assert window._stack.currentIndex() == 1
+    assert window._workspace_screen is not None
+    assert window._stack.widget(1) is window._workspace_screen
+    assert window._viewer_screen._title_label.text() == "Book of Fiqh"
+
+
 def test_stub_book_shows_pdf_fallback_banner_and_opens_the_matched_pdf(
     qtbot, tmp_path: Path
 ) -> None:

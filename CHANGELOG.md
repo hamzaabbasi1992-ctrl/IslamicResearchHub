@@ -1,5 +1,42 @@
 # Changelog
 
+## `maktaba://` deep links: jump straight to a book+page in the desktop reader
+
+For cross-checking AI-extracted content (e.g. waqiat/event extraction)
+against its real source: a citation link in an exported Word document can
+now open the desktop app directly to that exact book and page, instead of
+only a static HTML snapshot.
+
+- `shared/maktaba_link.py`: `build_maktaba_link()`/`parse_maktaba_link()`
+  - pure, no Qt dependency, so it's usable from the MCP server too.
+- `interfaces/desktop_app/main_window.py`: new public
+  `open_book_at_page(book_id, page_number)`, a thin wrapper around the
+  existing `_open_in_viewer()` (the same method `QuickOpenDialog` already
+  uses) - the one new piece of app logic, everything else wraps it.
+- `interfaces/desktop_app/__main__.py`: accepts one optional positional
+  `maktaba://` link argument on launch; absent (normal launch), behavior
+  is unchanged.
+- `open_maktaba_link.bat` (new, project root): the registered protocol
+  handler's target. `cd`s into the project folder before launching -
+  a registry-triggered launch doesn't get a "Start in" folder the way the
+  existing desktop shortcut does, and the app's dev-mode path resolution
+  depends on cwd being the project root.
+- One new `HKCU:\Software\Classes\maktaba` registry key (current user,
+  no admin rights, fully reversible) registers the `maktaba://` protocol,
+  pointing at the batch launcher above.
+- MCP server: new `get_open_link(book_id, page_number)` tool
+  (`tools/search_tools.py`), wrapping `build_maktaba_link()` - so an AI
+  building a citation through the MCP server gets the exact, tested link
+  format rather than constructing the URL by hand.
+
+Verified end-to-end against the real database (not just unit tests):
+triggered a real `maktaba://open?book=1&page=3` link, confirmed the app
+launched, parsed it, and recorded the open in `RecentBooks` with the
+right page number.
+
+Covered by `tests/test_maktaba_link.py` (5 tests), one new test in
+`tests/test_main_window.py`, and one new test in `tests/test_mcp_server.py`.
+
 ## MCP server: bookmarks, collections, research notes, citation curation, docx/article exports
 
 Grew the MCP server from 3 tools to ~20, restructured
