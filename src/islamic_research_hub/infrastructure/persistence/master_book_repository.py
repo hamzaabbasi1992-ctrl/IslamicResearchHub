@@ -185,13 +185,25 @@ class MasterBookRepository:
 
     @staticmethod
     def _get_or_create_library_id(connection: sqlite3.Connection, name: str) -> int:
-        """Return the id for a library, creating it if it does not yet exist."""
-        connection.execute("INSERT OR IGNORE INTO Libraries (Name) VALUES (?)", (name,))
-        row = connection.execute(
+        """Return the id for a library, creating it if it does not yet exist.
+
+        Checks before inserting rather than relying on `INSERT OR IGNORE`
+        against a UNIQUE constraint - confirmed for real that a compacted
+        database can have `Libraries.Name` without that constraint (its
+        own `CREATE TABLE` never carried it over), which silently turned
+        `INSERT OR IGNORE` into a plain unconditional insert: six empty
+        duplicate library rows appeared in one real session, one pair per
+        `import_books()` call (the library being imported into, plus
+        `_backfill_legacy_library`'s own call for every single run).
+        """
+        existing = connection.execute(
             "SELECT LibraryID FROM Libraries WHERE Name = ?", (name,)
         ).fetchone()
+        if existing is not None:
+            return existing[0]
+        cursor = connection.execute("INSERT INTO Libraries (Name) VALUES (?)", (name,))
         connection.commit()
-        return row[0]
+        return cursor.lastrowid
 
     @classmethod
     def _backfill_legacy_library(cls, connection: sqlite3.Connection) -> None:

@@ -1,5 +1,11 @@
 # Changelog
 
+## Duplicate Library Rows + AI Assistant Silent-Hang Fixes
+
+Fixed two real, user-reported bugs (`master_book_repository.py`, `compact_database_cli.py`, `ollama_llm_provider.py`, `ai_panel_screen.py`, `i18n.py`, `data/books.db`):
+- **Duplicate `(0)`-book libraries**: `_get_or_create_library_id()` used `INSERT OR IGNORE` to dedupe by `Libraries.Name`, which only works if `Name` actually has a `UNIQUE` constraint - this compacted database's `Libraries` table never had one (the same `compact_database_cli.py` schema gap already fixed for `Books.Source`), so every `import_books()` call silently inserted a fresh empty duplicate row. Confirmed as the exact cause of 6 real duplicate libraries from three `pdf_metadata_import_cli.py` runs earlier this session. Fixed the method to check-then-insert explicitly (correct regardless of schema constraints), deleted the 6 existing duplicates, added a real `UNIQUE` index on the live database, and fixed `compact_database_cli.py`'s own schema so a future compaction carries the constraint forward.
+- **AI Assistant looked hung**: confirmed the local Ollama provider had no request timeout at all (a stuck call could hang indefinitely with no error ever surfacing), and a real single-turn completion already measured 23s with no tool definitions - the real multi-tool-call loop (up to 8 round trips, each doing real search/page-reading work) can easily run several minutes with zero visible feedback (`_set_busy()` only disabled the input box). Added a real timeout to `OllamaLlmProvider` and a visible "Thinking..." status + indeterminate progress bar to the AI panel while a question is in flight, in all 3 app languages.
+
 ## Mobile App: Consistent Theme Across All 4 Screens
 
 Fixed the Android companion app looking "plain"/inconsistent (`mobile/app/src/main/java/.../ui/theme/`, `MainActivity.kt`, `CatalogListScreen.kt`, `BookDetailScreen.kt`, `build.gradle.kts`):

@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QTextBrowser,
@@ -149,6 +150,21 @@ class AiAssistantPanel(QWidget):
         layout.addWidget(self._compare_mode_checkbox)
         self._apply_ai_agent_enabled_state()
 
+        # Real visible feedback while a question is in flight - a local
+        # Ollama model with tool-calling can take several minutes (a
+        # single trivial completion alone measured 23s; the real loop
+        # adds a long system prompt, tool definitions, and up to 8 full
+        # round trips), so silence here reads as "stuck", not "working".
+        self._busy_label = QLabel(self._translator.tr("ai-panel-thinking"))
+        self._busy_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
+        self._busy_label.setVisible(False)
+        layout.addWidget(self._busy_label)
+        self._busy_progress = QProgressBar()
+        self._busy_progress.setRange(0, 0)
+        self._busy_progress.setVisible(False)
+        self._busy_progress.setMaximumHeight(4)
+        layout.addWidget(self._busy_progress)
+
         self._tool_calls_label = QLabel()
         self._tool_calls_label.setStyleSheet(f"{MUTED_LABEL_STYLE} font-size: {Type.CAPTION}px;")
         self._tool_calls_label.setVisible(False)
@@ -218,6 +234,7 @@ class AiAssistantPanel(QWidget):
         )
         self._compare_mode_checkbox.setText(self._translator.tr("ai-panel-compare-mode"))
         self._compare_mode_checkbox.setToolTip(self._translator.tr("ai-panel-compare-mode-tooltip"))
+        self._busy_label.setText(self._translator.tr("ai-panel-thinking"))
         self._notes_heading.setText(self._translator.tr("ai-panel-notes-heading"))
         self._notes_body.setText(self._translator.tr("ai-panel-notes-placeholder"))
         self._references_heading.setText(self._translator.tr("ai-panel-references-heading"))
@@ -293,6 +310,8 @@ class AiAssistantPanel(QWidget):
         enabled = not busy and self._enable_lazy_ai_agent
         self._question_edit.setEnabled(enabled)
         self._ask_button.setEnabled(enabled)
+        self._busy_label.setVisible(busy)
+        self._busy_progress.setVisible(busy)
 
     def _on_answer_ready(self, answer: str, tool_calls_made: object) -> None:
         self._set_busy(False)

@@ -45,7 +45,7 @@ def compact_and_reclaim_space(
 
             CREATE TABLE Libraries (
                 LibraryID INTEGER PRIMARY KEY,
-                Name TEXT NOT NULL
+                Name TEXT NOT NULL UNIQUE
             );
 
             CREATE TABLE Books (

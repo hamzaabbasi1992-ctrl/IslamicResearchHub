@@ -45,6 +45,15 @@ DEFAULT_BASE_URL = "http://localhost:11434/v1"
 
 DEFAULT_MAX_TOKENS = 4096
 
+DEFAULT_TIMEOUT_SECONDS = 180.0
+"""Confirmed for real: a trivial single-turn completion with no tool
+definitions already took 23s on a local CPU-bound qwen2.5:14b - the
+real AI Agent loop adds a long system prompt, tool definitions, and up
+to 8 full round trips. Without an explicit timeout, the underlying
+`openai` client's own very long default leaves a genuinely stuck call
+(model crash mid-generation, etc.) hanging far past what looks like a
+failure to the user, with no error ever surfacing."""
+
 _PLACEHOLDER_API_KEY = "ollama"
 """Ollama's OpenAI-compatible endpoint ignores the API key entirely -
 the `openai` SDK's client constructor just requires some non-empty
@@ -54,10 +63,17 @@ string to be passed; this is never sent anywhere as a real secret."""
 class OllamaLlmProvider:
     """`LLMProvider` backed by a real local Ollama server."""
 
-    def __init__(self, model: str = DEFAULT_MODEL, base_url: str = DEFAULT_BASE_URL) -> None:
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    ) -> None:
         import openai
 
-        self._client = openai.OpenAI(api_key=_PLACEHOLDER_API_KEY, base_url=base_url)
+        self._client = openai.OpenAI(
+            api_key=_PLACEHOLDER_API_KEY, base_url=base_url, timeout=timeout
+        )
         self._model = model
 
     def complete(
