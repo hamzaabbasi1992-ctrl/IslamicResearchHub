@@ -1,5 +1,13 @@
 # Changelog
 
+## Search: Match-Mode Buttons + Multi-Library Scope Picker
+
+Brought search closer to feature parity with Maktaba Jibreel's own search dialog, after direct screenshot comparison (`search_screen.py`, `sqlite_book_search_repository.py`, `book_browser_repository.py`, `shared/sql_filters.py`, `library_scope_dialog.py`, `i18n.py`):
+- **Match-mode combo (All words / Any word / Exact phrase)**: a friendly UI over FTS5's own MATCH syntax (implicit AND / `OR` / a quoted phrase), which already worked if typed by hand but required knowing that syntax exists. "All words" is a pure no-op (FTS5's own default), so every existing search call site's behavior is unchanged unless a user actively picks a different mode.
+- **Multi-library search scope picker**: the library filter was a single QComboBox (one library, or all) - added a real checklist dialog (`LibraryScopeDialog`) to search several specific libraries at once, e.g. every "(PDF Archive)" variant without also pulling in Maktaba Shamela. Required extending `library: str | None` to `str | tuple[str, ...] | None` through `SqliteBookSearchRepository.search()`, `BookBrowserRepository.search_by_title()`/`list_books_by_filters()` - added one shared `library_filter_clause()` helper (`shared/sql_filters.py`) so the `IN (...)` SQL isn't duplicated across both repositories, purely additive (a plain string still produces the exact same `= ?` fragment every existing caller already got).
+- **Saved searches intentionally out of scope for now**: still persist only a single library, not a multi-library selection - would need a domain model/schema change, left as a real, honest boundary rather than silently dropping a saved multi-library scope.
+- **Verified**: 128 tests pass across the search screen and both repositories; manually confirmed the multi-library filter returns real books from both selected libraries.
+
 ## Duplicate Library Rows + AI Assistant Silent-Hang Fixes
 
 Fixed two real, user-reported bugs (`master_book_repository.py`, `compact_database_cli.py`, `ollama_llm_provider.py`, `ai_panel_screen.py`, `i18n.py`, `data/books.db`):

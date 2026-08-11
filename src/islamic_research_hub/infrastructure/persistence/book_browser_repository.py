@@ -15,6 +15,7 @@ from islamic_research_hub.shared.arabic_text_normalization import (
     build_sql_normalize_expression,
     normalize_search_text,
 )
+from islamic_research_hub.shared.sql_filters import library_filter_clause
 
 MAX_BROWSE_RESULTS = 200
 """Cap on books returned per browse call, so a large library/category stays usable."""
@@ -109,7 +110,7 @@ class BookBrowserRepository:
         self,
         query: str,
         limit: int = 30,
-        library: str | None = None,
+        library: str | tuple[str, ...] | None = None,
         author: str | None = None,
         category: str | None = None,
         exact: bool = False,
@@ -156,9 +157,10 @@ class BookBrowserRepository:
 
             conditions = [f"{fts_table} MATCH ?"]
             parameters: list[object] = [match_query]
-            if library is not None:
-                conditions.append("l.Name = ?")
-                parameters.append(library)
+            library_sql, library_params = library_filter_clause("l.Name", library)
+            if library_sql:
+                conditions.append(library_sql.removeprefix(" AND "))
+                parameters.extend(library_params)
             if author is not None:
                 conditions.append("b.Author = ?")
                 parameters.append(author)
@@ -210,7 +212,7 @@ class BookBrowserRepository:
         connection: sqlite3.Connection,
         query: str,
         limit: int,
-        library: str | None,
+        library: str | tuple[str, ...] | None,
         author: str | None,
         category: str | None,
         exact: bool,
@@ -225,9 +227,10 @@ class BookBrowserRepository:
 
         conditions = [f"b.Title IS NOT NULL AND {title_match_expression} LIKE ?"]
         parameters: list[object] = [f"%{match_value}%"]
-        if library is not None:
-            conditions.append("l.Name = ?")
-            parameters.append(library)
+        library_sql, library_params = library_filter_clause("l.Name", library)
+        if library_sql:
+            conditions.append(library_sql.removeprefix(" AND "))
+            parameters.extend(library_params)
         if author is not None:
             conditions.append("b.Author = ?")
             parameters.append(author)
@@ -323,7 +326,7 @@ class BookBrowserRepository:
 
     def list_books_by_filters(
         self,
-        library: str | None = None,
+        library: str | tuple[str, ...] | None = None,
         author: str | None = None,
         category: str | None = None,
         limit: int = MAX_BROWSE_RESULTS,
@@ -336,9 +339,10 @@ class BookBrowserRepository:
         """
         conditions = ["1 = 1"]
         parameters: list[object] = []
-        if library is not None:
-            conditions.append("l.Name = ?")
-            parameters.append(library)
+        library_sql, library_params = library_filter_clause("l.Name", library)
+        if library_sql:
+            conditions.append(library_sql.removeprefix(" AND "))
+            parameters.extend(library_params)
         if author is not None:
             conditions.append("b.Author = ?")
             parameters.append(author)

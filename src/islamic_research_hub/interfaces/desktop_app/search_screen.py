@@ -66,6 +66,7 @@ from islamic_research_hub.interfaces.desktop_app.i18n import (
     Translator,
 )
 from islamic_research_hub.interfaces.desktop_app.icons import button_icon, button_icon_size
+from islamic_research_hub.interfaces.desktop_app.library_scope_dialog import LibraryScopeDialog
 from islamic_research_hub.interfaces.desktop_app.list_row_button import list_row_button
 from islamic_research_hub.interfaces.desktop_app.panel_toggle import PanelToggle
 from islamic_research_hub.interfaces.desktop_app.search_history import RecentSearchStore
@@ -221,6 +222,8 @@ class SearchScreen(QWidget):
         self._search_button.setText(tr("search-run-button"))
         self._mic_button.setToolTip(tr("search-mic-tooltip"))
         self._library_combo.setItemText(0, tr("all-libraries"))
+        self._libraries_button.setToolTip(tr("search-scope-dialog-hint"))
+        self._update_libraries_button_label()
         self._author_edit.setPlaceholderText(tr("search-author-placeholder"))
         self._category_edit.setPlaceholderText(tr("search-category-placeholder"))
         self._exact_match_checkbox.setText(tr("search-exact-match"))
@@ -231,6 +234,11 @@ class SearchScreen(QWidget):
         for index, key in enumerate(("search-scope-main", "search-scope-footnotes", "search-scope-both")):
             self._scope_combo.setItemText(index, tr(key))
         self._scope_combo.setToolTip(tr("search-scope-tooltip"))
+        for index, key in enumerate(
+            ("search-match-all-words", "search-match-any-word", "search-match-exact-phrase")
+        ):
+            self._match_mode_combo.setItemText(index, tr(key))
+        self._match_mode_combo.setToolTip(tr("search-match-tooltip"))
         self._save_search_button.setToolTip(tr("search-save-search-tooltip"))
         self._saved_searches_button.setToolTip(tr("search-saved-searches-tooltip"))
         self._detail_toggle_button.setToolTip(tr("search-detail-toggle-tooltip"))
@@ -591,7 +599,20 @@ class SearchScreen(QWidget):
         self._library_combo.addItem(self._translator.tr("all-libraries"))
         for library in self._browser.list_libraries():
             self._library_combo.addItem(library)
+        self._library_combo.currentIndexChanged.connect(self._on_library_combo_changed)
         filter_row_1.addWidget(self._library_combo)
+
+        # Multi-library search scope (Maktaba Jibreel's own search dialog
+        # offers a real checklist of libraries to search at once, not
+        # just one at a time) - a separate button rather than replacing
+        # the combo outright, so the common single-library case stays as
+        # simple as it already was. `None` means no multi-selection is
+        # active and the combo above is the real source of truth.
+        self._multi_library_selection: tuple[str, ...] | None = None
+        self._libraries_button = QPushButton(self._translator.tr("search-libraries-button"))
+        self._libraries_button.setToolTip(self._translator.tr("search-scope-dialog-hint"))
+        self._libraries_button.clicked.connect(self._on_libraries_button_clicked)
+        filter_row_1.addWidget(self._libraries_button)
 
         self._author_edit = QLineEdit()
         self._author_edit.setPlaceholderText(self._translator.tr("search-author-placeholder"))
@@ -629,6 +650,21 @@ class SearchScreen(QWidget):
         self._scope_combo.setToolTip(self._translator.tr("search-scope-tooltip"))
         self._scope_combo.currentIndexChanged.connect(self._on_scope_changed)
         filter_row_2.addWidget(self._scope_combo)
+
+        # How multiple search words combine - a friendly UI over FTS5's own
+        # MATCH syntax (implicit AND / "OR" / a quoted phrase), which
+        # already works if typed by hand (see search_by_title()'s
+        # docstring) but requires knowing that syntax exists at all.
+        self._match_mode_combo = QComboBox()
+        self._match_mode_combo.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
+        self._match_mode_combo.addItem(self._translator.tr("search-match-all-words"), "all")
+        self._match_mode_combo.addItem(self._translator.tr("search-match-any-word"), "any")
+        self._match_mode_combo.addItem(self._translator.tr("search-match-exact-phrase"), "phrase")
+        self._match_mode_combo.setToolTip(self._translator.tr("search-match-tooltip"))
+        self._match_mode_combo.currentIndexChanged.connect(self._on_match_mode_changed)
+        filter_row_2.addWidget(self._match_mode_combo)
         filter_row_2.addStretch(1)
 
         self._save_search_button = QPushButton()
@@ -732,18 +768,61 @@ class SearchScreen(QWidget):
         if self._query_edit.text().strip():
             self._run_search()
 
+    def _on_match_mode_changed(self, _index: int) -> None:
+        if self._query_edit.text().strip():
+            self._run_search()
+
+    def _on_library_combo_changed(self, _index: int) -> None:
+        # Picking a single library the plain way (chip click, saved
+        # search, or the combo itself) supersedes any earlier multi-
+        # library scope selection - one clear source of truth at a time.
+        self._multi_library_selection = None
+        self._update_libraries_button_label()
+
+    def _on_libraries_button_clicked(self) -> None:
+        dialog = LibraryScopeDialog(
+            self._browser.list_libraries_with_counts(),
+            self._multi_library_selection,
+            self._translator,
+            self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._multi_library_selection = dialog.selected_libraries()
+        self._update_libraries_button_label()
+        if self._query_edit.text().strip() or self._author_edit.text().strip() or self._category_edit.text().strip():
+            self._run_search()
+
+    def _update_libraries_button_label(self) -> None:
+        tr = self._translator.tr
+        if self._multi_library_selection is None:
+            self._libraries_button.setText(tr("search-libraries-button"))
+        else:
+            self._libraries_button.setText(
+                tr("search-libraries-count").format(count=len(self._multi_library_selection))
+            )
+
+    def _effective_library_filter(self) -> str | tuple[str, ...] | None:
+        """Return the real library filter to search/browse with - the
+        multi-library scope picker's selection when active, otherwise
+        whatever the plain single-library combo shows."""
+        if self._multi_library_selection is not None:
+            return self._multi_library_selection
+        library = self._library_combo.currentText()
+        return None if library == self._translator.tr("all-libraries") else library
+
     def _run_search(self) -> None:
         query = self._query_edit.text().strip()
         self._clear_results()
         self._status_is_idle = False
 
-        library = self._library_combo.currentText()
-        library = None if library == self._translator.tr("all-libraries") else library
+        library = self._effective_library_filter()
         author = self._author_edit.text().strip() or None
         category = self._category_edit.text().strip() or None
         exact = self._exact_match_checkbox.isChecked()
         scope = self._scope_combo.currentData()
         search_target = self._search_target_combo.currentData()  # "both" | "title" | "content"
+        match_mode = self._match_mode_combo.currentData()  # "all" | "any" | "phrase"
 
         if not query:
             # No search text - the Author/Category/Library filters can still
@@ -757,6 +836,7 @@ class SearchScreen(QWidget):
             return
 
         self._recent_searches.record(query)
+        match_query = _apply_match_mode(query, match_mode)
 
         # Book-name search and content search each run only when the real
         # "Search in" choice includes them - "Name + content" (the default)
@@ -765,14 +845,14 @@ class SearchScreen(QWidget):
         title_matches: tuple[BookSummary, ...] = ()
         if search_target in ("title", "both"):
             title_matches = self._browser.search_by_title(
-                query, DEFAULT_LIMIT, library, author, category, exact
+                match_query, DEFAULT_LIMIT, library, author, category, exact
             )
 
         results: tuple[SearchResult, ...] = ()
         if search_target in ("content", "both"):
             try:
                 results = self._search_service.search(
-                    query, DEFAULT_LIMIT, library, author, category, exact, scope
+                    match_query, DEFAULT_LIMIT, library, author, category, exact, scope
                 )
             except BookSearchError:
                 self._status_label.setText(self._translator.tr("search-error-could-not-run"))
@@ -1729,6 +1809,26 @@ def _flatten_categories(nodes: tuple[CategoryNode, ...]) -> list[CategoryNode]:
         flat.append(node)
         flat.extend(_flatten_categories(node.children))
     return flat
+
+
+def _apply_match_mode(query: str, mode: str) -> str:
+    """Turn a plain typed query into the real FTS5 MATCH syntax for the
+    chosen word-combination mode - a friendly UI over syntax that
+    already works if typed by hand (a quoted "phrase" or AND/OR/NOT,
+    see search_by_title()'s own docstring), for a user who doesn't know
+    that syntax exists.
+
+    "all" (the default) returns the query unchanged - FTS5 already
+    ANDs space-separated terms implicitly, so this mode is a pure
+    no-op, not a real transformation, and matches every search call
+    site's pre-existing behavior exactly.
+    """
+    if mode == "any":
+        terms = query.split()
+        return " OR ".join(terms) if len(terms) > 1 else query
+    if mode == "phrase":
+        return f'"{query.replace(chr(34), "")}"'
+    return query
 
 
 def _file_url(path: Path) -> QUrl:

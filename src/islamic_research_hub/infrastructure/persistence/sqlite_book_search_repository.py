@@ -7,6 +7,7 @@ from pathlib import Path
 
 from islamic_research_hub.domain.models.search_result import SearchResult
 from islamic_research_hub.shared.arabic_text_normalization import normalize_search_text
+from islamic_research_hub.shared.sql_filters import library_filter_clause
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class SqliteBookSearchRepository:
         self,
         query: str,
         limit: int,
-        library: str | None = None,
+        library: str | tuple[str, ...] | None = None,
         author: str | None = None,
         category: str | None = None,
         exact: bool = False,
@@ -44,9 +45,11 @@ class SqliteBookSearchRepository:
     ) -> tuple[SearchResult, ...]:
         """Return the top matching pages, ranked by full-text relevance.
 
-        `library` restricts to one library name, `author` to one exact
-        `Books.Author` value, and `category` to books linked (in the
-        per-book `Categories` table) to a category with that exact name.
+        `library` restricts to one library name, or several at once (a
+        tuple - the multi-library search scope picker), `author` to one
+        exact `Books.Author` value, and `category` to books linked (in
+        the per-book `Categories` table) to a category with that exact
+        name.
         `exact=True` requires literal spelling and always searches the
         plain `PagesFTS`/`FootnotesFTS` index; the default (`False`)
         prefers the diacritic/letter-form/cross-keyboard-normalized
@@ -99,7 +102,7 @@ class SqliteBookSearchRepository:
         connection: sqlite3.Connection,
         query: str,
         limit: int,
-        library: str | None,
+        library: str | tuple[str, ...] | None,
         author: str | None,
         category: str | None,
         exact: bool,
@@ -156,7 +159,7 @@ class SqliteBookSearchRepository:
         connection: sqlite3.Connection,
         query: str,
         limit: int,
-        library: str | None,
+        library: str | tuple[str, ...] | None,
         author: str | None,
         category: str | None,
         exact: bool,
@@ -210,14 +213,14 @@ class SqliteBookSearchRepository:
     def _apply_filters(
         sql: str,
         parameters: list[object],
-        library: str | None,
+        library: str | tuple[str, ...] | None,
         author: str | None,
         category: str | None,
     ) -> tuple[str, list[object]]:
         """Append the shared library/author/category filter clauses."""
-        if library is not None:
-            sql += " AND Libraries.Name = ?"
-            parameters.append(library)
+        library_sql, library_params = library_filter_clause("Libraries.Name", library)
+        sql += library_sql
+        parameters.extend(library_params)
         if author is not None:
             sql += " AND Books.Author = ?"
             parameters.append(author)
