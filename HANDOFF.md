@@ -4,6 +4,17 @@ Read this first if you're a different AI tool (or a fresh chat) picking up this 
 
 This file is overwritten each time, not appended to - it always reflects the current real state, not a history. For history, see `CHANGELOG.md`.
 
+## ⚠️ MACHINE SWITCH IN PROGRESS - read this section first
+
+As of 2026-08-12, the user is moving this project to a **new Windows 11 laptop**. This session ran on the old machine (drives `F:` and `J:` below). None of the following comes over automatically via `git clone`/`git pull` on the new machine - they have to be copied by hand:
+
+1. **`F:\ISLAMIC RESEARCH HUB AI\data\books.db` (~157GB).** This is the single most important file - it is the *actual, authoritative* database, and it is where **all** the Waqiat Encyclopedia work lives: every `EventCandidates` row for Volumes 1, 2, and 3 (14 + 17 + 35 = 66 rows so far). It is `.gitignore`d (`data/*.db`), so it is invisible to git entirely. **If this file isn't manually copied to the new laptop (external drive / direct LAN transfer - it's too big for most cloud sync), all three volumes' extraction work is stranded on the old machine and effectively lost to any new session.** Do not start Volume 4 on the new laptop against a fresh/empty database without first confirming this file (or a synced copy of it) is in place.
+2. **`J:\ISLAMIC RESEARCH HUB AI\data\books.db` (~25GB)** is a separate, older, smaller copy from a *different* prior laptop - do not confuse it with the F: copy or treat it as authoritative. See "Note on J: vs F: drive" below, which is now a 3-way question (F: laptop, J: laptop, new Win11 laptop) rather than 2-way.
+3. **Desktop deliverables** (`واقعات انسائیکلوپیڈیا - اصلاحی خطبات جلد ۱/۲/۳.docx` and the matching `مکمل جلد ۱/۲/۳ - تصدیق و مکمل مطالعہ.html` files) are local files on the old machine's Desktop, not in git. Lower priority than the database since they're regenerable from it, but copy them over too if the user wants continuity without rebuilding.
+4. **MCP server config** - the `islamic-research-hub` MCP server's configured database path (pointing at `F:\ISLAMIC RESEARCH HUB AI\data\books.db` on the old machine) needs to be re-pointed at wherever `books.db` actually ends up on the new laptop. Check wherever this project registers the MCP server (its startup config) before assuming `health_check` will just work.
+5. **`maktaba://` protocol handler** - registered per-machine in `HKCU\Software\Classes\maktaba` (see rule #9 below). This is a Windows registry entry on the *old* machine only; it will need to be re-registered on the new laptop (rerun whatever setup step created it there) before `maktaba://` links will open the desktop app.
+6. **Git itself** *does* carry over cleanly: this repo's commits (including this HANDOFF.md) are pushed to `origin` (`https://github.com/hamzaabbasi1992-ctrl/IslamicResearchHub.git`, branch `handoff/waqiat-encyclopedia-session`) - a plain `git clone`/`git pull` on the new laptop gets the source code and this handoff file with no extra steps.
+
 ## Current Objective: Waqiat Encyclopedia from اصلاحی خطبات (Islahi Khutbat)
 
 The user is building a "Waqiat Encyclopedia" (انسائیکلوپیڈیا) - every real anecdote/incident (واقعہ) narrated inside Mufti Muhammad Taqi Usmani's 18-volume **اصلاحی خطبات** (book_ids 322, 418, 474, 479, 532, 546, 548, 571, 678, 746, 829, 933, 1040, 1103, 1210, 1320, 1704, 1705 in `F:\ISLAMIC RESEARCH HUB AI\data\books.db`, Maktaba Jibreel Mobile), pulled out into structured entries with citations.
@@ -38,14 +49,15 @@ Worth a deliberate evaluation pass at the start of the new chat: does `export_co
 
 - **Volume 1** (book_id 322, 241 pages): 14 waqiat extracted and saved (EventCandidates + Desktop docx/HTML). Built under the *old, narrower* rules (skipped a couple of borderline/Qur'anic items, silently dropped nothing duplicate since none were found yet at that point).
 - **Volume 2** (book_id 418, 263 pages): 17 waqiat extracted and saved. Built after the "complete verbatim + Urdu-only" rules were established, but *before* the "include everything" and "mark recurring waqiat" rules (#4 and #5 above) - it silently skipped the Ibrahim/Isma'il qurbani narrative and silently dropped the two repeat stories instead of cross-referencing them. **Needs a re-pass** to add those back in under the current rules.
-- **Volumes 3-18**: not started.
+- **Volume 3** (book_id 474, 254 pages): **done**, 35 waqiat extracted and saved (EventCandidates rows inserted + Desktop docx/HTML built), under the *current, full* rule set (include-everything + would-cross-reference-repeats-if-found). No repeats of the two known Vol1/Vol2 recurring stories (Abu Bakr/Umar tahajjud; Dr. Abdul Hai "head of state") turned up in this volume, and no internal (within-Vol3) repeats were found either, so no cross-reference notes were needed this time. Bayan boundaries, all 35 titles/citations, and the full extraction reasoning (including the ~9 borderline items deliberately excluded as general habits/doctrinal teaching rather than discrete incidents) are preserved in this session's transcript, not just here - re-derive from the DB with the same `ضبط و ترتیب` + regex method if picking this up fresh.
+- **Volumes 4-18**: not started.
 
 ### Immediate next steps for the new chat
 
-1. Confirm with the user whether the `maktaba://` link actually opened the app when they clicked it (rule #9).
-2. Evaluate `export_collection_to_docx` as a replacement for the custom docx builder (see tools note above).
+1. Confirm with the user whether the `maktaba://` link actually opened the app when they clicked it (rule #9) - still not confirmed as of the Volume 3 session.
+2. `export_collection_to_docx` was evaluated during the Volume 3 session and rejected as a replacement for the custom docx builder: it dumps raw per-page content for each collection item, not the curated title/subject/bayan/citation/figures/matn structure this task needs - keep using the custom python-docx script (its exact paragraph/style/hyperlink structure was reverse-engineered from the Volume 2 docx and should be reused as-is for consistency).
 3. Re-pass Volumes 1 and 2 to add previously-skipped Qur'anic/well-known waqiat, and to add explicit cross-reference notes on the two known repeats (Abu Bakr/Umar tahajjud story; Dr. Abdul Hai's "head of state" story) plus any others found.
-4. Continue with Volume 3 (book_id 474, 254 pages) onward, same method.
+4. Continue with Volume 4 (book_id 479, page count not yet checked) onward, same method as Volume 3.
 
 ---
 
@@ -57,6 +69,8 @@ All v1.0 core engine phases (1-7) and post-v1.0 roadmap phases (8 through 20) ar
 - Python Desktop Suite: 1,375/1,375 tests passing. Android JVM unit tests passing; Gradle debug build succeeded.
 - Still open from that phase of work: Android live-device install/test (`adb install` the debug APK), and live local-AI/cloud-AI prompting test.
 
-## Note on J: vs F: drive
+## Note on J: vs F: drive (now a 3-way question with the new laptop)
 
-This session ran primarily against **F:\ISLAMIC RESEARCH HUB AI** (books.db there is 157GB, has the mcp_server module, has the newer `maktaba_link.py`/protocol-handler code). The current working directory the harness opened is **J:\ISLAMIC RESEARCH HUB AI** (25GB books.db, no mcp_server module - it's an older copy from a different laptop, per the user). These are two different git repos (different `.git`, different volume). This was flagged to the user earlier but not resolved/merged - worth asking the user directly whether J: should be brought up to date from F:, or vice versa, before doing further work that touches source code (as opposed to just the database, which this session only read/inserted into on F:).
+This session ran primarily against **F:\ISLAMIC RESEARCH HUB AI** (books.db there is 157GB, has the mcp_server module, has the newer `maktaba_link.py`/protocol-handler code). The working directory the harness opened is **J:\ISLAMIC RESEARCH HUB AI** (25GB books.db, no mcp_server module - it's an older copy from a different laptop, per the user). These are two different git repos (different `.git`, different volume) on the *same* old machine. This was flagged to the user earlier but never resolved/merged.
+
+Now that a **third** copy is about to exist (whatever ends up on the new Win11 laptop, per the section above), don't just repeat the same unresolved ambiguity a third time - ask the user directly, before touching source code again, which copy is meant to be canonical going forward (most likely: bring `F:`'s newer code + a copy of `F:`'s books.db over to the new laptop and retire both old copies, but confirm rather than assume).
