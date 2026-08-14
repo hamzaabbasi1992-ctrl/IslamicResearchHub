@@ -32,17 +32,32 @@ abstract class BookPackageDatabase : RoomDatabase() {
                 context, BookPackageDatabase::class.java, databaseName(bookId)
             )
                 .createFromFile(sourceFile)
+                .fallbackToDestructiveMigration()
                 .build()
         }
 
+        fun hasAssetPackage(context: Context, bookId: Int): Boolean {
+            return try {
+                context.assets.list("sample_books")?.contains("book_$bookId.db") == true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
         fun isImported(context: Context, bookId: Int): Boolean {
-            return context.getDatabasePath(databaseName(bookId)).exists()
+            return context.getDatabasePath(databaseName(bookId)).exists() || hasAssetPackage(context, bookId)
         }
 
         fun openExisting(context: Context, bookId: Int): BookPackageDatabase {
-            return Room.databaseBuilder(
+            val dbFile = context.getDatabasePath(databaseName(bookId))
+            val builder = Room.databaseBuilder(
                 context, BookPackageDatabase::class.java, databaseName(bookId)
-            ).build()
+            ).fallbackToDestructiveMigration()
+            
+            if (!dbFile.exists() && hasAssetPackage(context, bookId)) {
+                builder.createFromAsset("sample_books/book_$bookId.db")
+            }
+            return builder.build()
         }
     }
 }

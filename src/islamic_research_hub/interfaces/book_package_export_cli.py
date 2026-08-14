@@ -32,6 +32,17 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_DATABASE_PATH = Path("data/books.db")
 DEFAULT_OUTPUT_FOLDER = Path("data/exports")
 
+MOBILE_ROOM_SCHEMA_VERSION = 1
+"""Must match `@Database(version = ...)` on the Android side
+(`BookPackageDatabase.kt`/`CatalogDatabase.kt`). Room's `SQLiteOpenHelper`
+decides onCreate vs onUpgrade by comparing the copied file's own
+`PRAGMA user_version` against this declared version; a plain `sqlite3`-
+written file defaults to `user_version = 0`, which Room reads as "never
+initialized" and tries to CREATE TABLEs that already exist here - a real,
+confirmed crash on first launch (2026-08-12), not a hypothetical one.
+Stamping this after `_create_schema()` is the fix: Room sees the version
+already matches and opens the file as-is, no migration attempted."""
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
@@ -110,6 +121,7 @@ def export_book_package_to_file(
 
     with closing(sqlite3.connect(output_path)) as destination:
         _create_schema(destination)
+        destination.execute(f"PRAGMA user_version = {MOBILE_ROOM_SCHEMA_VERSION}")
         destination.execute(
             "INSERT INTO Libraries (LibraryID, Name) VALUES (?, ?)",
             (book_row["LibraryID"], book_row["LibraryName"]),
@@ -237,11 +249,11 @@ def _create_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(
         """
         CREATE TABLE Libraries (
-            LibraryID INTEGER PRIMARY KEY,
+            LibraryID INTEGER NOT NULL PRIMARY KEY,
             Name TEXT NOT NULL
         );
         CREATE TABLE Books (
-            BookID INTEGER PRIMARY KEY,
+            BookID INTEGER NOT NULL PRIMARY KEY,
             LibraryID INTEGER,
             Title TEXT,
             Author TEXT,
@@ -255,14 +267,14 @@ def _create_schema(connection: sqlite3.Connection) -> None:
             VolumeNumber INTEGER
         );
         CREATE TABLE Pages (
-            PageID INTEGER PRIMARY KEY,
+            PageID INTEGER NOT NULL PRIMARY KEY,
             PageNo INTEGER,
             Content TEXT,
             HadeesNumber INTEGER,
             AyahNumber INTEGER
         );
         CREATE TABLE Chapters (
-            ChapterID INTEGER PRIMARY KEY,
+            ChapterID INTEGER NOT NULL PRIMARY KEY,
             ParentChapterID INTEGER,
             Title TEXT,
             PageNo INTEGER,

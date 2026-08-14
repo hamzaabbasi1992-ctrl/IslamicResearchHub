@@ -44,9 +44,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.islamicresearchhub.companion.data.local.AppStateDatabase
 import com.islamicresearchhub.companion.data.local.BookEntity
 import com.islamicresearchhub.companion.data.local.BookPackageDatabase
 import com.islamicresearchhub.companion.data.local.PageEntity
+import com.islamicresearchhub.companion.data.local.RecentlyOpenedEntity
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -76,6 +78,27 @@ fun BookReaderScreen(bookId: Int, startPageNo: Int?) {
             bookMetadata = dao.getBook()
             pages = dao.listPages()
         }
+    }
+
+    // Record this open (and keep the saved page current) for the Home
+    // screen's real Continue Reading row - only once metadata/pages are
+    // actually loaded, so a book with no imported package never appears.
+    LaunchedEffect(bookMetadata, pages) {
+        val metadata = bookMetadata ?: return@LaunchedEffect
+        if (pages.isEmpty()) return@LaunchedEffect
+        val resumePage = startPageNo ?: run {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.getInt(getSavedPageKey(bookId), pages.first().pageNo ?: 1)
+        }
+        AppStateDatabase.get(context).appStateDao().recordOpened(
+            RecentlyOpenedEntity(
+                bookId = bookId,
+                title = metadata.title ?: "Untitled",
+                author = metadata.author,
+                lastPageNo = resumePage,
+                openedAtEpochMillis = System.currentTimeMillis(),
+            )
+        )
     }
 
     // Restore page scroll position
@@ -108,6 +131,17 @@ fun BookReaderScreen(bookId: Int, startPageNo: Int?) {
                     val currentPg = pages[firstIndex].pageNo ?: (firstIndex + 1)
                     val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     prefs.edit().putInt(getSavedPageKey(bookId), currentPg).apply()
+                    bookMetadata?.let { metadata ->
+                        AppStateDatabase.get(context).appStateDao().recordOpened(
+                            RecentlyOpenedEntity(
+                                bookId = bookId,
+                                title = metadata.title ?: "Untitled",
+                                author = metadata.author,
+                                lastPageNo = currentPg,
+                                openedAtEpochMillis = System.currentTimeMillis(),
+                            )
+                        )
+                    }
                 }
             }
     }

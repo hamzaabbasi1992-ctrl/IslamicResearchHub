@@ -250,63 +250,15 @@ fun CatalogListScreen(onBookClick: (Int) -> Unit) {
                 }
             } else {
                 LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(books, key = { it.bookId }) { book ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onBookClick(book.bookId) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = cardBg)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    modifier = Modifier.size(44.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = accentTeal.copy(alpha = 0.2f)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Book, contentDescription = null, tint = accentTeal, modifier = Modifier.size(22.dp))
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = book.title ?: "Untitled",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        color = lightText
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = book.author?.takeIf { it.isNotBlank() } ?: "Unknown Author",
-                                        fontSize = 13.sp,
-                                        color = subText
-                                    )
-                                    if (!book.category.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(4.dp),
-                                            color = outlineColor
-                                        ) {
-                                            Text(
-                                                text = book.category,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                fontSize = 11.sp,
-                                                color = accentTeal
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        com.islamicresearchhub.companion.ui.common.BookListCard(
+                            book = book,
+                            badge = book.category,
+                            onClick = { onBookClick(book.bookId) }
+                        )
                     }
                 }
             }

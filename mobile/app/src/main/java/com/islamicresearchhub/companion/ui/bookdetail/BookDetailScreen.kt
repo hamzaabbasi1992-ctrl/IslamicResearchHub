@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.islamicresearchhub.companion.data.local.BookEntity
 import com.islamicresearchhub.companion.data.local.BookPackageDatabase
 import com.islamicresearchhub.companion.data.local.CatalogDatabase
@@ -91,8 +92,14 @@ fun BookDetailScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(book?.title ?: "Book Detail") }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        topBar = {
+            TopAppBar(
+                title = { Text(book?.title ?: "Book Detail", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -101,36 +108,52 @@ fun BookDetailScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.Book,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Book,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            book?.title ?: "Untitled Book",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            book?.author ?: "Unknown Author",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(book?.title ?: "Untitled Book", style = MaterialTheme.typography.headlineSmall)
-                    Text(
-                        book?.author ?: "Unknown Author",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -145,10 +168,11 @@ fun BookDetailScreen(
                         Text(
                             "Metadata Overview",
                             style = MaterialTheme.typography.titleSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant)
 
                     MetadataRow("Category", book?.category)
                     MetadataRow("Language", book?.language)
@@ -165,7 +189,7 @@ fun BookDetailScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             if (packageImported) {
                 Row(
@@ -174,38 +198,51 @@ fun BookDetailScreen(
                 ) {
                     Button(
                         onClick = { onReadClick(bookId) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
                     ) {
-                        Text("Read Book")
+                        Text("Read Offline", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = { onChaptersClick(bookId) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(10.dp),
                     ) {
-                        Text("Chapters")
+                        Text("Chapters Index")
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedButton(
                     onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
                 ) {
                     Text("Re-import Book Package")
                 }
             } else {
-                Text(
-                    "This book package is not imported on this device yet. Import the 'book_$bookId.db' file to enable offline reading.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            "This book package is not imported on this device yet. Import the 'book_$bookId.db' file to enable offline reading.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(14.dp))
                 Button(
                     onClick = { importLauncher.launch(arrayOf("*/*")) },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(10.dp),
                 ) {
-                    Text("Import Book Package")
+                    Text("Import Book Package", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             }
         }
