@@ -272,14 +272,17 @@ class TaxonomyRepository:
     def merge_duplicate_terms(self, dimension_code: str) -> int:
         """Merge terms in a dimension whose normalized names/aliases collide.
 
-        The term linked to the most books wins (tie-broken by the smallest
-        TermID, the same deterministic pattern already used for category/
-        author normalization in `migration_runner.py`). Every book link on
-        a losing term is repointed to the survivor, the merge is logged to
-        `TaxonomyTermMerges`, and the losing term's names/aliases/rows are
-        removed. Returns the number of terms merged away.
+        The term linked to the most books or event-candidates wins
+        (tie-broken by the smallest TermID, the same deterministic pattern
+        already used for category/author normalization in
+        `migration_runner.py`). Every book link and every EventCandidate
+        tag on a losing term is repointed to the survivor, the merge is
+        logged to `TaxonomyTermMerges`, and the losing term's
+        names/aliases/rows are removed. Returns the number of terms merged
+        away.
         """
         with closing(sqlite3.connect(self._database_path)) as connection:
+            self._ensure_event_candidate_taxonomy_terms_table(connection)
             with connection:
                 dimension_id = self._dimension_id(connection, dimension_code)
                 groups = self._group_terms_by_normalized_identity(connection, dimension_id)
@@ -294,6 +297,25 @@ class TaxonomyRepository:
                         self._merge_term(connection, loser, survivor)
                         merged_count += 1
         return merged_count
+
+    @staticmethod
+    def _ensure_event_candidate_taxonomy_terms_table(connection: sqlite3.Connection) -> None:
+        # Lazily created by EventCandidateTaxonomyRepository - mirrored here
+        # (not imported directly, to avoid a persistence-layer circular
+        # import) so a merge run before any event tagging has happened
+        # still finds the table when repointing links below.
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS EventCandidateTaxonomyTerms (
+                EventCandidateID INTEGER NOT NULL REFERENCES EventCandidates(EventCandidateID),
+                TermID           INTEGER NOT NULL REFERENCES TaxonomyTerms(TermID),
+                PRIMARY KEY (EventCandidateID, TermID)
+            );
+            CREATE INDEX IF NOT EXISTS idx_event_candidate_taxonomy_terms_term
+                ON EventCandidateTaxonomyTerms(TermID);
+            """
+        )
+        connection.commit()
 
     @staticmethod
     def _group_terms_by_normalized_identity(
@@ -319,6 +341,9 @@ class TaxonomyRepository:
             term_id: connection.execute(
                 "SELECT COUNT(*) FROM BookTaxonomyTerms WHERE TermID = ?", (term_id,)
             ).fetchone()[0]
+            + connection.execute(
+                "SELECT COUNT(*) FROM EventCandidateTaxonomyTerms WHERE TermID = ?", (term_id,)
+            ).fetchone()[0]
             for term_id in term_ids
         }
         max_count = max(counts.values())
@@ -333,6 +358,12 @@ class TaxonomyRepository:
             (survivor, loser),
         )
         connection.execute("DELETE FROM BookTaxonomyTerms WHERE TermID = ?", (loser,))
+        connection.execute(
+            "INSERT OR IGNORE INTO EventCandidateTaxonomyTerms (EventCandidateID, TermID) "
+            "SELECT EventCandidateID, ? FROM EventCandidateTaxonomyTerms WHERE TermID = ?",
+            (survivor, loser),
+        )
+        connection.execute("DELETE FROM EventCandidateTaxonomyTerms WHERE TermID = ?", (loser,))
         connection.execute("DELETE FROM TaxonomyTermNames WHERE TermID = ?", (loser,))
         connection.execute("DELETE FROM TaxonomyAliases WHERE TermID = ?", (loser,))
         connection.execute(

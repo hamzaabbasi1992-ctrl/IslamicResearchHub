@@ -189,6 +189,73 @@ def test_merge_duplicate_terms_merges_by_normalized_identity_and_keeps_book_link
     assert repo.list_books_for_term(remaining_terms[0].term_id) == (1,)
 
 
+def test_merge_duplicate_terms_repoints_event_candidate_tags_instead_of_orphaning_them(
+    tmp_path: Path,
+) -> None:
+    """A merged-away term's EventCandidate tags move to the survivor, not vanish.
+
+    Regression test: `_merge_term` used to repoint only `BookTaxonomyTerms`
+    and then unconditionally delete the losing `TaxonomyTerms` row, silently
+    orphaning any `EventCandidateTaxonomyTerms` row still pointing at it
+    (found in production on the `personality`/`event` dimensions, which are
+    tagged almost exclusively via EventCandidates, not books).
+    """
+    from islamic_research_hub.application.event_extraction import ExtractedEvent
+    from islamic_research_hub.infrastructure.persistence.event_candidate_repository import (
+        EventCandidateRepository,
+    )
+    from islamic_research_hub.infrastructure.persistence.event_candidate_taxonomy_repository import (
+        EventCandidateTaxonomyRepository,
+    )
+
+    database_path = _migrated_database(tmp_path)
+    repo = TaxonomyRepository(database_path)
+    survivor_id = repo.get_or_create_term("personality", "عمر بن الخطاب", "ar")
+    # Give the survivor a book link so its usage count ties with the loser's
+    # single EventCandidate tag (added below) - the tie is then broken by
+    # the lower TermID, which `survivor_id` has since it was created first.
+    repo.link_book(1, survivor_id)
+    with sqlite3.connect(database_path) as connection:
+        # A second term for the same person under a different name, as if
+        # two separate extraction sessions used different spellings.
+        connection.execute(
+            "INSERT INTO TaxonomyTerms (TermID, DimensionID, ParentTermID) "
+            "SELECT 999, DimensionID, NULL FROM TaxonomyDimensions WHERE Code = 'personality'"
+        )
+        connection.execute(
+            "INSERT INTO TaxonomyTermNames (TermID, LanguageCode, Name, IsPrimary) "
+            "VALUES (999, 'ar', 'عمر بن الخطاب', 1)"
+        )
+        connection.commit()
+
+    event_repo = EventCandidateRepository(database_path)
+    tag_repo = EventCandidateTaxonomyRepository(database_path)
+    candidate_id = event_repo.add_candidate(
+        1,
+        1,
+        1,
+        ExtractedEvent(
+            title="Test event",
+            alternate_names=(),
+            subject="Test",
+            date_hijri=None,
+            date_gregorian=None,
+            location=None,
+            background="",
+            summary="",
+            key_figures=(),
+            quoted_excerpt="Test excerpt",
+            citation="Test citation",
+        ),
+    )
+    tag_repo.tag_candidate(candidate_id, [999])
+
+    merged_count = repo.merge_duplicate_terms("personality")
+
+    assert merged_count == 1
+    assert tag_repo.get_term_ids(candidate_id) == (survivor_id,)
+
+
 def test_taxonomy_repository_never_touches_the_existing_categories_table(tmp_path: Path) -> None:
     """Real proof of non-interference: creating taxonomy terms doesn't alter Categories."""
     database_path = _migrated_database(tmp_path)
