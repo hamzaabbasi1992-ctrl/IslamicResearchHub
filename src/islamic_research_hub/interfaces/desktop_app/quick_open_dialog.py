@@ -38,6 +38,37 @@ class QuickOpenDialog(QDialog):
         self.resize(440, 360)
         self._rail_labels = rail_labels
         self._recent_books = recent_books.list_recent(limit=_MAX_RECENT_BOOKS_SHOWN)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #051815;
+                border: 1px solid #144d43;
+                border-radius: 12px;
+            }
+            QLineEdit {
+                background-color: #092a24;
+                color: #e6f4f1;
+                border: 1px solid #144d43;
+                border-radius: 8px;
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+            QListWidget {
+                background-color: #092a24;
+                color: #e6f4f1;
+                border: 1px solid #144d43;
+                border-radius: 8px;
+                padding: 6px;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-radius: 6px;
+            }
+            QListWidget::item:selected, QListWidget::item:hover {
+                background-color: #0d4037;
+                color: #10b981;
+                font-weight: bold;
+            }
+        """)
 
         layout = QVBoxLayout(self)
         self._filter_edit = QLineEdit()

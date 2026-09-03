@@ -17,14 +17,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -49,7 +47,11 @@ import androidx.compose.ui.unit.sp
 import com.islamicresearchhub.companion.data.local.BookEntity
 import com.islamicresearchhub.companion.data.local.CatalogDatabase
 import com.islamicresearchhub.companion.ui.common.BookListCard
-import kotlinx.coroutines.launch
+import com.islamicresearchhub.companion.ui.theme.DarkGreenLightText
+import com.islamicresearchhub.companion.ui.theme.DarkGreenSubText
+import com.islamicresearchhub.companion.ui.theme.DarkGreenSurface
+import com.islamicresearchhub.companion.ui.theme.DarkGreenTopBar
+import com.islamicresearchhub.companion.ui.theme.EmeraldTeal
 
 private val BOOK_PACKAGE_FILE_NAME = Regex("""^book_(\d+)\.db$""")
 
@@ -57,7 +59,6 @@ private val BOOK_PACKAGE_FILE_NAME = Regex("""^book_(\d+)\.db$""")
 @Composable
 fun DownloadsScreen(onBookClick: (Int) -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var books by remember { mutableStateOf<List<BookEntity>>(emptyList()) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -71,22 +72,20 @@ fun DownloadsScreen(onBookClick: (Int) -> Unit) {
 
     LaunchedEffect(Unit) { reload() }
 
-    val primaryColor = MaterialTheme.colorScheme.primary
-
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Download, contentDescription = null, tint = primaryColor, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.Download, contentDescription = null, tint = EmeraldTeal, modifier = Modifier.size(24.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("Downloads", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            Text("${books.size} Offline Book Packages", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Downloads", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = DarkGreenLightText)
+                            Text("${books.size} Offline Book Packages", fontSize = 12.sp, color = DarkGreenSubText)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkGreenTopBar),
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -103,7 +102,7 @@ fun DownloadsScreen(onBookClick: (Int) -> Unit) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    colors = CardDefaults.cardColors(containerColor = DarkGreenSurface),
                 ) {
                     Column(
                         modifier = Modifier
@@ -114,13 +113,13 @@ fun DownloadsScreen(onBookClick: (Int) -> Unit) {
                         Surface(
                             modifier = Modifier.size(56.dp),
                             shape = RoundedCornerShape(14.dp),
-                            color = primaryColor.copy(alpha = 0.15f),
+                            color = EmeraldTeal.copy(alpha = 0.15f),
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Default.DownloadDone,
                                     contentDescription = null,
-                                    tint = primaryColor,
+                                    tint = EmeraldTeal,
                                     modifier = Modifier.size(32.dp),
                                 )
                             }
@@ -130,13 +129,13 @@ fun DownloadsScreen(onBookClick: (Int) -> Unit) {
                             "No Offline Books Downloaded",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = DarkGreenLightText,
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             "Import a book package file (.db) from the Library or Book Detail screen to read offline without internet.",
                             fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = DarkGreenSubText,
                             lineHeight = 18.sp,
                         )
                     }
@@ -153,20 +152,7 @@ fun DownloadsScreen(onBookClick: (Int) -> Unit) {
                 items(books, key = { it.bookId }) { book ->
                     BookListCard(
                         book = book,
-                        badge = book.category ?: "Downloaded Package",
                         onClick = { onBookClick(book.bookId) },
-                        trailing = {
-                            IconButton(onClick = {
-                                context.deleteDatabase("book_${book.bookId}.db")
-                                scope.launch { reload() }
-                            }) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Remove downloaded book",
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        },
                     )
                 }
             }

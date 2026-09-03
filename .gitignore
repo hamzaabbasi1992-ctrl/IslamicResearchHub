@@ -22,8 +22,12 @@ htmlcov/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.db*
+data/*.pre_compact
+*.pre_compact
 data/*.sqlite
 data/*.sqlite3
+Maktaba_Shams_Book_Packages/
 logs/*.log
 docs/library_report.json
 docs/library_report.md
@@ -37,7 +41,8 @@ docs/book_inventory/
 docs/ocr_text/
 # Raw (uncompressed) export_book() backups can exceed GitHub's 100MB
 # limit for real-content books - the .gz alongside it is what's tracked.
-docs/duplicate_analysis/same_library_page_count_duplicates_removed_backup.json
+docs/duplicate_analysis/*.json
+!docs/duplicate_analysis/*.json.gz
 library/
 data/staging/
 data/backups/
@@ -55,6 +60,10 @@ Thumbs.db
 # never belongs in this repo's history)
 claude-history-export/
 
+# Large generated data dumps
+**/data.js
+**/waqiat_database.json
+
 # Android companion app (Phase 18) - real per-machine SDK path/build output,
 # same reasoning as .venv/ above for the Python side.
 mobile/local.properties
@@ -63,4 +72,9 @@ mobile/**/build/
 mobile/.idea/
 mobile/*.iml
 mobile/**/*.iml
+*.apk
+*.keystore
+*.jks
+
+.tmp.driveupload/
 

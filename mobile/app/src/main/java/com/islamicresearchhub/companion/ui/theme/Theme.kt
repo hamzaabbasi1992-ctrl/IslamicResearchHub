@@ -6,29 +6,26 @@ import androidx.compose.runtime.Composable
 
 private val AppColorScheme = darkColorScheme(
     primary = EmeraldTeal,
-    onPrimary = EmeraldLightText,
+    onPrimary = DarkGreenLightText,
     primaryContainer = EmeraldTealContainer,
-    onPrimaryContainer = EmeraldLightText,
+    onPrimaryContainer = DarkGreenLightText,
     secondary = EmeraldGold,
-    onSecondary = EmeraldDarkBackground,
-    tertiary = EmeraldSkyBlue,
-    onTertiary = EmeraldDarkBackground,
-    background = EmeraldDarkBackground,
-    onBackground = EmeraldLightText,
-    surface = EmeraldDarkSurface,
-    onSurface = EmeraldLightText,
-    surfaceVariant = EmeraldDarkSurfaceVariant,
-    onSurfaceVariant = EmeraldSubText,
-    outline = EmeraldDarkSurfaceVariant,
-    error = EmeraldError,
-    onError = EmeraldLightText,
+    onSecondary = DarkGreenBackground,
+    tertiary = DarkGreenSubText,
+    onTertiary = DarkGreenBackground,
+    background = DarkGreenBackground,
+    onBackground = DarkGreenLightText,
+    surface = DarkGreenSurface,
+    onSurface = DarkGreenLightText,
+    surfaceVariant = DarkGreenSurfaceVariant,
+    onSurfaceVariant = DarkGreenSubText,
+    outline = DarkGreenBorder,
+    error = DarkGreenError,
+    onError = DarkGreenLightText,
 )
 
 /**
- * The app's one theme - a single dark emerald/gold scheme (no light
- * variant yet, matching every screen's real usage so far) so every
- * screen that reads MaterialTheme.colorScheme gets the same look,
- * instead of each screen hardcoding its own hex values.
+ * Islamic Research Hub Dark Greenish Theme
  */
 @Composable
 fun IslamicResearchHubTheme(content: @Composable () -> Unit) {

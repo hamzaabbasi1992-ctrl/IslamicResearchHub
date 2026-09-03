@@ -92,6 +92,8 @@ class SettingsScreen(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setObjectName("settingsScreen")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._settings = settings
         self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
@@ -102,14 +104,6 @@ class SettingsScreen(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
-        # Every field on this screen already auto-saves the instant it
-        # changes (QSettings.setValue in each _on_*_changed handler below)
-        # - there was just never any visible confirmation that it actually
-        # happened, which read as "is there a Save button I'm missing?"
-        # especially for the API key field. A real, transient confirmation
-        # instead of a new save-then-forget button, since the underlying
-        # live-save behavior is already correct and safer (nothing to lose
-        # by navigating away without remembering to click Save).
         self._save_status_label = QLabel("")
         self._save_status_label.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
         self._save_status_label.setContentsMargins(16, 6, 16, 0)
@@ -119,15 +113,12 @@ class SettingsScreen(QWidget):
         self._save_status_timer.setInterval(1600)
         self._save_status_timer.timeout.connect(lambda: self._save_status_label.setText(""))
 
-        # Real bug fixed here: this screen had no QScrollArea at all (every
-        # other block-stacked screen in this app does) - on a real window,
-        # the Keyboard Shortcuts list plus the About block below it pushed
-        # the total content past the visible height with no way to reach
-        # the rest, reading as "shortcuts are hidden, no way to scroll."
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
+        content.setObjectName("settingsContent")
+        content.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QVBoxLayout(content)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(14)

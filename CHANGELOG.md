@@ -1,5 +1,847 @@
 # Changelog
 
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 7 extraction COMPLETE — 42 EventCandidates, all 353 pages read (100% Volume 7 Finished)
+
+Completed the entire Volume 7 of ملفوظات حکیم الامت (BookID 79) across 6 extraction batches (Batch 1: 9 entries, IDs 1299–1307; Batch 2: 7 entries, IDs 1308–1314; Batch 3: 7 entries, IDs 1315–1321; Batch 4: 8 entries, IDs 1322–1329; Batch 5: 7 entries, IDs 1330–1336; Batch 6: 4 entries, IDs 1337–1340). Reading reached page 353, the book's final page. **Volume 7 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 + Vol 5 + Vol 6 + Vol 7)**: **533 confirmed EventCandidates** in `data/books.db`.
+- **Word Document Deliverable Generated**: Created standalone Word document [`واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 7.docx`](file:///F:/ISLAMIC%20RESEARCH%20HUB%20AI/WAQIAT%20ENCYCLOPEDIA%20FROM%20CLAUDE%20DESKTOP/%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA/%D9%88%D8%A7%D9%82%D8%B9%D8%A7%D8%AA%20%D8%A7%D9%86%D8%B3%D8%A7%D8%A6%DB%8C%DA%A9%D9%84%D9%88%D9%BE%DB%8C%DA%88%DB%8C%A7%20-%20%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA%20%D8%AC%D9%84%D8%AF%207.docx) containing all 42 confirmed entries.
+- **Full Highlights from Volume 7 (42 Confirmed Entries)**:
+  - 17-year-old Muhammad ibn al-Qasim's chastity with Raja Dahir's daughters and Hajjaj ibn Yusuf's 300 Nafli prayers & deathbed repentance.
+  - Christian Missionary Reverend Pfander asserting Maqamat al-Hariri is superior to the Quran & Mawlana Nur-ul-Hasan Kandhlawi's challenge.
+  - Emperor Akbar's deathbed repentance & Sheikh Ahmad Sirhindi (Mujaddid Alf Sani) entering Jahangir's doorway feet-first.
+  - Mawlana Ahmad Ali Saharanpuri answering a critic over Shah Ismail Shaheed's *Taqviyat-ul-Iman*.
+  - Shah Ismail Shaheed vs Shah Abdul Aziz handling a seeker's Ta'ziyah model & paper picture.
+  - Thanvi's train journey with a non-praying government officer from Kalpi and his conversion to regular prayer through Thanvi's courtesy.
+  - Majzoob Hafiz Ghulam Murtaza prophesying Thanvi's birth and naming him.
+  - Shah Abdul Aziz Dehlavi revealing the hidden Abdal / Saheb-e-Khidmat of Delhi (melon seller, water-carrier, cobbler).
+  - Mawlana Faiz-ul-Hasan Saharanpuri returning tasteless melons to a shopkeeper by setting up competition outside his shop.
+  - Qari Abdur Rahman Panipati eating camphor-tainted Firni dessert to avoid breaking his host's heart.
+  - British Collector sending a letter of gratitude to Thanvi and Thanvi's dignified reply preserving scholars' honor.
+  - Frontier student drawing a dagger on Qari Panipati over a carpet gift & twisting Shah Muhammad Ishaq's hand for fetching water.
+  - Thanvi visiting Hyderabad Deccan Mint (*دارالضرب*) and dialogue with a British engineer on Islamic courtesy vs Western etiquette.
+  - Imam Malik host etiquette with guest Imam Shafi'i (eating first to relieve guest of shyness).
+  - Bedouin walking away from Hazrat Mu'awiya's dining cloth over a single word of commentary.
+  - Thanvi refusing collective *Quran Khwani* in Jami-ul-Uloom Kanpur after his sister's death and instructing individual recitation.
+  - Thanvi's legal dialogue with a Deputy Collector on interest (Riba) vs theft vs rebellion.
+  - Hostile group plotting to seize Kanpur Madrasa and Thanvi walking in to surrender the keys on the spot.
+  - Poor Qari Sahib serving as a sweeper on a Hajj ship and converting a British ship officer through Tahajjud Quran recitation.
+  - Mawlana Gangohi writing "I am nothing" and Thanvi explaining Potential vs Actual Perfection.
+  - Unlettered Sheikh Abdul Aziz al-Dabbagh discerning Quran from Hadith by divine light.
+  - Mawlana Muhammad Yaqub Nanautavi curing a man's delusion of having no head with a shoe.
+  - Deoband villager carrying an Amulet (*تعویذ*) in his turban and reversing a Magistrate's judgment.
+  - Thanvi giving a Rs 2,500 debt note to a borrower and a Bombay Seth paying it off instantly in cash.
+  - Mawlana Gangohi hosting Thanvi with choice dishes and mangoes in Gangoh and scolding a critic.
+  - Mawlana Yaqub Nanautavi challenging a Sufi in Roorkee to first prove Jalaluddin Rumi's faith before misusing his verses for musical instruments.
+  - Sheikh Sharafuddin Bu Ali Qalandar writing a fierce tadeebi letter to the King of Delhi after a governor slapped his disciple.
+  - Rampuri student asking if a dervish who committed suicide in divine ecstasy sinned, and Mawlana Yaqub's compassionate reply.
+  - Bayazid Bastami saying "Subhani Ma A'dhama Shani" in divine ecstasy and disciples' dagger strikes rebounding onto themselves.
+  - Mawlana Rashid Ahmad Gangohi defending straying sects from hasty Takfir and forecasting divine mercy.
+  - 21-year-old Thanvi called as Expert Witness by a British Judge in a complex Kanpur divorce case, astonishing lawyers.
+  - 9-member Delegation of High Court Barristers questioning Thanvi on Waqf laws, and Thanvi's brilliant legal distinction between Injury (*ضرر*) vs Non-Benefit (*عدم النفع*).
+  - Mawlana Rashid Ahmad Gangohi appearing in a disciple's dream repeatedly ordering him to sit in Thanvi's assembly.
+  - Thanvi's prophetic dream of a camel-riding Arab girl during Khilafat Movement predicting Najd Kingdom 3 years in advance.
+
+Started extraction of Volume 7 of ملفوظات حکیم الامت (BookID 79). Batches 1 to 3 cover pages 1–190 (**23 confirmed EventCandidates**, IDs 1299–1321). Total volume pages: 353.
+
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 + Vol 5 + Vol 6 + Vol 7)**: **514 confirmed EventCandidates** in `data/books.db`.
+- **Highlights from Vol 7 Batches 1–3 (Pages 1–190)**:
+  - 17-year-old Muhammad ibn al-Qasim's chastity with Raja Dahir's daughters and Hajjaj ibn Yusuf's 300 Nafli prayers & deathbed repentance.
+  - Christian Missionary Reverend Pfander asserting Maqamat al-Hariri is superior to the Quran & Mawlana Nur-ul-Hasan Kandhlawi's challenge.
+  - Emperor Akbar's deathbed repentance & Sheikh Ahmad Sirhindi (Mujaddid Alf Sani) entering Jahangir's doorway feet-first.
+  - Mawlana Ahmad Ali Saharanpuri answering a critic over Shah Ismail Shaheed's *Taqviyat-ul-Iman*.
+  - Shah Ismail Shaheed vs Shah Abdul Aziz handling a seeker's Ta'ziyah model & paper picture.
+  - Thanvi's train journey with a non-praying government officer from Kalpi and his conversion to regular prayer through Thanvi's courtesy.
+  - Majzoob Hafiz Ghulam Murtaza prophesying Thanvi's birth and naming him.
+  - Shah Abdul Aziz Dehlavi revealing the hidden Abdal / Saheb-e-Khidmat of Delhi (melon seller, water-carrier, cobbler).
+  - Mawlana Faiz-ul-Hasan Saharanpuri returning tasteless melons to a shopkeeper by setting up competition outside his shop.
+  - Qari Abdur Rahman Panipati eating camphor-tainted Firni dessert to avoid breaking his host's heart.
+  - British Collector sending a letter of gratitude to Thanvi and Thanvi's dignified reply preserving scholars' honor.
+  - Frontier student drawing a dagger on Qari Panipati over a carpet gift & twisting Shah Muhammad Ishaq's hand for fetching water.
+  - Thanvi visiting Hyderabad Deccan Mint (*دارالضرب*) and dialogue with a British engineer on Islamic courtesy vs Western etiquette.
+  - Imam Malik host etiquette with guest Imam Shafi'i (eating first to relieve guest of shyness).
+  - Bedouin walking away from Hazrat Mu'awiya's dining cloth over a single word of commentary.
+  - Thanvi refusing collective *Quran Khwani* in Jami-ul-Uloom Kanpur after his sister's death and instructing individual recitation.
+  - Thanvi's legal dialogue with a Deputy Collector on interest (Riba) vs theft vs rebellion.
+  - Hostile group plotting to seize Kanpur Madrasa and Thanvi walking in to surrender the keys on the spot.
+  - Poor Qari Sahib serving as a sweeper on a Hajj ship and converting a British ship officer through Tahajjud Quran recitation.
+  - Mawlana Gangohi writing "I am nothing" and Thanvi explaining Potential vs Actual Perfection.
+  - Unlettered Sheikh Abdul Aziz al-Dabbagh discerning Quran from Hadith by divine light.
+  - Mawlana Muhammad Yaqub Nanautavi curing a man's delusion of having no head with a shoe.
+  - Deoband villager carrying an Amulet (*تعویذ*) in his turban and reversing a Magistrate's judgment.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 6 extraction COMPLETE — 45 EventCandidates, all 432 pages read (100% Volume 6 Finished)
+
+Completed the entire Volume 6 of ملفوظات حکیم الامت (BookID 78) across 6 extraction batches (Batch 1: 6 entries, IDs 1254–1259; Batch 2: 9 entries, IDs 1260–1268; Batch 3: 6 entries, IDs 1269–1274; Batch 4: 9 entries, IDs 1275–1283; Batch 5: 7 entries, IDs 1284–1290; Batch 6: 8 entries, IDs 1291–1298). Reading reached page 432, the book's final page. **Volume 6 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Volume 6 Final Total**: **45 confirmed EventCandidates** (pages 1–432, all pages read), spanning IDs 1254–1298.
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 + Vol 5 + Vol 6)**: **491 confirmed EventCandidates** (Vol 1: 148 entries; Vol 2: 186 entries; Vol 3: 52 entries; Vol 4: 34 entries; Vol 5: 26 entries; Vol 6: 45 entries).
+- **Deliverable Rendered**: Standalone Word document [`واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 6.docx`](file:///F:/ISLAMIC%20RESEARCH%20HUB%20AI/WAQIAT%20ENCYCLOPEDIA%20FROM%20CLAUDE%20DESKTOP/%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA/%D9%88%D8%A7%D9%82%D8%B9%D8%A7%D8%AA%20%D8%A7%D9%86%D8%B3%D8%A7%D8%A6%DB%8C%DA%A9%D9%84%D9%88%D9%BE%DB%8C%DA%88%DB%8C%A7%20-%20%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA%20%D8%AC%D9%84%D8%AF%206.docx) generated with Jameel Noori Nastaliq typography and callout boxes.
+- **Highlights from Volume 6**:
+  - Young Thanvi asking Mawlana Rashid Ahmad Gangohi for Bai'at and Gangohi's advice against premature devotions during student life.
+  - Deoband student presenting 500 rupees cash in a handkerchief to a sick, debt-ridden teacher.
+  - 17-year-old Muhammad ibn al-Qasim conquering Raja Dahir's fort and rejecting the Raja's daughters' marriage proposal for Sharia chastity.
+  - Allama Shibli Nomani massaging his teacher Mawlana Farooq Kanpuri's feet after a public sermon in Kanpur.
+  - Thanvi citing Hazrat Wahshi (RA) to illustrate why space and distance between Sheikh and disciple are essential.
+  - Mawlana Zafar Ahmad Usmani's dream of Hajji Imdadullah and Sheikh-ul-Hind declaring Thana Bhawan as the sole cure for arrogant egos.
+  - Parable of the Wise Man (*بوجھ بجکڑ*) pulling a man off a palm tree with a rope & breaking his bones.
+  - Parable of the Wise Man (*بوجھ بجکڑ*) weeping and laughing at an Elephant (*ہاتھی*).
+  - Saint kissing the feet of a thief executed on the gallows for extraordinary perseverance.
+  - Pathans exposing a fraudulent Sufi Sheikh using a prostitute's money for a feast.
+  - Thanvi curing a young Western-educated Khan Sahib's pride by making him rewrite his flaw 5 times.
+  - Mawlana Qasim Nanautavi refusing Nawab of Rampur's invitation but meeting Roorkee Magistrate to defend Islam.
+  - Thanvi declining the Nawab of Dhaka's delegation funding & staying in a humble mosque.
+  - Sheikh Abu al-Hasan al-Ash'ari refusing to debate heretics until they spoke first.
+  - Nawab Muhammad Yusuf preferring Sheikh-ul-Hind Mahmud Hasan over other Pirs.
+  - Parable of the Blind Hafiz (*اندھے حافظ جی*) trying to taste marriage by dipping bread into it.
+  - Thanvi receiving death threats during political movements & his heroic steadfastness (*زمانہ تحریکات میں قتل کی دھمکیاں*).
+  - Disrespectful newcomer sitting with his back to a Muslim & Thanvi's "Learn *adamiyat* before *wilayat*" lesson.
+  - Fake Sufi dervish at Piran Kaliyar proclaiming "Bang Boza" instead of Namaz Roza.
+  - Thanvi's childhood teacher scolding him & Thanvi's emotional gratitude ("That beating was a divine mercy!").
+  - Man spreading rumor that Thanvi receives 300 Rupees monthly from the British Government & Thanvi's reply.
+  - Thanvi travelling on train with a Deputy Collector who neglected Maghrib prayer & the Deputy's conversion to a regular worshipper.
+  - Doctor returning from Hajj losing his spiritual purity after riding in a rich man's Phaeton carriage (*فٹن*).
+  - Khawaja Sahib refusing to use Madrasa lamp oil for personal use at Deoband.
+  - Turkish Sheikh Khalil Pasha declaring Indian Islamic Scholars free from love of the world.
+  - Mawlana Qasim Nanautavi asking Hajji Imdadullah about leaving his 10-rupee printing job.
+  - Mawlana Muhammad Yaqub Nanautavi's selfless confession before his students ("I am incomplete!").
+  - Student questioning Mawlana Muhammad Yaqub Nanautavi for talking too much & the Spinning Top parable (*چکئی*).
+  - Mawlana Shah Abdur Rahim Raipuri taking Bai'at with Gangohi after a dream & Hajji Imdadullah's directive.
+  - Amir Abdur Rahman Khan of Kabul upholding Qisas against his own wife & refusing foreign student exchanges.
+  - Mawlana Shah Abdul Aziz handling a servant who drank leftover English tea with administrative wisdom.
+  - Dervish walking 1.5 months on foot to Thana Bhawan & Thanvi's deep empathy ("He walked so his legs hurt; my heart hurts!").
+  - Thanvi's extraordinary consideration for his wives regarding hot bread.
+  - Mawlana Muhammad Yaqub Nanautavi's promise of 10 rupees minimum salary for Deoband graduates.
+  - Thanvi reprimanding his first wife for complaining against his brother's employee.
+  - Hajji Imdadullah smelling the "fragrance of Thana Bhawan" in a hunted deer skin (*بوئے وطن*).
+  - Railway conductor waiving student's fare & Thanvi's dialogue with an educated Arya Lecturer on train.
+  - Deputy Collector of Bareilly hosting Arya Pandits & his clever repentance banquet.
+  - Railway Manager requesting to visit Thanvi & Thanvi visiting his lodging instead to protect scholars' dignity.
+  - Mosque caller (Muazzin) giving incorrect Fatwa on intention in prayer & Thanvi expelling him.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 5 extraction COMPLETE — 26 EventCandidates, all 376 pages read (100% Volume 5 Finished)
+
+Completed the entire Volume 5 of ملفوظات حکیم الامت (BookID 77) across 6 extraction batches (Batch 1: 6 entries, IDs 1228-1233; Batch 2: 5 entries, IDs 1234-1238; Batch 3: 5 entries, IDs 1239-1243; Batch 4: 3 entries, IDs 1244-1246; Batch 5: 4 entries, IDs 1247-1250; Batch 6: 3 entries, IDs 1251-1253). Reading reached page 376, the book's final page. **Volume 5 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Volume 5 Final Total**: **26 confirmed EventCandidates** (pages 1-376, all pages read), spanning IDs 1228-1253.
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 + Vol 5 + Vol 6 b1)**: **452 confirmed EventCandidates** (Vol 1: 148 entries; Vol 2: 186 entries; Vol 3: 52 entries; Vol 4: 34 entries; Vol 5: 26 entries; Vol 6: 6 entries so far).
+- **Deliverable Rendered**: Standalone Word document `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 5.docx` generated with Jamil Noori Nastaliq typography and callout boxes.
+- **Highlights from Volume 5**:
+  - Shah Abu al-Ma'ali receiving greeting from Medina Rawda and ecstatic *wajd*.
+  - Thanvi explaining atmospheric lightning vs. ground electricity to Aligarh College intellectuals.
+  - Mawlana Qasim Nanautavi filling hookah for his father and a Pathan guest to guide him.
+  - Ibrahim ibn Adham's prayer turning ship mockers into enlightened Sufi masters.
+  - Sultan Sanjar offering half his kingdom to Ghauth-ul-Azam Sheikh Abdul Qadir Jilani and his heroic detachment.
+  - 1857 wounded soldier tricking a greedy Lala in the battlefield.
+  - Khalid ibn al-Walid's 60 Muslim warriors defeating 60,000 Romans at Yarmouk and tearing up the Emperor's silk carpet.
+  - Mawlana Abdul Haq Jalalabadi silencing a literalist preacher using *Ta'weel*.
+  - Parable of the lion tattoo (*شیر بے گوشم داشکم کہ دید*).
+  - Young Thanvi bearing Mawlana Fazl-ur-Rahman Ganj Muradabadi's late-night scolding with joy.
+  - Parable of the Executioner whipping the Prince to explain Sheikh's discipline and inner respect.
+  - Idolater accidentally uttering "O Samad" and receiving an instant divine response (*Labbayk ya 'Abdi*).
+  - Aligarh alchemist tricking a Khan Sahib into serving wild leaves before seeking gold secrets.
+  - Hakim Mushtaq Ahmad replying "A Pumpkin!" to a Christian missionary displaying the Bible.
+  - Deathbed prayer of Hajjaj ibn Yusuf and Hasan al-Basri's sharp commentary.
+  - Sir Syed Ahmad Khan's messenger visiting Gangohi and Nanautavi regarding Aligarh College.
+  - British Judge in Karachi ruling that Thanvi's fatwa was pure Sharia guidance, while political speeches were incitement.
+  - Thanvi slapping a man struggling with unlawful love and curing him instantly.
+  - Qari Abdur Rahman Panipati mocking effeminate speech on a train.
+  - Western-educated Barrister greeting his father with "Well *buddha*, how are you!"
+  - Shah Muhammad Ishaq Dehlavi visiting Khawaja Moinuddin Chishti's shrine in Ajmer with total selflessness.
+  - Sunni scholar's sharp answer to a Shi'ite on why new sects emerge from Sunnis.
+  - Thanvi's historic meeting with Nawab Nawaz Jang in Hyderabad on the dignity of Sharia scholars.
+  - Sheikh-ul-Hind defending Thanvi in Deoband and Thanvi's *Naskh* argument regarding the 1857 Mutiny.
+  - Mawlana Muhammad Yaqub Nanautavi's utter selflessness ("I am *khabeeth* too!").
+  - Thanvi handling hostile critics of Kanpur Jami-ul-Uloom by handing over keys and securing funds.
+
+- **Highlights from Vol 5 Batch 1 (Pages 1–50)**:
+  - Hazrat Shah Abu al-Ma'ali receiving greeting from Prophet's Rawda in Medina and overwhelming ecstasy (*wajd*).
+  - Thanvi explaining atmospheric lightning vs. ground electricity to Aligarh College intellectuals.
+  - Mawlana Qasim Nanautavi filling hookah for his father and for a non-practicing Pathan guest to guide him.
+  - Ibrahim ibn Adham's prayer for mockers on a ship who turned into illuminated Sufi masters.
+  - Sultan Sanjar offering half his kingdom to Ghauth-ul-Azam Sheikh Abdul Qadir Jilani and his heroic detachment.
+  - 1857 wounded soldier tricking a greedy Lala in the battlefield to stay and talk through the night.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 4 extraction COMPLETE — 34 EventCandidates, all 353 pages read (100% Volume 4 Finished)
+
+Completed the entire Volume 4 of ملفوظات حکیم الامت (BookID 76) across 6 extraction batches (Batch 1: 8 entries, IDs 1194-1201; Batch 2: 5 entries, IDs 1202-1206; Batch 3: 5 entries, IDs 1207-1211; Batch 4: 6 entries, IDs 1212-1217; Batch 5: 4 entries, IDs 1218-1221; Batch 6: 6 entries, IDs 1222-1227). Reading reached page 353, the book's final page. **Volume 4 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Volume 4 Final Total**: **34 confirmed EventCandidates** (pages 18-353, all pages read), spanning IDs 1194-1227.
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 + Vol 5 b1)**: **426 confirmed EventCandidates** (Vol 1: 148 entries; Vol 2: 186 entries; Vol 3: 52 entries; Vol 4: 34 entries; Vol 5: 6 entries so far).
+- **Deliverable Rendered**: Standalone Word document `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 4.docx` generated with Jamil Noori Nastaliq typography and callout boxes.
+- **Highlights from Volume 4**:
+  - Bayazid Bastami uttering *Subhani ma a'zama shani* in ecstasy and disciples' daggers rebounding.
+  - Thanvi's sermon at Mazahir-ul-Uloom Saharanpur on combining rich money (*fuloos*) with poor sincerity (*khuloos*).
+  - Simple villager capturing Islamic wisdom in two words on a train: "Be United and Be Pious" (*ایک رہو اور نیک رہو*).
+  - Miyan Ji weeping hysterically over a 500-rupee job letter.
+  - Mawlana Faiz-ul-Hasan Saharanpuri's witty definition of *Bid'ati* (polite unbeliever) and *Wahhabi* (rude believer).
+  - Unlettered son slaughtering a 50-rupee hunting dog to fulfill his father's literal hospitality instructions.
+  - Seven locked doors shattering before Hazrat Yusuf (AS).
+  - Sufi Sheikh spraying water from a syringe to instantly convert 1,000 non-Muslims to show *tasarruf*.
+  - Hajji Imdadullah's prayer for a man with a bitten hand: "Replace the blessing of affliction with the blessing of health!"
+  - Mawlana Rahmatullah Kairanavi offering to introduce Hajji Imdadullah to Sultan Abdul Hamid Khan in Constantinople.
+  - Mir Mirza Mazhar Jan-i-Janan getting a headache from looking at a crooked cup on a water pitcher.
+  - Mawlana Rashid Ahmad Gangohi detecting unboiled water in tea by taste alone.
+  - Saharanpur villager using a Deoband *ta'weez* in his turban to reverse a magistrate's judgment.
+  - Parable of the man, his wife, and the donkey (*کوئی شق بھی اعتراض سے محفوظ نہ رہی*).
+  - Mawlana Rashid Ahmad Gangohi writing an unconventional *ta'weez*: "O Allah! This servant won't listen; You know Your work!"
+  - Delhi Dervish shouting "Neither are You my God nor I Your servant" at his own *Nafs*.
+
+- **Highlights from Vol 4 Batch 1 (Pages 18–40)**:
+  - Syed Ahmad Barelvi's simple amulet and Hajji Imdadullah's correction of a poet disciple.
+  - Mawlana Rashid Ahmad Gangohi's short, humble amulet for a persistent seeker.
+  - Parable of the bankrupt money-lender counting imaginary sums to a hopeful beggar.
+  - A King's tiger and a saint fleeing in natural fear (*khawf tabi'i*).
+  - Coping with English letters by replying in Arabic to teach proper language etiquette.
+  - Sultan Nizamuddin Auliya's dry wood vs. green wood parable for rapid spiritual elevation.
+  - Shah Abdul Aziz Dehlavi elevating Syed Ahmad Barelvi via the Path of Prophethood (*Rah-e-Nubuwwat*) in 13 days.
+  - Sunni scholar defeating a Shi'ite leader in a public assembly over an ancient Quran manuscript attributed to Hazrat Ali (RA).
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 3 extraction COMPLETE — 52 EventCandidates, all 322 pages read (100% Volume 3 Finished)
+
+Completed the entire Volume 3 of ملفوظات حکیم الامت (BookID 75) across 6 extraction batches (Batch 1: 19 entries, IDs 1142-1160; Batch 2: 9 entries, IDs 1161-1169; Batch 3: 7 entries, IDs 1170-1176; Batch 4: 8 entries, IDs 1177-1184; Batch 5: 5 entries, IDs 1185-1189; Batch 6: 4 entries, IDs 1190-1193). Reading reached page 322, the book's final page. **Volume 3 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Volume 3 Final Total**: **52 confirmed EventCandidates** (pages 18-322, all pages read), spanning IDs 1142-1193.
+- **Combined Series Total (Vol 1 + Vol 2 + Vol 3 + Vol 4 b1)**: **394 confirmed EventCandidates** (Vol 1: 148 entries; Vol 2: 186 entries; Vol 3: 52 entries; Vol 4: 8 entries so far).
+- **Deliverable Rendered**: Standalone Word document `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 3.docx` generated with Jamil Noori Nastaliq typography and callout boxes.
+- **Highlights from Volume 3**:
+  - Moradabad sermon on restricting general scriptural terminology approved by Mawlana Anwar Shah Kashmiri.
+  - Sheikh Abdul Qadir Jilani's night journey to Mosul to replace a dying Abdal with a Roman Christian convert.
+  - Wealthy Calcutta merchant visiting Thanvi with 4 proposals for Muslim educational/economic progress.
+  - Shah Abdul Qadir Dehlavi gently correcting a man with low pyjamas in the mosque.
+  - Mawlana Qasim Nanautavi offering to wear non-Sunnah clothes to reform a friend.
+  - English scholar interpreting Mir Taqi Mir's poetry as going to jail.
+  - Emperor Shah Jahan's Peacock Throne, two rak'ats of gratitude, and Prime Minister Sa'dullah Khan's hidden dagger.
+  - Sir Syed Ahmad Khan giving 50 rupees to a fake beggar after hearing the name of Shah Ghulam Ali Dehlavi.
+  - Mawlana Mahmud Hasan (Sheikh-ul-Hind) secretly massaging a sleeping Hindu guest's feet at noon in Deoband.
+  - English Judge praising Islamic law in a murder case of a mother where the 7-year-old orphan girl needed forgiveness.
+  - Miracles of Mianji Nur Muhammad Jhanjhanawi: extinguishing a field fire with his cap and curing his blind wife.
+  - Respect for food (Rizq) in Bombay and Khawaja Sahib eating a meat piece off the train floor.
+  - Hudhayfah (RA) picking up fallen food from the ground before Persian nobles.
+  - Qazi Ziyauddin Sunami's three-stage mystical restraint of Sultan Nizamuddin Auliya during Sama'.
+  - Hajji Imdadullah Muhajir Makki's agricultural metaphor to guide a scholar between Chishti and Naqshbandi paths.
+
+Started extraction of Volume 3 of ملفوظات حکیم الامت (BookID 75). First batch covers pages 18–39 (**19 confirmed EventCandidates**, IDs 1142–1160). Text begins on page 18.
+
+- **Highlights from Batch 1 (Pages 18–39)**:
+  - Thanvi's conversation with an Aligarh College gentleman on beard and hatred.
+  - Wise physician advice to a chieftain who refused wudu for beard maintenance.
+  - Old woman bringing a single skein of yarn to buy Prophet Yusuf (AS) at auction.
+  - Jabalah ibn al-Ayham slapping a bedouin during Tawaf and Hazrat Umar's uncompromising Qisas ruling.
+  - Christian priest in Kanpur asking for funds upon conversion and Thanvi's sharp response.
+  - Dialogue between rich and poor pilgrims on hospitality vs. family intimacy.
+  - Hazrat Luqman eating a bitter cucumber from his master's hand without complaint.
+  - Thanvi's brother Akbar Ali resolving the Bareilly Deputy Collector's Arya Samaj rumor.
+  - Villager getting a corrupt Tehsildar transferred by asking the Collector about 12-year hereditary rights.
+  - Political leader offering Thanvi to become Amir-ul-Mu'minin and Thanvi's 2 strict conditions.
+  - Jalalabad Hindu landlord refused Sufi initiation without embracing Islam first.
+  - High-ranking Hindu officer writing to Thanvi seeking spiritual peace and receiving *Ihdina-s-sirata-l-mustaqim*.
+  - Poet Momin Khan and the superstitious drum-player fearing Surah Yaseen.
+  - Shah Waqar-ul-Umara of Hyderabad visiting Mawlana Fazl-e-Rahman Ganj Muradabadi late at night.
+  - Nizam of Hyderabad's wise remark on worldly Sheikhs visiting him for money.
+  - Hyderabad Sheikhs attempting to ban Thanvi's entry via Nizam and Nizam's sharp response.
+  - Sultan Abdul Hamid's Sheikh falsely accused of secret meetings with the Russian Ambassador.
+  - Nawab of Tonk carrying Sayyid Ahmad Barelvi's wife's palanquin on his own shoulder.
+  - Humorous story of the clumsy wife ruining gulgule, chilla, and lipsi, and injuring a passerby.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 2 extraction COMPLETE — 186 EventCandidates, all 385 pages read (100% Volume 2 Finished)
+
+Completed the entire Volume 2 of ملفوظات حکیم الامت (BookID 74) across three final extraction passes (Batch 12: pages 256-285, 21 entries, IDs 1086-1106; Batch 13: pages 286-325, 15 entries, IDs 1107-1121; Batch 14: pages 326-385, 20 entries, IDs 1122-1141). Reading reached page 385, the book's final page. **Volume 2 of ملفوظات حکیم الامت is now 100% extracted and confirmed in `data/books.db`.**
+
+- **Volume 2 Final Total**: **186 confirmed EventCandidates** (pages 22-385, all pages read), spanning IDs 956-1141.
+- **Combined Series Total (Vol 1 + Vol 2)**: **334 confirmed EventCandidates** (Vol 1: 148 entries, IDs 807-955; Vol 2: 186 entries, IDs 956-1141).
+- **All anchor verifications passed prior to insertion**; line-wraps and page boundary straddles were caught in dry-run mode and corrected before reaching the database.
+- **Highlights from the final batches (256-385)**:
+  - Parable of the King, Minister, and Mad Rain Water (*مجذوب بارش کا پانی*).
+  - Thanvi fetching a library book himself for a guest Ghair-Muqallid scholar to show true Sunnah adoption.
+  - Mawlvi Faiz-ul-Hasan's clever revenge on a dishonest Lahore melon vendor.
+  - Kandhla lawyer's sharp response to Hindu co-passengers regarding future governance.
+  - Prophet Muhammad (pbuh) slaughtering 63 camels with his own hand at Hajjat-ul-Wida.
+  - Thanvi's debate with a modern scholar advocating novel Quran translation methods.
+  - Mawlana Rashid Ahmad Gangohi having his feet massaged by a villager with complete humility.
+  - Gangohi maintaining independent Fiqh authority over his master Haji Imdadullah on sama'.
+  - Shah Muhammad Ishaq Dehlavi agreeing to be corrected publicly by his pupil in Ajmer for Shariah compliance.
+  - Shah Abdul Qadir Dehlavi silencing Mawlvi Fazl-e-Haq Khairabadi in logic.
+  - Sultan Mahmud Ghaznavi and the captive Hindu boy discovering his kindness.
+  - Allama Taftazani's famous retort to Timur Lang in court (*معذور دار مرا ننگ ست*).
+  - Thanvi resolving scientific doubts on heavenly vs. earthly lightning at Aligarh College.
+  - Mawlvi Masih-uz-Zaman Khan's witty banishment of a fake Qutb in Shahjahanpur.
+  - Thanvi's severe spiritual depression (*قبض*) and his wife's comforting support.
+  - 1857 Mutiny court trials and scholars turning jail into a khanqah.
+  - Mawlana Muhammad Yaqub Nanautavi refusing 900 rupees back-pay after 1857.
+  - Hazrat Umar (RA) consulting Sayyidaha Hafsa (RA) on 4-month leave for soldiers.
+  - Unlocking spiritual clarity (*Sharh Sadr*) by releasing confined domestic chickens.
+  - Haji Imdadullah modifying the 15-number protection amulet (*نقشِ پندرہ*) to preserve Tauheed.
+  - Sayyiduna Ali (RA) losing his armor in court before Qadi Shurayh and the Jew converting.
+  - Imam Abu Yusuf weeping on his deathbed over seating equality between a Caliph and a Jew.
+  - Hazrat Abul Hasan Nuri destroying 9 out of 10 wine barrels for Allah, sparing the 10th to avoid ego (*nafs*).
+  - Mawlana Shah Ismail Dehlavi's teeth-shattering reply (*دندان شکن جواب*) to an atheist on beards.
+  - Sheikh Qurashi's leprosy, his bride's pure intention, and refusing miraculous youth transformation.
+  - Mawlana Mahmud Hasan (Sheikh-ul-Hind) massaging an unknown Hindu guest's feet at noon.
+  - Mawlana Qasim Nanautavi vomiting doubtful food upon returning home.
+  - Sheikh Sa'di teaching a Samarqand host the true meaning of Shiraz hospitality.
+  - Imam Ahmad ibn Hanbal explaining why he respects Bishr al-Hafi as a scholar of Allah (*صاحبِ کتاب*).
+- **Final Word Document Deliverable**: Generated standalone `.docx` file [`واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 2.docx`](file:///F:/ISLAMIC%20RESEARCH%20HUB%20AI/WAQIAT%20ENCYCLOPEDIA%20FROM%20CLAUDE%20DESKTOP/%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA/%D9%88%D8%A7%D9%82%D8%B9%D8%A7%D8%AA%20%D8%A7%D9%86%D8%B3%D8%A7%D8%A6%DB%8C%DA%A9%D9%84%D9%88%D9%BE%DB%8C%DA%88%DB%8C%A7%20-%20%D9%85%D9%84%D9%81%D9%88%D8%B8%D8%A7%D8%AA%20%D8%AD%DA%A9%DB%8C%D9%85%20%D8%A7%D9%84%D8%A7%D9%85%D8%AA%20%D8%AC%D9%84%D8%AF%202.docx) containing all 186 confirmed entries with callout boxes and citations. Draft/in-progress docx files cleaned up.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 2 extraction continued — 130 EventCandidates, pages 22-255 of 385 (66%, two-thirds complete)
+
+Same session, continued from the page-230 checkpoint below through page 255. One more extraction pass: pages 231-255 (18 entries, IDs 1068-1085).
+
+- **Progress so far: 130 confirmed EventCandidates** (pages 22-255 of 385, 66% through - two-thirds complete), spanning IDs 956-1085.
+- Recognized and intentionally skipped 1 in-book repeat (Mawlvi Rahmat-ullah Mangalvi shoe incident repeated on pages 246-247, already captured as entry 1052).
+- Two anchor failures caught and resolved during verification before inserting: one typo in end anchor ("فرمانا" to "فرمایا") and one page boundary straddle (gulgule cooking anecdote on page 246) - both caught by script validation before reaching the database.
+- **Highlights from this stretch**: Mawlana Muhammad Yaqub Nanautavi's statement ("ہم مرغانِ جنگی نہیں") declining pointless academic debates; the Qureshi leper Sheikh whose bride rejected his miraculous youth transformation to maintain pure intention; an English judge punishing a Shia for tabarra under civil law regardless of religious claims; British official acknowledging Thanvi's religious intent differed from political anti-government fatwas; Mawlana Fazlur Rahman Ganj Moradabadi distributing churna digestives as tabarruk; Shah Abdul Aziz keeping a man in suspense after he ate an Englishman's leftover food; Caliph Mamun al-Rashid refusing to spoil his own character over a rude servant's outburst; Thanvi advising the Nawab of Dhaka that love for one's wife earns spiritual reward; Mawlana Rashid Ahmad Gangohi's witty reply on small things breaking nikah; an ignorant magistrate deciding court applications by odd/even numbers; a prostitute rejecting a pantheistic darweesh and walking away out of religious honor; Thanvi comforting a poet friend named "Bhaggoo Khan" by interpreting it as "flee unto Allah"; and Thanvi's Lucknow sermon comparing unlimited modern "progress" to bodily swelling.
+- **Docx deliverable updated**: `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 2 (جاری تا صفحہ 255).docx` re-rendered, old page-230 snapshot unlinked per convention.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 2 extraction continued — 112 EventCandidates, pages 22-230 of 385 (60%)
+
+Same session, continued from the page-208 checkpoint below through page 230. One more extraction pass: pages 208-230 (16 entries, IDs 1052-1067).
+
+- **Progress so far: 112 confirmed EventCandidates** (pages 22-230 of 385, 60% through - past 60%), spanning IDs 956-1067.
+- Two anchor failures caught and resolved during verification before inserting: one page boundary straddle (Fatima Makhzumiyya anchor on page 217, shortened) and one minor character typo in anchor string - both caught by script validation before reaching the database.
+- **Highlights from this stretch**: Mawlvi Rahmat-ullah Mangalvi beating a dancing woman with his shoe and her subsequent repentance; Alamgir (Aurangzeb) punishing idle spectators alongside brawlers to eliminate market fights; Haji Imdadullah and Mawlana Rashid Ahmad Gangohi eating together with extreme adab; the humorous story of a deaf man visiting his sick friend with pre-calculated Q&A; Prophet Muhammad's (pbuh) sharp refusal of intercession for Fatima al-Makhzumiyya in a theft case; an Islamic ambassador describing Hazrat Umar's character ("he neither deceives nor gets deceived") to Heraclius; Thanvi's refusal to lecture an ungrounded school teacher on Taqdeer; Thanvi sending 1 Rupee so a correspondent could afford an envelope instead of a postcard; Prophet (pbuh) personally fetching firewood from the forest on a journey; Hazrat Hudhayfa eating a dropped morsel in the Persian royal court despite elite onlookers; and Mawlana Qasim Nanautavi's famous principle: "A murid whose Sheikh is not strict (ٹرا) will never be reformed."
+- **Docx deliverable updated**: `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 2 (جاری تا صفحہ 230).docx` re-rendered, old page-208 snapshot unlinked per convention.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 2 extraction continued — 96 EventCandidates, pages 22-208 of 385 (54%, past halfway)
+
+Same session, continued from the page-100 checkpoint below through page 208. Five more extraction passes: pages 101-121 (8 entries, IDs 1008-1015), pages 123-142 (10 entries, IDs 1016-1025), pages 153-162 (8 entries, IDs 1026-1033), pages 172-185 (8 entries, IDs 1034-1041), and pages 189-208 (10 entries, IDs 1042-1051).
+
+- **Progress so far: 96 confirmed EventCandidates** (pages 22-208 of 385, 54% through - past the halfway mark), spanning IDs 956-1051.
+- Two page-assignment bugs and one gender-agreement transcription bug caught and fixed during verification; one anchor that happened to cross a page boundary (189/190) was shortened to start cleanly on the later page - all caught before reaching the database.
+- **Two genuine in-book repeats recognized and correctly not re-inserted**: the sahaba self-vigilance anecdotes retold on page 165 (already flagged), and the Hyderabad foot-kissing/feet-tucking incident, which reappears in near-identical form on page 206-207 (already captured as entry 980) - only the page 206-207 telling's *new* material (the Dhaka foot-grabbing custom and the "sitting behind during recitation" episode) was extracted as a fresh entry.
+- Highlights from this stretch: Thanvi's own years-long effort tracing his late father's mahr debts to heirs scattered across Madinah, Mecca, Bombay, Calcutta, Lahore, Delhi, and Bhopal; false accusations against him during the Khilafat Movement; the extensive "Nasrat-un-Nisa" (Support of Women) discourse including a suffering wife's 40-year letter and four historical anecdotes of wives caring for ailing husbands; the Rukana-the-wrestler and shuhada-Uhud sirah anecdotes; a Punjab notable's humbling train encounter with an unrecognized Thanvi; Mirza Mazhar Jan-e-Janaan's famously fussy request that a murid visit only once a year ("one laxative instead of two"); and Shaykh-ul-Hind Mahmud Hasan's remarkable humility in personally massaging a sleeping Hindu guest's feet.
+- Docx/html re-rendered to the new total (page 208), old page-162 snapshot deleted per the established convention.
+- **Renderer adapted for Vol 2**: `build_malfoozat_vol2.py` (BookID 74, TOTAL_PAGES 385, "جلد ۲" citations/filenames), now also rendering each entry's full `quoted_excerpt`, `summary`, `subject`, and `citation` from `ExtractedDataJson` (not just titles) - both docx and HTML. In-progress naming used: `... جلد 2 (جاری تا صفحہ 100).docx` / `جلد 2 (ملفوظات حکیم الامت) - جاری تا صفحہ 100 - تصدیق و مطالعہ.html`, same folder as Vol 1 (`ملفوظات حکیم الامت\`).
+- **Repository constructor note**: `EventCandidateRepository`/`TaxonomyRepository`/`EventCandidateTaxonomyRepository` all take a `database_path: Path`, not a live `sqlite3.Connection` - each call opens its own connection internally. Scripts pass `DB_PATH` directly now.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction COMPLETE — 148 EventCandidates, all 375 pages read
+
+Same session, finished the volume across four more extraction passes from the page-303 checkpoint below (pages 304-338, IDs 922-938; 338-359, IDs 939-947; 359-375, IDs 948-955 — plus the earlier 303-329 stretch already logged, IDs 900-921 spanning two passes). Reading reached page 375, the book's own final page (it ends with "الحمد اللہ حصہ اول ،، الافاضات الیومیہ ،، کا تمام ہوا" - "the first part is complete"), so **Volume 1 of the 29-volume ملفوظات حکیم الامت series is now fully extracted**.
+
+- **Volume total: 148 confirmed EventCandidates** (pages 26-375, the entire volume), spanning IDs 807-955.
+- Two more in-book repeats recognized and correctly *not* re-inserted as duplicates (on top of the Hyderabad-mint repeat already logged): the "dry twigs brought as a gift, kept for one's own funeral ghusl water" hikayat appears twice (pages 272-273 and again 370-371) - only the first telling was kept as an EventCandidate.
+- Several more page-boundary anchor bugs caught and fixed during verification (a ملفوظ's own start/end text landing one page later than its heading page, and a few missing/extra words at page-break joins) - none reached the database uncaught.
+- Highlights from the final stretch: Sa'd ibn Abi Waqqas's practice of weighing out a servant's supplies to avoid any suspicion of dishonesty; Mawlana Shah Rafi-ud-Din's imperturbable calm before a huge Deoband jalsa; Mawlana Abdul Hai Lakhnawi's suspected-sorcery death at 38-40; three real colonial-era "Ameen bi'l-Jahr" court cases (a Hindu kotwal's shrewd anti-fitna report, an English officer's witty three-way taxonomy of "Ameen," and a Bhopal conversion case won on a legal technicality); Thanvi's own childhood confrontation with his aunt over purdah; Shaykh Adam's ilham-driven reconciliation with a rejected murid; and the book's own closing anecdote - Imam Abu Hanifa's joke about only backbiting his mother so the transferred good deeds stay in the family.
+- **Renderer finalized**: `build_malfoozat_vol1.py` now detects completion (`last_page >= 375`) and switches to the finished-volume naming convention matching احیاء العلوم/اصلاحی خطبات - `واقعات انسائیکلوپیڈیا - ملفوظات حکیم الامت جلد 1.docx` and `مکمل جلد 1 (ملفوظات حکیم الامت) - تصدیق و مکمل مطالعہ.html`, no more `(جاری)` suffix, in `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\ملفوظات حکیم الامت\`.
+- **Not yet done**: Volumes 2-29 of the same series (BookIDs 74-106) remain fully unextracted - Vol 1 was the only one started. See `books_selected_for_waqiat.txt` for the rest of the series and other ready candidates.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction continued to page 303 (11 more entries, IDs 911-921); 81% through the volume
+
+Same session, continued from the page-281 checkpoint below through page 303 of 375. Page 282's Hyderabad-mint story is a verbatim re-telling of the event already captured as EventCandidate 864 (pages 193-194) - recognized as a genuine in-book repeat (Thanvi told the same story in two different majlis sessions) and intentionally not re-inserted as a duplicate. 11 more real incidents confirmed (IDs 911-921): Qasim Nanotawi's debate with a Christian padri over Taqviyat al-Iman's wording, paired with Ahmad Ali Saharanpuri turning the same critic's own logic back on him over printing the Baizawi tafsir; the majzoob's prediction of Thanvi's and his brother's names before their births; a furious Shia scratching Hazrat Ali's name off a mosque inscription that also honored the other caliphs; the naming origin of Hussain ibn Mansur Hallaj; Thanvi's own Mecca debate that turned a Wahdat al-Wujud skeptic into a convert; Shaykh Najmuddin Kubra learning of his own Mosaic spiritual lineage from a rival's insult; and - the richest cluster this batch - four connected personal anecdotes: Thanvi's stern real-time confrontation of a man angling for his leftover wudu water as tabarruk, his own next-day reflection on why he'd reacted so sharply, his youngest brother's deliberately rule-breaking simple wedding, his own half-sister's wedding which he skipped entirely (secretly performing the nikah alone in another village to avoid extravagant customs), and his overnight escape into a garden to dodge a rich man's son's circumcision feast in Rampur.
+
+- **Volume total: 114 confirmed EventCandidates** (pages 26-303 of 375, 81% through), spanning IDs 807-921.
+- One anchor bug (a missing trailing mark) caught and fixed during verification before reaching the database.
+- Docx/html re-rendered to the new total, old page-281 snapshot deleted per the established convention.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction continued to page 281 (19 more entries, IDs 895-910)
+
+Same session, continued from the page-229 checkpoint below through page 281 of 375 (pages 229 tail-250, 252-255 part, 258 tail-266, 268 tail-270, 278 surveyed and skipped as doctrinal Q&A or general spiritual counsel with no narrated event). 19 more real incidents confirmed across two extraction passes (IDs 895-899, then 900-910): an unnamed bezirg who withheld greeting an idle man but greeted him once he was at least scratching the ground (shaytan's proximity to idleness); a new khanqah visitor's silence-rule violation and Thanvi's rebuke; Hazrat Ali's preference for accountability after bulugh over an unearned childhood death, for the sake of ma'rifah; Abu Rafi's grief resolved by revelation about companionship in Jannah; a villager's incomplete ta'wiz request; a Kanpur mawlvi silencing both a kotwal and a British Lieutenant Governor (who then gave him 50 lakh rupees unprompted); a khalwat-nashin bezirg refusing a Lieutenant Governor's money because he wasn't his mureed; Haji Imdadullah's habit of always eating a little from any gift out of "noor"; the dramatic multi-part story of Mir Mansab Ali's conversion from Shia to Sunni (shrine dua at Piran Kaliyar, his mother's collapse and permanent estrangement); three Ghawth al-Azam (Abdul Qadir Jilani) karamat hikayat (reviving eaten chicken bones, buying a merchant's unsold cloth to teach a khalifa a lesson, "khud-beeni shikast" on a broken mirror); Qasim Nanotawi wearing a villager's cheap cap to make him happy; and two of Thanvi's own train-travel anecdotes (preferring third class over first, and serving an English railway officer food on leaves rather than dishes as a deliberate mix of neighbor-right without honor-right).
+
+- **Volume total: 103 confirmed EventCandidates** (pages 26-281 of 375, exactly 75% through), spanning IDs 807-910.
+- Three anchor/page-boundary bugs caught and fixed during verification before reaching the database (a missing clause mid-sentence, and two entries whose true page boundary was one page off from where the ملفوظ heading first appeared).
+- Docx/html re-rendered to the new total, old page-229 snapshot deleted per the established convention.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction continued to page 229 (9 more entries, IDs 876-884); stale duplicate folder removed
+
+Same session, continued from the page-210 checkpoint below through page 229 (pages 212 tail/213-215/217-219 partial/220-222 partial/224-228 mostly surveyed and skipped as doctrinal Q&A, an unverifiable second-hand "ectoplasm photograph" anecdote with no real figure, or a murshid-murid spiritual-diagnosis dialogue with no narrated event). 9 more real incidents confirmed (IDs 876-884): a foreign majzoob in Deoband who silently refused to curse certain kuffar and was later found to have been their sympathizer; Rashid Ahmad Gangohi's fairness toward his sectarian opponent Ahmad Raza Khan; two mesmerism/planchette anecdotes (an imagined tiger-claw wound that drew real blood, and Thanvi logically disproving a Kanpur séance); Imam Abu Hanifa's careful ta'wil to avoid hasty takfir; Haji Imdadullah removing a bullet from a wounded Bedouin devotee without conscious awareness of doing so; two sama'-related anecdotes (British officials mistaking a nafsani shiver for spiritual effect at a Bareilly urs; Thanvi declining to join sama' at Nizamuddin Auliya's urs by reciting the saint's own four conditions); and Thanvi's own account of an offhand reassurance letter that accidentally "came true," which he explicitly refused to let anyone read as karamat.
+
+- **Volume total: 77 confirmed EventCandidates** (pages 26-229 of 375), spanning IDs 807-884.
+- **Duplicate folder removed**: `Waqiat_Encyclopedia_Deliverables\` (project root) - flagged in the previous entry as a confirmed-redundant duplicate of 8 files already in `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\` - user explicitly approved deletion, done via `git rm -r` (staged, not committed).
+- Docx/html re-rendered to the new total, old page-210 snapshot deleted (not kept as history), per the established "overwrite, don't accumulate" convention for this in-progress volume.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction continued to page 210 (24 more entries, IDs 843-875); first docx/html render + folder created; one stale duplicate folder found (not yet removed)
+
+Same session, continued straight on from the page-148 checkpoint below through page 210 of 375 (pages 149-151, 153-154, 156-159/163-165/166-168 partial, 190/192-193/199-201/204-206/208-209 partial surveyed and skipped as non-waqia doctrinal Q&A or thin jokes). 24 more real narrated incidents extracted and confirmed (IDs 843-875), same verify-before-insert discipline as the previous entry. Notable finds: Thanvi's own bay'ah story with Rashid Ahmad Gangohi (secured via Haji Imdadullah's written intervention after Gangohi initially deferred it), Gangohi rising from his own bed out of respect when Thanvi visited, Abu Bakr Siddiq's zakat-war decision overriding Umar Farooq's initial objection, Al-A'la bin al-Hadrami's sea crossing at Bahrain, and several Haji Imdadullah anecdotes (giving away his own clothes as tabarruk until none were left, insisting Gangohi accept a woman's bay'ah despite Gangohi's reluctance).
+
+- **Volume total: 68 confirmed EventCandidates** (pages 26-210 of 375), spanning IDs 807-875.
+- **First real render for this volume**: new folder `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\ملفوظات حکیم الامت\` (matching احیاء العلوم's per-book-subfolder convention, not اصلاحی خطبات's loose-file convention) with a docx + html snapshot, filenames suffixed `(جاری تا صفحہ 210)` since the volume isn't finished - re-rendered (old page-167 snapshot deleted, not kept as history) as extraction progresses, to be renamed once the volume completes. Renderer script matches the exact RTL/Jameel Noori Nastaleeq/field-layout template of the existing احیاء العلوم deliverables (verified against their raw docx XML - `w:bidi`, `w:rFonts` with ascii/hAnsi/cs all set, `Jameel Noori Nastaleeq`, `ur-PK` bidi lang).
+- **Found (not yet removed) a redundant duplicate folder**: `Waqiat_Encyclopedia_Deliverables\` at the project root duplicates 8 files already present in `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\` (7 byte-identical, 1 - اصلاحی خطبات جلد 4 docx - differs only in one paragraph's ordering, same content). Deletion was blocked by the session's safety classifier (destructive-action guard) pending explicit user confirmation - still sitting there, flagged for the user to approve removal.
+
+## Waqiat Encyclopedia: ملفوظات حکیم الامت Vol 1 extraction resumed, pages 112-148 (15 entries, IDs 828-842)
+
+Resumed the in-progress ملفوظات حکیم الامت (Ashraf Ali Thanvi) Volume 1 extraction (BookID 73) from where the 2026-08-21/22 session left off (last confirmed candidate ended at page 103 of 375). Note: that prior session's own EventCandidateIDs (741-761 in its log) no longer match the live database - a machine-consolidation dedup replay on 2026-08-23 (`docs/duplicate_analysis/replay_68_plus_4_removed_backup.json`) renumbered/repointed a large stretch of EventCandidateIDs, including unrelated Ihya Ulum al-Din Vol 3/4 rows shifting from BookID 109828/109829 to 107237/107238. Not fully root-caused this session - flagged as a follow-up, but the live BookID 73 data itself was verified intact (21 pre-existing rows, pages 26-103, all still `confirmed`).
+
+- **Pages 104-111 (ملفوظ 116, part 1) intentionally skipped again** - pure fiqh/political Q&A about Kashmir jihad tactics during the Khilafat era, no narrated incident.
+- **Pages 112-127 (ملفوظ 116, part 2-3)**: 8 real narrated incidents embedded inside the same doctrinal ملفوظ, extracted individually rather than skipping the whole block - the earlier session's "skip doctrinal dialogue" rule was about pure Q&A, not about incidents narrated *within* a longer discourse. Covers: a young Punjabi doctor's relative trying to make Thanvi "Amir-ul-Momineen" during the Khilafat movement (with Thanvi's deliberately impossible conditions); an elderly Hindu Rajput warning Thanvi of threats on his life; Shaykh al-Hind Mahmud Hasan's return from Malta internment and a sharp exchange about "ناسخ/منسوخ"; Shaykh al-Hind's letter refusing to compromise on cow-slaughter for a Delhi Shura; Sultan Salahuddin Ayyubi refusing to dilute Islamic law after conquering Syria; Shaykh al-Hind's deathbed humility about disagreement; Shaykh al-Hind's anger at backbiting against Thanvi; and a Delhi scholar's years-unfulfilled promise of a written rebuttal.
+- **Pages 128-132 and most of 136-147 surveyed, found to contain no real waqiat** (short fiqh/tasawwuf Q&A only) - intentionally skipped.
+- **Pages 133-148**: 7 more entries - a bezirg's self-deprecating "bought my own worst handwriting" story; three akabir's (Qasim Nanotawi, Haji Imdadullah, Rashid Ahmad Gangohi) differing ways of handling gossip about themselves; Gangohi's grief at Haji Imdadullah's death; the full history of the Thana Bhawan khanqah's سہ دری (dervish Hasan Shah vacating it out of respect, then its construction funded via a land-tax dua); two Sir Sayyid Ahmad Khan character anecdotes (the fake "son-in-law" job-seeker, and the train passenger who badmouthed him to his face).
+- **New personality taxonomy terms created**: شیخ الہند محمود الحسن دیوبندی رحمۃ اللہ علیہ, سلطان صلاح الدین ایوبی رحمۃ اللہ علیہ, سر سید احمد خان, حسن شاہ (درویش تھانہ بھون), حضرت میاں جی صاحب. Reused existing terms for Thanvi, Qasim Nanotawi, Haji Imdadullah, Rashid Ahmad Gangohi.
+- Every matn verified as a real verbatim substring of `Pages.Content` via `str.index()` before insertion (two anchor mismatches caught and fixed during verification, neither reached the database).
+- **Reading is now at page 148 of 375** (163 total candidate pages identified in this volume by the earlier keyword scan; pages 149-375 and the remaining 28 volumes of the series not yet touched).
+
+## Waqiat Encyclopedia: merge/dedup pipeline built, first merged encyclopedia rendered (25 volumes)
+
+The previously-parked merge/dedup pipeline (see `waqiat-encyclopedia-merge-plan` memory) is now built and has produced the first real, subject-organized Waqiat Encyclopedia — 740 `EventCandidates` from both source series (اصلاحی خطبات + احیاء العلوم) merged, deduplicated, and rendered into 25 subject-based volumes, replacing the earlier per-source-book organization.
+
+- **All 113 previously-`pending` EventCandidates confirmed** (اصلاحی خطبات Vol 1-4 — fully extracted under the same rules as everything else, just never had `.confirm()` called; this was an old workflow gap, not a content issue). All 740 EventCandidates are now `Status='confirmed'`.
+- **Bug found and fixed in `TaxonomyRepository._merge_term`** (`src/islamic_research_hub/infrastructure/persistence/taxonomy_repository.py`): it repointed `BookTaxonomyTerms` on a merge but not `EventCandidateTaxonomyTerms`, so merging a term used mainly by `EventCandidates` (as `personality`/`event` terms are) silently orphaned those tags instead of moving them to the surviving term. Caught immediately after the very first `subject`-dimension merge run (one orphaned row), fixed in both `_merge_term` and `_pick_survivor` (now counts EventCandidate usage too, not just book usage), and locked in with a new regression test (`test_merge_duplicate_terms_repoints_event_candidate_tags_instead_of_orphaning_them` in `tests/test_taxonomy_repository.py`).
+- **Taxonomy cleanup**: 12 duplicate taxonomy terms merged total — `TaxonomyRepository.merge_duplicate_terms()` caught 1 automatically (pure normalization collision); the rest needed a manual `_merge_term` pass since they were genuinely different-looking names for the same referent, which the automatic normalizer can't detect: `نبی کریم ﷺ`/`رسول اللہ ﷺ`, `عمر بن الخطاب`/`حضرت عمر فاروق رضی اللہ عنہ`, and two Mufti Taqi Usmani name variants (`personality` dimension); `صحابہ کرام`/`صحابۂ کرام`, `عورتوں سے متعلق واقعات`/`خواتین کے واقعات`, `تفسیر و علوم القرآن`/`قرآن سے متعلق واقعات`, `معاملات`/`معاشرت و معاملات` (`subject` dimension, top-level Primary Categories); 4 pairs of `event`-dimension terms that had split the same incident into two separate cross-tag clusters. Top-level Primary Category count dropped from 35 to 31 (excluding the empty `اتحاد امت اور باہمی اخوت` node, which has 0 entries and produces no volume).
+- **Dedup pass**: cluster-seeded (not exhaustive-pairwise — infeasible at 740² manually) using a deterministic title-similarity pre-filter (plain significant-word Jaccard overlap, no LLM/agent involved) to flag likely-duplicate pairs within personality-sharing and no-personality-tag clusters, then every flagged pair read and judged by hand against the real `quoted_excerpt` text before cross-tagging. Found 6 more genuine duplicates beyond the 55 already-known `event` clusters (3 extended existing clusters, 3 became new ones) — including the "young man asking the Prophet ﷺ for permission to commit zina" hadith told in both series, and two Mufti Taqi Usmani family anecdotes (Maulana Idris Kandhlawi hospitality; Dr. Abdul Hai's reaction to gifts) each repeated across different اصلاحی خطبات volumes. `event`-tagged coverage rose from 129/740 to 138/740 candidates (54 clusters). The anonymous-figure pass (candidates with no `personality` tag, 202 of them) found no new genuine duplicates — the many high-Jaccard hits there were all numbered-list artifacts (e.g. `سخیوں کی ۳۶ حکایات:` items sharing prefix words by publisher design, not by being the same story).
+- **New renderer** (`build_encyclopedia.py`, scratchpad): for a given `subject` Primary Category (or several combined), collects every confirmed `EventCandidate` under that category's full subtree, groups candidates sharing an `event`-dimension term into one canonical Waqia unit with **every source narrative kept fully separate and verbatim** (never blended — each shows its own citation), and renders one docx + one HTML volume with personality and source-book index appendices. Reuses the existing RTL/Jameel Noori Nastaleeq/citation conventions from the per-book `build_docx.py`.
+- **25 volumes rendered** (24 real Primary Categories with 4+ entries, plus one combined `متفرقات` volume folding in 6 categories with 1-3 entries each) into a **new folder**, `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\Waqiat Encyclopedia Books\` — the existing per-source-book deliverables stay untouched as the raw-extraction record. Largest volumes: علماء و صلحاء (183→157 units), صحابۂ کرام (158→133), تصوف و سلوک (144→137), اخلاق و کردار (130→120), سیرت النبی ﷺ (103→93).
+- No new DB schema — the `event` taxonomy dimension serves as the canonical-incident grouping key directly, per the original merge-plan design. Query-and-render layer only, all built in scratchpad scripts (not persisted to the repo, consistent with every prior extraction script).
+
+## Waqiat Encyclopedia: احیاء العلوم Volume 4 extraction (58 entries) — series complete
+
+Final volume of the 4-volume احیاء العلوم extraction. Volume 4 (book_id=109829) covers کتاب الصبر والشکر، کتاب الرجاء والخوف، کتاب الفقر والزہد، کتاب التوحید والتوکل، and کتاب المرض والموت. Much more modest in scope than Volume 3 (58 vs 107) — unlike Volume 3, every anecdote here already carries its own individual "حکایت:" heading, including the two small numbered clusters ("متوکلین کی آٹھ حکایات" and a 5-item علاج-avoidance cluster from بزرگانِ دین) — no hidden un-headed sub-items this time.
+
+- **58 EventCandidates inserted, IDs 683-740.**
+- **Both background research agents assigned to this volume hit the account's monthly spend limit and failed mid-task.** One left behind a file (`vol4_final_entries.json`) containing ~15 entries of completely fabricated content from an unrelated modern Urdu book about child-rearing (citing "مفتی محمد شفیع", "دارالعلوم دیوبند", nursing homes) — verified against the actual database (BookID 109829, the cited page numbers) and confirmed bogus, then discarded entirely without using any of it. The rest of the volume was surveyed directly via manual page dumps instead of further agent delegation.
+- Regex heading-scan widened to catch both Urdu (ک/ی) and Arabic-letter (ك/ي) spellings of "حکایت" — the Arabic-letter variant caught one entry (p159-160 in Vol 3, "تم بخیل ہو") that a plain-Urdu-spelling scan would have missed; worth using both patterns on any future full-book sweep.
+- No cross-volume `event`-term duplicates found (checked several recurring-figure keywords against the existing corpus).
+- Same page-range-anchored `seg_text(idx)` method, "احیاء العلوم، جلد ۴، صفحہ X" citation format, deliverables in `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\احیاء العلوم\`.
+
+**Series total across all 4 volumes: 265 EventCandidates** (Vol 1: 23, Vol 2: 77, Vol 3: 107, Vol 4: 58), IDs 476-740. Full per-volume breakdown in the sections below and in `project_ihya_ulum_import.md` memory.
+
+## Waqiat Encyclopedia: احیاء العلوم Volume 3 extraction (107 entries)
+
+Volume 3 (book_id=109828) turned out far denser than Volumes 1-2: the book's own "فہرست حکایات" appendix (scan pages 1319-1321) revealed ~45 individually "حکایت:"-headed anecdotes PLUS four numbered clusters embedded in the running text — "سخیوں کی 36 حکایات" (36 generosity anecdotes), "بخیلوں کی آٹھ حکایات" (8), "بردباروں کی چھ حکایات" (6), and "حسنِ اخلاق کی پانچ حکایات" (5) — none of which were captured by a simple heading scan since they're numbered sub-items under one cluster heading, not individually marked. Surfaced this scope change to the user before proceeding; user chose full-scope extraction (~100 entries) over a reduced "titled-only" pass.
+
+- **107 EventCandidates inserted, IDs 576-682.** Given the scale, three background research agents were used in parallel to gather page-verified title/gist/figure data across different page ranges of the book (837-856 for the two numbered clusters + 5 ambiguous fragments; 162-653; 757-1329) while classification, duplicate-checking, and the final `ENTRIES_DEF`/insert/tag scripts were done directly — the agents did read-only data-gathering, not the actual extraction judgment calls.
+- Two of the agents independently rediscovered the same non-"حکایت:"-headed bonus anecdote (برقع پوش اعرابیہ، p407-409, Sulaiman bin Yasar) via different search paths — good cross-validation. One agent also caught and corrected a misattribution carried over from an earlier reading pass: a "two brothers" story I'd believed was on Vol 3 p757-758 doesn't exist there at all — it was actually Volume 2 content (already correctly extracted as id 539), conflated in memory across a context-compaction boundary. No duplicate was created.
+- No cross-volume `event`-term duplicates found this round (checked زلیخا/سفیان ثوری/عیسیٰ علیہ السلام/خباب بن ارت keywords against the existing corpus before finalizing).
+- Same page-range-anchored `seg_text(idx)` method, "احیاء العلوم، جلد ۳، صفحہ X" citation format, deliverables in `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\احیاء العلوم\`.
+- Volume 4 (book_id=109829, only 44 raw headings — likely much smaller than Vol 3) not yet extracted.
+
+## Waqiat Encyclopedia: احیاء العلوم Volumes 1-2 extraction
+
+Extraction pipeline reused from اصلاحی خطبات but adapted for this book's much coarser/sparser heading structure. Both volumes needed a page-range-anchored method (`seg_text(idx)` querying `Pages` directly by `(page_start, page_end)`, not segment-array indexing) rather than segment-based extraction, since Ihya's headings don't reliably bound individual anecdotes.
+
+- **Volume 1** (book_id=109830): 23 entries, IDs 476-498. No usable heading data at all (see import notes below), so entries were found via full-text scan for "حکایت" plus manual page-attribution, each cross-checked with a direct `Content LIKE` query before finalizing (several of my own remembered page numbers from a long sequential read turned out wrong and had to be corrected this way). No cross-volume duplicates found against the 475-entry اصلاحی خطبات corpus.
+- **Volume 2** (book_id=109826): 77 entries, IDs 499-575 — far denser than Volume 1. Discovered and used the book's own dedicated "anecdote index" appendix (pages ~1434-1470, publisher-created, lists every حکایت with its own printed page number) to bound and cross-verify scope, alongside a full-text حکایت scan and title-keyword `LIKE` searches.
+- **One duplicate cluster found and cross-tagged via the `event` taxonomy dimension**: Sufyan al-Thawri's "travelled to a cheap, gumnam town to protect his religion from price-gouging" anecdote (narrated by Abu Nu'aym Fadl ibn Dukayn) is told **three times** across the two volumes — Vol 1 p792-793 (id 489), and **twice within Volume 2 itself**: once in کتاب الکسب والمعاش (p396, id 523) and again in the مروجہ برائیاں section (p991, id 546). All three cross-tagged under one shared `event` term (TermID 1569).
+- Citation format: "احیاء العلوم، جلد X، صفحہ Y" (Urdu-Indic digits, no author name), same as اصلاحی خطبات's convention.
+- `build_docx.py`/`build_html.py` generalized to accept optional `series_title` (both scripts) and `section_label` (docx only) CLI args so they aren't hardcoded to اصلاحی خطبات anymore. Deliverables saved to `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\احیاء العلوم\`.
+- Volumes 3 (book_id=109828, 197 raw headings) and 4 (book_id=109829, 44 raw headings) not yet extracted.
+
+## New book import: احیاء العلوم (Ihya Ulum al-Din), Urdu translation, all 4 volumes
+
+Imported from a Google Vision OCR run (`F:\URDU OCR GOOGLE VISION\Output urdu ocr google vision`, .txt+.docx pairs, not previously in the maktaba as real content — the one existing DB row for this title, BookID 106735, was an empty 1-page stub with only a cover page OCR'd, and is left untouched/unmerged for now). No general-purpose OCR-to-database importer existed in the codebase, so this required writing one from scratch (`MasterBookRepository.import_books()` already handled the transactional Books/Pages/Chapters/Footnotes writes and FTS trigger sync — only the reader that turns raw OCR text into `Book`/`Chapter`/`Page` domain objects was new).
+
+- **New library**: "OCR Imports (Google Vision)" (LibraryID 13) — kept separate from Maktaba Shamila Urdu etc. so OCR-sourced content stays distinguishable by provenance.
+- **BookIDs**: Vol 1 = 109830, Vol 2 = 109826, Vol 3 = 109828, Vol 4 = 109829. Totals: 5,007 pages, 529 `<urh1>` headings inserted as Chapters rows.
+- **Page numbers are scan-sequence, not printed-book page numbers** — the OCR tool joined pages with blank-line separators but silently dropped genuinely blank scanned pages, and true printed page numbers are only rarely isolated on their own OCR line (checked: 3 of 1,487 page-chunks in Vol 2) so they weren't reliably recoverable. Citations against this book won't match a physical/PDF copy's pagination. User confirmed this is acceptable.
+- **Heading detection, two different methods**: Volumes 2-4 were OCR'd after the tool's geometric heading-classifier existed, so their .docx exports carry real Word "Heading 1" styling per line — recovered by aligning 1:1 against the .txt's non-blank lines (verified zero misalignment across 29,533 lines on Vol 2) and filtered against a content heuristic (length, colon/question-mark ending, no footnote-citation vocabulary, no leftover TOC dot-leader page number) to cut the raw classifier's ~93% false-positive rate (mostly short/isolated footnote lines) down to real topic headings. **Volume 1 has zero heading data** (OCR'd before that tool feature existed) — fell back to a stricter text-only rule requiring an explicit باب نمبر/فصل structural prefix (a looser "ends with a colon" rule alone flagged 1,102 false headings across 1,175 pages on a first attempt — reverted and fixed before keeping Volume 1's import).
+- **Known OCR text-quality caveat** (user explicitly accepted, not something to fix now): the underlying OCR text itself has some genuine recognition errors, and heading detection still lets occasional noise through even after filtering (mostly generic "ارشاد فرماتا ہے:"-style lead-ins). Left as-is per user instruction.
+- Ghazali's Ihya explicitly labels many of its illustrative anecdotes with "حکایت:" in its own headings (e.g. "حکایت: نکاح نگاہ اور شرم گاہ کا محافظ ہے") — a strong, ready-made signal for any future waqiat-style extraction pass over this book, stronger than the keyword heading-scan used for اصلاحی خطبات.
+
+## Waqiat Encyclopedia: Volume 18 extraction (اصلاحی خطبات جلد نمبر ۱۸) — series complete
+
+19 anecdotes extracted from book_id=1705 (330 pages, 20 bayans, IDs
+457-475), full verbatim matn, same deliverable convention. This is the
+**final volume of the 18-volume اصلاحی خطبات series** — extraction of
+the whole set is now complete. The volume is tafsir-heavy (continuing
+سورۃ الفاتحہ through آیات ۴-۱۳, then سورۃ الفلق and سورۃ الناس in full,
+plus a closing بیان on صدقہ), so anecdote density ran lower per page
+than the narrative-heavy volumes, but it still surfaced several
+significant incidents: the Ghamidiyya woman's repeated self-confession
+of zina and insistence on the hadd despite Aisha RA and Umar RA's
+hesitation (Sahih Muslim), and the full شان نزول of سورۃ الفلق و الناس
+— the Jewish sorcerer Labid ibn al-A'sam's spell on the Prophet ﷺ,
+revealed to him in a dream by two angels, and his deliberate choice not
+to have the man punished once the spell was broken.
+
+- Four duplicate clusters, three of them **internal to this single
+  volume** — the same illustration reused across different بیانات on
+  the same theme (توکل / اپنی کوشش پوری کرنا): حضرت یوسف علیہ السلام کا
+  زلیخا کے فتنے سے بچنا was retold **three times** in one volume,
+  حضرت یونس علیہ السلام کی دعا **twice**, and حافظ ابن حجر عسقلانی کا
+  زمزم پر رشک کی دعا **twice** — all correctly resolved to a single
+  shared `event` TermID each rather than being tagged as unrelated
+  entries. The fourth is cross-volume: حضرت گنگوہی رحمۃ اللہ علیہ کی
+  مانگ ٹیڑھی ہونے کی شکایت پر تعویذ (2nd telling, first told in Vol 15).
+- Total across the complete 18-volume series: **475 EventCandidates,
+  3,606 taxonomy links** (737 subject terms, 309 tag terms, 61 event
+  terms).
+
+**With Volume 18 done, every book in the اصلاحی خطبات series has been
+extracted.** The merge/dedup pipeline (Event→Narrative materialization
+across the full corpus) remains deliberately parked per the standing
+decision — not started in this session.
+
+## Waqiat Encyclopedia: Volume 17 extraction (اصلاحی خطبات جلد نمبر ۱۷)
+
+22 anecdotes extracted from book_id=1704 (321 pages, 15 bayans, IDs
+435-456), full verbatim matn, same deliverable convention. The first
+bayan ("کسی کا مذاق مت اڑاؤ", 46 pages — the longest single bayan yet
+covered in one calibration read) alone produced 5 entries, including a
+nomad woman's story of surviving a false-theft accusation over a
+necklace a kite had stolen (preserved because she used to recite two
+lines of poetry about it whenever visiting Aisha RA — his mother
+narrating the poem's origin is what surfaces the whole anecdote), and
+Stalin's missing-watch investigation that produced ten false confessions
+before the watch turned up exactly where he'd left it.
+
+- Six confirmed duplicates, two of them worth flagging specifically:
+  امام رازی رحمۃ اللہ علیہ's scorpion-tracking parable (2nd telling, Vol
+  5) and حضرت موسیٰ و خضر علیہما السلام's full Qur'anic narrative (2nd
+  telling — first told in Vol 16 just one volume ago). The other four:
+  the "worst man of tribe" hadith (2nd, Vol 10), Bilal RA's footsteps in
+  Jannah (2nd, Vol 8), the fly-on-inkwell mercy story (**3rd**, Vol 5/8),
+  and Abdullah ibn al-Mubarak's "close the door from outside" story
+  (**3rd**, both earlier tellings from Vol 6 itself).
+- One near-duplicate distinction worth recording: a dog-watering-mercy
+  hadith appears in this volume about a sinful *man* using his leather
+  sock to draw water — this is a genuinely different hadith narration
+  from the already-extracted "فاحشہ عورت" (woman) version (Vol 6/8),
+  not a duplicate, despite the similar theme and moral.
+- Total across all 17 volumes: **456 EventCandidates, 3,471 taxonomy
+  links** (714 subject terms, 290 tag terms, 57 event terms).
+
+## Waqiat Encyclopedia: Volume 16 extraction (اصلاحی خطبات جلد نمبر ۱۶)
+
+23 anecdotes extracted from book_id=1320 (319 pages, 17 shorter bayans,
+IDs 412-434) — the richest volume by entry count since the Volume 9-12
+run, full verbatim matn, same deliverable convention. Highlights include
+Mufti Muhammad Shafi's own account of scoffing at a scorpion warning
+("agar bichu ne kaat bhi liya to tumhara kya bigarega") right before his
+mother was bitten in the dark, the origin story of Dhaka's "Begum Bazaar"
+(a spendthrift nawab's son and daughter, addicted respectively to the
+smell of struck matches and the sound of torn cloth, reduced to begging
+there), and two of the author's own witnessed lapses in Muslim social
+conduct abroad (neighbors ignoring a house fire in Islamabad; a shoving
+match to board an airport bus in New York).
+
+- Four confirmed duplicates: Shaikh Saadi's Gulistan merchant parable (2nd
+  telling, Vol 12), Mufti Aziz-ur-Rahman's widows'-groceries habit
+  reaching a **3rd** telling (Vol 5/12/16, correctly reusing the same
+  `event` TermID), a Mecca cloth-merchant story (2nd telling, Vol 13), and
+  Umar RA silencing a loud preacher for Aisha RA's sake (2nd telling,
+  Vol 8).
+- Total across all 16 volumes: **434 EventCandidates, 3,322 taxonomy
+  links** (687 subject terms, 277 tag terms, 51 event terms).
+
+## Waqiat Encyclopedia: Volume 15 extraction (اصلاحی خطبات جلد نمبر ۱۵)
+
+15 anecdotes extracted from book_id=1210 (298 pages, 13 bayans, IDs
+397-411), full verbatim matn, same deliverable convention. First bayan
+(تعویذ گنڈے اور جھاڑ پھونک) was unusually rich — 4 of the volume's 8 new
+entries came from it, including two "impossible taweez" stories from
+Maulana Rashid Ahmad Gangohi (writing "یہ مانتا نہیں، میں جانتا نہیں" for
+an insistent villager, and "اھدنا الصراط المستقیم" for a woman complaining
+her hair-parting wouldn't sit straight) and the author's own witnessed
+account of a fraudulent "aamil" spitting into a line of followers' open
+mouths after Friday prayers.
+
+- This was the most duplicate-dense volume yet, proportionally: **7 of
+  the 15 entries (nearly half)** are confirmed retellings, most reusing
+  an existing `event` TermID by name rather than creating a new one
+  (confirming the taxonomy keeps resolving correctly at this scale):
+  غزوۂ خیبر کا چرواہا reached a **5th** telling (this time split across 5
+  headings instead of one, needing a 5-segment stitch); حضرت مفتی محمد
+  شفیع صاحب's room-ownership wasiyat reached a **4th**; حضرت عمر فاروق
+  رضی اللہ عنہ و حضرت عباس کا پرنالہ reached a **3rd**; and four other
+  stories (عمر رضی اللہ عنہ کا خواب میں محل, حضرت عبدالرحمن بن عوف کا
+  سادگی سے نکاح, حضرت جابر کا بیوہ سے نکاح, حضرت حذیفہ بن یمان کا ابوجہل
+  سے وعدہ) each reached a 2nd telling.
+- Total across all 15 volumes: **411 EventCandidates, 3,174 taxonomy
+  links** (657 subject terms, 262 tag terms, 48 event terms).
+
+## Waqiat Encyclopedia: Volume 14 extraction (اصلاحی خطبات جلد نمبر ۱۴)
+
+12 anecdotes extracted from book_id=1103 (313 pages, 16 bayans — noticeably
+more, shorter khutbas than earlier volumes, IDs 385-396), full verbatim
+matn, same deliverable convention. This volume includes a khutba delivered
+at a madrasa in a "دور افتادہ بستی" (رather than the usual جامعہ مسجد
+بیت المکرم series) and a post-9/11 khutba ("مسلمانوں پر حملہ کی صورت میں
+ہمارا فریضہ", referencing the US invasion of Afghanistan) — both outside
+the volume's usual register, and a 40-page "درس ختم صحیح بخاری ۱۴۲۰ھ"
+address that turned out to be a rich source of anecdotes despite being a
+hadith-methodology lecture.
+
+- Three confirmed duplicates: غزوۂ خیبر کا چرواہا now a **4th** telling
+  (Vol 4/6/9/14, reusing the same `event` TermID each time — confirms the
+  taxonomy is holding up correctly at this scale), حضرت شاہ اسماعیل شہید
+  رحمۃ اللہ علیہ's "harzamzada" gaali retort now a 4th telling (Vol
+  6/8/11/14), and حضرت مرزا مظہر جان جاناں رحمۃ اللہ علیہ's hawz-measuring
+  test for a bickering talib — a 2nd telling of a story first seen only
+  one volume ago (Vol 12), and one the author himself flagged as a repeat
+  in the source text ("پہلے بھی شاید آپ کو واقعہ سنایا تھا").
+- Total across all 14 volumes: **396 EventCandidates, 3,064 taxonomy
+  links** (644 subject terms, 254 tag terms, 44 event terms).
+
+## Waqiat Encyclopedia: Volume 13 extraction (اصلاحی خطبات جلد نمبر ۱۳)
+
+13 anecdotes extracted from book_id=1040 (361 pages, 9 bayans, IDs
+372-384), full verbatim matn, same deliverable convention. Notably
+different from every prior volume: this one is themed entirely around
+مسنون دعائیں (bathroom/wudu/mosque/morning/leaving-home/eating/travel/
+calamity/sleep du'as) rather than being a set of topical exhortations —
+much closer to a reference/how-to volume than a narrative one. The first
+bayan (مسنون دعائوں کی اہمیت, 20 pages) yielded **zero** real waqiat on
+full calibration read — pure doctrinal content about why and how to make
+du'a, no narrated incidents at all, reconfirming the "density varies a lot
+by bayan, not just by volume" lesson. The remaining 8 bayans still
+produced a reasonable anecdote count once actual du'a-context stories
+were included (Bahlul Majzoob quizzing Harun al-Rashid before he drinks
+water, Abu Ubaidah ibn al-Jarrah's lowered-gaze siege-breaking, etc.).
+
+- One **intra-volume duplicate**: Thanvi's story about a Lucknow nawab
+  reduced to drinking only strained minced-meat juice is told twice within
+  Volume 13 itself (once illustrating نعمتوں کی قدر generally, once
+  illustrating the رزق vs اطعمنا distinction) — cross-tagged rather than
+  merged.
+- Two cross-volume duplicates: جناب ذکی کیفی صاحب's rainy-day-bookstore
+  story (2nd telling, first seen Vol 9) and حضرت ایوب علیہ السلام کی سونے
+  کی تتلیاں (2nd telling, first seen Vol 3).
+- Total across all 13 volumes: **384 EventCandidates, 2,987 taxonomy
+  links** (631 subject terms, 247 tag terms, 43 event terms).
+
+## Waqiat Encyclopedia: Volumes 10-12 extraction (اصلاحی خطبات جلد نمبر ۱۰-۱۲)
+
+Three volumes extracted in one continuous session (user: "continue doing next
+3 volumes like that"), each with the richer Primary Category/Subject/
+Sub-subject/tags classification applied from insertion time, full verbatim
+matn, and the index-anchored segment methodology introduced in Volume 9.
+
+- **Volume 10** (book_id=746, 291 pages, 17 bayans): 28 anecdotes (IDs
+  302-329). 3 confirmed duplicates cross-tagged: two Thanvi railway stories
+  (fare-paid-himself, half-ticket-khalifa — both already told in Volume 9)
+  and the blacksmith-surpassing-Abdullah-ibn-al-Mubarak story (Volume 7,
+  2nd telling).
+- **Volume 11** (book_id=829, 322 pages, 11 bayans — 5 standalone plus a
+  6-part "خاندانی اختلافات کے اسباب" series): 21 anecdotes (IDs 330-350).
+  3 confirmed duplicates: Shah Ismail Shaheed's "harzamzada" gaali retort
+  (now a 4th telling, spanning Vol 6/8/11), Abu Bakr RA cursing his slave
+  (2nd telling, Vol 6), and Mufti Muhammad Shafi's room-ownership wasiyat
+  (2nd telling, Vol 9).
+- **Volume 12** (book_id=933, 310 pages, 10 bayans): 21 anecdotes (IDs
+  351-371). 3 confirmed duplicates: Mufti Aziz-ur-Rahman's widows'-grocery
+  errands (2nd telling, Vol 5), his never-contradict-to-your-face habit
+  (2nd telling, Vol 11 — found within days of first being extracted), and
+  Abu Bakr RA cursing his slave (**3rd** telling now, Vol 6/11/12).
+- Two entries needed genuine multi-segment stitching rather than the
+  usual single-heading-per-story pattern — confirmed by reading the
+  continuation before stitching, not assumed: Umm Salama RA's advice at
+  Hudaybiyyah (Vol 11, 3 segments) and the Cape Town Malay Muslims' history
+  under slavery (Vol 10, 5 segments, the longest single narrative
+  extracted so far).
+- **Taxonomy hierarchy bug found and fixed**: `TaxonomyRepository.
+  get_or_create_term()` matches an existing term by name only, ignoring
+  `parent_term_id` whenever a term with that name already exists — so
+  recurring "Subject"-tier terms (e.g. حضرت مفتی محمد شفیع صاحب, حضرت
+  ڈاکٹر عبدالحئی صاحب) that had originally been created as flat top-level
+  `subject` tags back in Volumes 1-8, before the Volume 9 backfill added
+  the Primary→Subject→Sub-subject hierarchy, kept silently reattaching to
+  their old root position instead of nesting under their intended Primary
+  Category. Fixed retroactively for 8 already-affected terms (re-parented
+  under علماء و صلحاء / بادشاہ حکمران و امراء / ائمہ محدثین اور فقہاء /
+  عبرت و نصیحت کے واقعات as appropriate), and every Volume 10-12 tagging
+  script now includes an automatic re-parent check after each `subject`
+  term is resolved, so the same collision self-heals going forward without
+  needing another manual pass.
+- Total across all 12 volumes: **371 EventCandidates, 2,900 taxonomy
+  links** (614 subject terms, 236 tag terms, 40 event terms).
+
+## Waqiat Encyclopedia: richer classification backfill (Volumes 1-8) + Volume 9 extraction
+
+Following a planning discussion about the eventual multi-volume Waqiat
+Encyclopedia (hierarchical Primary Category → Subject → Sub-subject
+classification, free tags, source-reliability notes, and a future
+Event→Narrative→Source→Classification merge model — decisions recorded
+in memory as `project_waqiat_encyclopedia_merge_plan.md`), two things
+happened in this session:
+
+**1. Backfill of Volumes 1-8 (268 existing EventCandidates).** Every
+entry was reclassified with the richer taxonomy — a 3-level
+Primary Category → Subject → Sub-subject hierarchy (via the existing
+`subject` dimension's `ParentTermID` chain) plus free-form keyword
+tags (newly activated `tag` dimension) plus, where warranted, a
+source-reliability note appended to the entry's background field
+(e.g. flagging author-acknowledged Isra'iliyyat or "sach ya jhoot"
+uncertainty). This was purely additive — the original flat
+subject/personality/event tags from Volumes 1-8 were left untouched.
+Result: 1,378 new taxonomy links, 13 primary categories and 399
+subject/sub-subject terms created or reused, 5 reliability notes
+added.
+
+**2. Volume 9 extraction** (اصلاحی خطبات جلد نمبر ۹, book_id=678, 313
+pages, 12 bayans: ایمانِ کامل کی چار علامتیں، مسلمان تاجر کے فرائض،
+اپنے معاملات صاف رکھیں!، اسلام کا مطلب کیا؟، آپ زکوٰۃ کس طرح ادا کریں؟،
+کیا آپ کو خیالات پریشان کرتے ہیں؟، گناہوں کے نقصانات، منکرات کو
+روکو……!، جنت کے مناظر، فکر آخرت، دوسروں کو خوش کیجئے، مزاج و مذاق کی
+رعایت کریں) — the first volume built with the richer classification
+applied **from the start** rather than backfilled. 33 real anecdotes
+inserted into `EventCandidates`, full verbatim matn, same deliverable
+convention: `واقعات انسائیکلوپیڈیا - اصلاحی خطبات جلد 9.docx` and
+`مکمل جلد 9 - تصدیق و مکمل مطالعہ.html`, all 33 tagged with both the
+flat subject/personality dims and the new hierarchy + tags.
+
+- Methodology fix: earlier per-volume scripts stitched multi-segment
+  "start heading → end heading" ranges, but `build_segments.py` already
+  groups each `<urh1>` heading's full text (across however many pages)
+  into a single self-contained segment — confirmed by direct inspection
+  (e.g. one heading's segment spanning p41-43 with no continuation).
+  Using an unrelated next heading as an "end" marker would have
+  silently pulled unrelated adjacent content into the wrong entry, and
+  heading-substring matching is unreliable here anyway (recurring
+  generic headings like "ایک سبق آموز واقعہ" appear many times, and the
+  source text uses decomposed Unicode forms that don't reliably
+  substring-match hand-typed headings). Volume 9's entries are instead
+  anchored directly to a verified segment index, with every entry's
+  extracted text read and checked against the source before insertion.
+- Volume 9 turned out to be the most duplicate-dense volume yet: of the
+  33 entries, 9 are confirmed retellings of stories already in the
+  encyclopedia (cross-tagged via shared `event` terms rather than
+  merged/omitted, per the "keep every source's narrative separate"
+  principle) — 2 more tellings of حضرت عمر اور چرواہا "فَاَیْنَ اللّٰہ؟"
+  (now 5 occurrences total, spanning Volumes 3, 4, 8, 9×2), a 3rd
+  telling of غزوۂ خیبر کا چرواہا (Volumes 4, 6, 9 — this also surfaced
+  and fixed a gap where the Volume 6 telling had never been cross-tagged
+  to the Volume 4 one), plus new cross-volume links for خواجہ نظام
+  الدین اولیاء/مخالف عالم کی عیادت (Vol 8), حضرت علی/تھوکنے والا یہودی
+  (Vol 3), حضرت عمر/حضرت عباس کا پرنالہ (Vol 8), حضرت بہلول مجذوب/ہارون
+  رشید (Vol 7), حرام لقمہ — مولانا یعقوب نانوتوی (Vol 5), and دودھ میں
+  پانی ملانے سے انکار کرنے والی لڑکی (Vol 8). One duplicate was
+  **intra-volume**: the فیضی شاعر داڑھی/بزرگ کا استفسار exchange is
+  told twice within Volume 9 itself (once each in گناہوں کے نقصانات
+  and مزاج و مذاق کی رعایت کریں).
+- Total across all 9 volumes: 301 EventCandidates, 2,450 taxonomy
+  links (521 subject terms, 188 tag terms, 32 event terms).
+
+## Waqiat Encyclopedia: Volume 8 extraction (اصلاحی خطبات جلد نمبر ۸)
+
+39 real anecdotes extracted from book_id=571 (321 pages, 10 bayans:
+تبلیغ و دعوت کے اصول، راحت کس طرح حاصل ہو؟، گناہوں کا علاج خوفِ خدا،
+رشتہ داروں کے ساتھ اچھا سلوک کیجئے، مسلمان مسلمان بھائی بھائی، خلقِ خدا
+سے محبت کیجئے، علماء کی توہین سے بچیں!، غصے کو قابو میں کیجئے!، مؤمن ایک
+آئینہ ہے، دوسلسلے: کتاب اللہ… رجال اللہ) into `EventCandidates`, full
+verbatim matn, same deliverable convention: `واقعات انسائیکلوپیڈیا -
+اصلاحی خطبات جلد 8.docx` and `مکمل جلد 8 - تصدیق و مکمل مطالعہ.html`,
+all 39 tagged.
+
+- This was the densest volume yet by anecdote count. Also the richest
+  for duplicates: 7 confirmed repeats found and cross-tagged in one
+  volume — one **intra-volume** (Thanvi/Bhai Niaz "jhoot mat bolo,
+  Allah se daro" story told twice within Volume 8 itself, once in
+  راحت کس طرح حاصل ہو؟ and again in غصے کو قابو میں کیجئے!) and six
+  **cross-volume**: Shah Ismail Shaheed's "harzamzada" retort (Vol 6),
+  Imam A'mash's lame-student dialogue (Vol 5), the dog-watering hadith
+  (Vol 6), the fly-on-inkwell mercy story (Vol 6), Abu Bakr RA cursing
+  his slave (Vol 6), and — notably — حضرت عمر اور چرواہا "فَاَیْنَ
+  اللّٰہ؟", which now spans **four** volumes (3, 4, and 8, on the same
+  `event` term first created during the Volume 3/4 retrofit).
+- Total across all 8 volumes: 268 EventCandidates, 865 taxonomy links.
+
+## Waqiat Encyclopedia: Volume 7 extraction (اصلاحی خطبات جلد نمبر ۷)
+
+30 real anecdotes extracted from book_id=548 (320 pages, 13 bayans —
+this volume has more, shorter bayans than earlier ones: گناہوں کی لذت
+ایک دھوکہ، اپنی فکر کریں، گناہ گاروں سے نفرت مت کیجئے، دینی مدارس، بیماری
+اور پریشانی ایک نعمت، حلال روزگار نہ چھوڑیں، سودی نظام کی خرابیاں، سنت کا
+مذاق نہ اڑائیں، تقدیر پر راضی رہنا چاہئے، پُرفتن دور کی نشانیاں، مرنے سے
+پہلے موت کی تیاری کیجئے، غیر ضروری سوالات سے پرہیز کریں، معاملاتِ جدیدہ
+اور علماء کی ذمہ داریاں) into `EventCandidates`, full verbatim matn,
+same deliverable convention: `واقعات انسائیکلوپیڈیا - اصلاحی خطبات جلد
+7.docx` and `مکمل جلد 7 - تصدیق و مکمل مطالعہ.html`, all 30 tagged.
+
+- Calibration read of the first bayan (گناہوں کی لذت ایک دھوکہ، 22
+  pages) found **zero** real waqiat — pure philosophical exhortation
+  about nafs/mujahada with no named narrated incidents at all. Useful
+  data point: anecdote density varies a lot by bayan topic in this
+  series, not just by volume - a bayan can legitimately contribute
+  nothing to the encyclopedia.
+- Two more confirmed duplicates, both spanning three volumes now: the
+  Thanvi/Khair Muhammad/Mufti Hasan mutual-humility quote (already in
+  Vol 5 and Vol 6, now a third telling in Vol 7) and حضرت معاویہ رضی اللہ
+  عنہ's missed-tahajjud/shaitan story (Vol 6, retold in Vol 7).
+- Total across all 7 volumes: 229 EventCandidates, 743 taxonomy links.
+
+## Waqiat Encyclopedia: Volume 6 extraction (اصلاحی خطبات جلد نمبر ۶)
+
+31 real anecdotes extracted from book_id=546 (273 pages, 9 bayans: توبہ
+گناہوں کا تریاق، درود شریف ایک اہم عبادت، ملاوٹ اورناپ تول میں کمی، بھائی
+بھائی بن جائو، بیمار کی عیادت کے آداب، سلام کرنے کے آداب، مصافحہ کرنے کے
+آداب، چھ زرّیں نصیحتیں، امتِ مسلمہ آج کہاں کھڑی ہے) into
+`EventCandidates`, full verbatim matn, same deliverable convention as
+Volume 5: `واقعات انسائیکلوپیڈیا - اصلاحی خطبات جلد 6.docx` and
+`مکمل جلد 6 - تصدیق و مکمل مطالعہ.html`, all 31 tagged.
+
+- Generalized the per-volume scripts that were one-off for Volume 5
+  (`build_segments.py`, `build_docx.py`, `build_html.py`,
+  `waqia_heading_scan.py`, all in scratchpad) into reusable
+  book_id-parameterized versions - this volume ran through them without
+  any Volume-6-specific rewriting.
+- This volume's anecdote density and quality was much higher than
+  Volume 5's hadith-heavy کھانے/پینے/دعوت bayans - nearly every
+  regex-flagged heading here really was a substantial multi-paragraph
+  story, and a manual heading-title skim (not just the regex scan) still
+  caught a few more real anecdotes whose headings didn't contain an
+  obvious keyword (e.g. "دارالعلوم دیوبند کے اساتذہ", "تین اللہ والے",
+  "حجاج بن یوسف کی غیبت کرنا").
+- Three more confirmed duplicates found and cross-tagged: two
+  cross-volume with Volume 5 (Mufti Muhammad Shafi never reaching the
+  rawza jali; the Khair Muhammad/Mufti Hasan/Thanvi mutual-humility
+  exchange) and one *within* Volume 6 itself (حضرت عبداللہ بن مبارک's
+  "close the door from outside" overstaying-guest story, told once in
+  the بیمار کی عیادت bayan and again in مصافحہ کرنے کے آداب).
+- Total across all 6 volumes: 199 EventCandidates, 641 taxonomy links.
+
+## Waqiat Encyclopedia: Volume 5 extraction (اصلاحی خطبات جلد نمبر ۵)
+
+55 real anecdotes extracted from book_id=532 (316 pages, 9 bayans:
+تواضع، حسد، خواب کی حیثیت، سستی کا علاج، آنکھوں کی حفاظت کیجئے، کھانے کے
+آداب، پینے کے آداب، دعوت کے آداب، لباس کے شرعی اصول) into
+`EventCandidates`, with full verbatim matn. Deliverables (Jameel Noori
+Nastaleeq, 16pt) saved to `WAQIAT ENCYCLOPEDIA FROM CLAUDE DESKTOP\`:
+`واقعات انسائیکلوپیڈیا - اصلاحی خطبات جلد 5.docx` and
+`مکمل جلد 5 - تصدیق و مکمل مطالعہ.html`. All 55 tagged with
+subject/personality terms via `EventCandidateTaxonomyRepository`.
+
+- This volume's کھانے/پینے/دعوت کے آداب bayans turned out to be built
+  almost entirely from short single-hadith illustrations (e.g. "Prophet ﷺ
+  drank standing from a waterskin"); per explicit user direction, only
+  substantial multi-paragraph story-style waqiat (named buzrug anecdotes,
+  historical incidents) got full entries - brief single-hadith citations
+  were left out of the encyclopedia, keeping this volume's scale (55)
+  comparable to earlier volumes instead of 100+.
+- Heading-based triage: rather than reading every candidate page window
+  in full, a small script (`waqia_heading_scan.py`) scores each page's
+  `<urh1>` heading for waqia-signal keywords (واقعہ/قصہ/عبرت آموز/named
+  personality + کا/کی/نے, etc.) so only flagged segments need a close
+  read - a large accuracy/cost win over the prior "read every window"
+  approach used for earlier volumes, worth reusing for future volumes.
+- Two confirmed cross-volume duplicates found and cross-tagged with
+  shared `event` terms: the "حرام لقمہ" story about مولانا محمد یعقوب
+  نانوتوی (already told twice within Volume 4, EventCandidates 4 & 17,
+  now a third telling in Volume 5) and حضرت عثمان غنی رضی اللہ عنہ's
+  ازار-ٹخنوں-سے-اونچا incident at صلح حدیبیہ (Volume 2, EventCandidate
+  73, retold in Volume 5) - real proof the taxonomy system catches
+  same-incident-different-wording duplicates across books as intended.
+- Total across all 5 volumes: 168 EventCandidates, 541 taxonomy links.
+
+## Waqiat subject/personality/event tagging: `EventCandidateTaxonomyRepository`
+
+For the Waqiat Encyclopedia's cross-book deduplication goal: as more
+volumes get extracted, the same anecdote (e.g. the "فتح مکہ" humility
+story) can turn up in more than one book, worded completely differently
+each time - plain text search won't reliably catch that. Tagging each
+`EventCandidates` row with structured terms lets a later merge pass find
+likely duplicates by *what the waqia is about and who's in it*, not just
+by matching text.
+
+- `infrastructure/persistence/event_candidate_taxonomy_repository.py`
+  (new): `EventCandidateTaxonomyRepository` - `tag_candidate()`,
+  `untag_candidate()`, `get_term_ids()`,
+  `find_candidates_sharing_terms()`. Reuses the existing general
+  multi-dimensional taxonomy system (`TaxonomyRepository`, migration 6)
+  rather than inventing a parallel one - `EventCandidateTaxonomyTerms` is
+  the event-candidate equivalent of that migration's own
+  `BookTaxonomyTerms`, just scoped to one extracted waqia instead of one
+  whole book. Schema is created lazily (`CREATE TABLE IF NOT EXISTS`),
+  matching `EventCandidateRepository`'s own pattern for `EventCandidates`
+  itself - not part of the versioned master-schema migrations, since it's
+  a satellite of the review-workflow tables, not the library schema.
+- Three of the taxonomy's nine existing dimensions are the ones actually
+  used per waqia: `subject` (the theme/lesson), `personality` (who's in
+  it), `event` (only when it names a specific, recurring historical
+  incident - e.g. فتح مکہ، غزوۂ خیبر). A controlled `subject` vocabulary
+  (~30 top-level categories, Urdu) was populated to keep tagging
+  consistent across volumes instead of ad hoc free text.
+- `tests/test_event_candidate_taxonomy_repository.py`: round-trip
+  tag/untag, idempotent re-tagging, and cross-candidate term-overlap
+  lookup, all against a real migrated database.
+
 ## `maktaba://` deep links: jump straight to a book+page in the desktop reader
 
 For cross-checking AI-extracted content (e.g. waqiat/event extraction)

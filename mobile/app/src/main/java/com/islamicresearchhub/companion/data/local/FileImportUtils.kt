@@ -2,15 +2,13 @@ package com.islamicresearchhub.companion.data.local
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Copy a real file the user picked via the system file picker (Storage
- * Access Framework) into this app's own cache, so Room's
- * `createFromFile()` has a real, directly-readable local `File` to
- * import from - `content://` URIs aren't real filesystem paths Room
- * can open directly. Shared by both the catalog import (`CatalogListScreen`)
- * and book-package import (`BookDetailScreen`) flows.
+ * Copy a real file the user picked via the system file picker into cache.
  */
 fun copyPickedFileToCache(context: Context, uri: Uri, cacheFileName: String): File {
     val tempFile = File(context.cacheDir, cacheFileName)
@@ -18,4 +16,48 @@ fun copyPickedFileToCache(context: Context, uri: Uri, cacheFileName: String): Fi
         tempFile.outputStream().use { output -> input.copyTo(output) }
     }
     return tempFile
+}
+
+/**
+ * Bulk copy multiple picked database files (book_*.db or catalog.db) directly into the app's databases folder.
+ */
+suspend fun bulkImportBookFiles(context: Context, uris: List<Uri>): Int = withContext(Dispatchers.IO) {
+    var count = 0
+    uris.forEach { uri ->
+        try {
+            val fileName = getFileNameFromUri(context, uri) ?: "book_${System.currentTimeMillis()}.db"
+            val targetFile = context.getDatabasePath(fileName)
+            targetFile.parentFile?.mkdirs()
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                targetFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            count++
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    return@withContext count
+}
+
+fun getFileNameFromUri(context: Context, uri: Uri): String? {
+    var result: String? = null
+    if (uri.scheme == "content") {
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index != -1) {
+                    result = it.getString(index)
+                }
+            }
+        }
+    }
+    if (result == null) {
+        result = uri.path
+        val cut = result?.lastIndexOf('/') ?: -1
+        if (cut != -1) {
+            result = result?.substring(cut + 1)
+        }
+    }
+    return result
 }

@@ -48,4 +48,11 @@ interface CatalogDao {
 
     @Query("SELECT Name FROM CategoryNames WHERE MJCN = :mjcn")
     suspend fun getCategoryName(mjcn: Int): String?
+
+    @Query("SELECT Author as authorName, COUNT(BookID) as bookCount FROM Books WHERE Author IS NOT NULL AND TRIM(Author) != '' GROUP BY Author ORDER BY bookCount DESC LIMIT 100")
+    suspend fun listAuthors(): List<AuthorCount>
 }
+
+/** One real author and how many books they have written. */
+data class AuthorCount(val authorName: String, val bookCount: Int)
+

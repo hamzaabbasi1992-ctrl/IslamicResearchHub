@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,10 +22,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.islamicresearchhub.companion.data.local.BookEntity
 import com.islamicresearchhub.companion.data.local.CatalogDatabase
 import com.islamicresearchhub.companion.ui.common.BookListCard
+import com.islamicresearchhub.companion.ui.theme.DarkGreenLightText
+import com.islamicresearchhub.companion.ui.theme.DarkGreenSubText
+import com.islamicresearchhub.companion.ui.theme.DarkGreenTopBar
 
 /** Real books carrying one real category (tapped from `CategoriesScreen`). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,8 +47,8 @@ fun CategoryBooksScreen(mjcn: Int, categoryName: String, onBookClick: (Int) -> U
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(categoryName, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                title = { Text(categoryName, fontWeight = FontWeight.Bold, color = DarkGreenLightText) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkGreenTopBar),
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -53,7 +58,7 @@ fun CategoryBooksScreen(mjcn: Int, categoryName: String, onBookClick: (Int) -> U
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("No books found in this category.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("No books found in this category.", color = DarkGreenSubText)
             }
         } else {
             LazyColumn(
@@ -64,7 +69,7 @@ fun CategoryBooksScreen(mjcn: Int, categoryName: String, onBookClick: (Int) -> U
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(books, key = { it.bookId }) { book ->
-                    BookListCard(book = book, badge = book.category, onClick = { onBookClick(book.bookId) })
+                    BookListCard(book = book, onClick = { onBookClick(book.bookId) })
                 }
             }
         }

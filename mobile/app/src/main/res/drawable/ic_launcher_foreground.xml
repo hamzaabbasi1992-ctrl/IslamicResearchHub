@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- 3D Gold Octagonal Star Ring Emblem -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,24 L63,33 L75,33 L75,45 L84,54 L75,63 L75,75 L63,75 L54,84 L45,75 L33,75 L33,63 L24,54 L33,45 L33,33 L45,33 Z" />
+        
+    <!-- Inner Dark Green Core -->
+    <path
+        android:fillColor="#06221E"
+        android:pathData="M54,28 L61,35 L71,35 L71,45 L78,54 L71,63 L71,73 L61,73 L54,80 L47,73 L37,73 L37,63 L30,54 L37,45 L37,35 L47,35 Z" />
+
+    <!-- Open Book Left Page (Emerald Teal) -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M34,58 L52,48 L52,66 L34,74 Z" />
+
+    <!-- Open Book Right Page (Warm Gold) -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M74,58 L56,48 L56,66 L74,74 Z" />
+
+    <!-- Spine Accent -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M52,47 L56,47 L56,67 L52,67 Z" />
+
+    <!-- Crescent Moon Apex Accent -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M54,34 C49.5,34 46,37.5 46,42 C46,46.5 49.5,50 54,50 C51.5,50 49,47.5 49,42 C49,36.5 51.5,34 54,34 Z" />
+</vector>

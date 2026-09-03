@@ -95,6 +95,8 @@ class HomeScreen(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setObjectName("homeScreen")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self._database_path = database_path
         self._translator = translator
         self._browser = browser or BookBrowserRepository(database_path)
@@ -119,6 +121,8 @@ class HomeScreen(QWidget):
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
+        content.setObjectName("homeContent")
+        content.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         outer = QVBoxLayout(content)
         outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
         outer.setSpacing(Spacing.SM)

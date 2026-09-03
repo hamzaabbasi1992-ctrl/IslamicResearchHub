@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>واقعات انسائیکلوپیڈیا — پورٹل و سرچ ڈیش بورڈ</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme size-medium font-nastaliq weight-normal bg-navy">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">📖</div>
+                <div class="brand-text">
+                    <h1>واقعات انسائیکلوپیڈیا</h1>
+                    <span>اسلامک ریسرچ ہب AI</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" id="nav-all">
+                    <span class="icon">📚</span>
+                    <span>تمام واقعات (2,705)</span>
+                </button>
+                <button class="nav-item" id="nav-favs">
+                    <span class="icon">⭐</span>
+                    <span>منتخب واقعات (<span id="fav-count">0</span>)</span>
+                </button>
+            </nav>
+
+            <div class="filter-section">
+                <h3>فلٹر حسبِ ماخذ (کتاب/سیریز)</h3>
+                <select id="book-filter" class="custom-select">
+                    <option value="">تمام کتب و سیریز</option>
+                </select>
+
+                <h3>فلٹر حسبِ موضوع</h3>
+                <select id="subject-filter" class="custom-select">
+                    <option value="">تمام موضوعات</option>
+                </select>
+
+                <!-- DISPLAY SETTINGS PANEL -->
+                <div class="settings-panel">
+                    <h3>⚙️ ڈسپلے سیٹنگز</h3>
+                    
+                    <label class="setting-label">خط (Font Style):</label>
+                    <select id="font-style-select" class="custom-select">
+                        <option value="font-nastaliq" selected>جمیل نوری نستعلیق</option>
+                        <option value="font-amiri">خط عامری (Amiri)</option>
+                        <option value="font-sans">خط نسخ (Noto Sans)</option>
+                    </select>
+
+                    <label class="setting-label">فانٹ سائز (Font Size):</label>
+                    <select id="font-size-select" class="custom-select">
+                        <option value="size-small">چھوٹا (14px)</option>
+                        <option value="size-medium" selected>درمیانہ (16px)</option>
+                        <option value="size-large">بڑا (19px)</option>
+                        <option value="size-xlarge">بہت بڑا (23px)</option>
+                    </select>
+
+                    <label class="setting-label">متن کی موٹائی (Weight):</label>
+                    <select id="font-weight-select" class="custom-select">
+                        <option value="weight-normal" selected>نارمل</option>
+                        <option value="weight-bold">بولڈ (Bold)</option>
+                    </select>
+
+                    <label class="setting-label">بیک گراؤنڈ رنگ (Theme):</label>
+                    <select id="bg-color-select" class="custom-select">
+                        <option value="bg-navy" selected>نائٹ نیوی (Dark)</option>
+                        <option value="bg-black">پیور بلیک (OLED Black)</option>
+                        <option value="bg-sepia">سیپیا / کاغذی رنگ (Sepia)</option>
+                        <option value="bg-white">روشن سفید (Light White)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-total">2,705</span>
+                    <span class="stat-label">مجموعی واقعات</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-books">80+</span>
+                    <span class="stat-label">جلدیں و کتب</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="عنوان، متن، شخصیت یا کتاب سے تلاش کریں..." autocomplete="off">
+                    <button id="clear-search" class="clear-btn" style="display:none;">✕</button>
+                </div>
+
+                <div class="header-actions">
+                    <span class="results-badge" id="results-count">2,705 واقعات ملے۔</span>
+                </div>
+            </header>
+
+            <!-- Stories Container -->
+            <div class="stories-scroll-container">
+                <div id="stories-grid" class="stories-grid">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>واقعات کی انسائیکلوپیڈیا لوڈ ہو رہی ہے...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination / Load More -->
+                <div class="load-more-wrapper">
+                    <button id="load-more-btn" class="btn-primary" style="display:none;">مزید واقعات لوڈ کریں</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">متن کاپی ہو گیا!</div>
+
+    <!-- Embedded Data Script -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

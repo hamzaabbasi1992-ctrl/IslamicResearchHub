@@ -1271,6 +1271,12 @@ class ViewerScreen(QWidget):
             if is_bookmarked
             else self._translator.tr("common-bookmark-this-page")
         )
+        if is_bookmarked:
+            self._bookmark_button.setStyleSheet(
+                "background: #064e3b; border: 1px solid #f59e0b; color: #f59e0b; font-weight: bold;"
+            )
+        else:
+            self._bookmark_button.setStyleSheet("")
 
     def _current_page_display_text(self) -> str:
         page = self._pages[self._current_index]

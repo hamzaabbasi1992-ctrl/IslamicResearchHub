@@ -58,21 +58,21 @@ LIGHT = Palette(
 )
 
 DARK = Palette(
-    bg="#1b1a17",
-    surface="#242320",
-    surface_raised="#2c2b27",
-    surface_hover="#38362f",
-    ink="#f1ede2",
-    ink_soft="#c9c2af",
-    ink_faint="#8d8672",
-    accent="#4fae97",
-    accent_soft="#26433a",
-    accent_ink="#bfe9dc",
-    line="#3d3b34",
-    line_soft="#332f28",
-    danger="#d97a7a",
-    success="#6fbf94",
-    warning="#d9a94f",
+    bg="#051815",
+    surface="#092a24",
+    surface_raised="#0e3830",
+    surface_hover="#14493e",
+    ink="#f0fdf4",
+    ink_soft="#99f6e4",
+    ink_faint="#5eead4",
+    accent="#10b981",
+    accent_soft="#064e3b",
+    accent_ink="#d1fae5",
+    line="#144d43",
+    line_soft="#0b332c",
+    danger="#ef4444",
+    success="#10b981",
+    warning="#f59e0b",
 )
 
 HIGH_CONTRAST = Palette(
@@ -178,17 +178,21 @@ def build_stylesheet(palette: Palette, font_scale: float = 1.0, density: float =
         return f"{max(0, round(base_size * density))}px"
 
     return f"""
-QMainWindow {{
+QMainWindow, QWidget#homeScreen, QWidget#homeContent, QWidget#settingsScreen, QWidget#settingsContent, QWidget#searchScreen, QWidget#viewerScreen, QWidget#taxonomyScreen, QWidget#collectionsScreen, QWidget#logsScreen {{
     background: {palette.bg};
 }}
 
 QWidget {{
     color: {palette.ink};
-    font-family: "Segoe UI", "Segoe UI Variable", sans-serif;
+    font-family: "Segoe UI", "Segoe UI Variable", "Segoe UI Historic", "Noto Nastaliq Urdu", "Jameel Noori Nastaliq", "Tahoma", "Arial", sans-serif;
     font-size: {px(Type.BODY)};
 }}
 
-QLabel, QScrollArea, QScrollArea > QWidget > QWidget {{
+QScrollArea, QScrollArea > QWidget {{
+    background: {palette.bg};
+    border: none;
+}}
+QLabel {{
     background: transparent;
 }}
 

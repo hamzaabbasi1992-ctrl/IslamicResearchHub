@@ -1,0 +1,2 @@
+Item count: 3079
+First item keys: ['id', 'book_id', 'book_title', 'title', 'page', 'subject', 'key_figures', 'text', 'citation']

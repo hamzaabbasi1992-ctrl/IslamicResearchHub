@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from islamic_research_hub.application.book_search import BookSearchService
+from islamic_research_hub.interfaces.desktop_app.book_scope_dialog import BookScopeDialog
 from islamic_research_hub.application.pdf_source_resolver import candidate_pdf_path
 from islamic_research_hub.application.semantic_book_search import SemanticBookSearchService
 from islamic_research_hub.application.voice_transcription import VoiceSearchService
@@ -614,6 +615,12 @@ class SearchScreen(QWidget):
         self._libraries_button.clicked.connect(self._on_libraries_button_clicked)
         filter_row_1.addWidget(self._libraries_button)
 
+        self._multi_book_selection: tuple[int, ...] | None = None
+        self._books_button = QPushButton("Select Books...")
+        self._books_button.setToolTip("Select specific books to search within")
+        self._books_button.clicked.connect(self._on_books_button_clicked)
+        filter_row_1.addWidget(self._books_button)
+
         self._author_edit = QLineEdit()
         self._author_edit.setPlaceholderText(self._translator.tr("search-author-placeholder"))
         filter_row_1.addWidget(self._author_edit)
@@ -793,6 +800,26 @@ class SearchScreen(QWidget):
         if self._query_edit.text().strip() or self._author_edit.text().strip() or self._category_edit.text().strip():
             self._run_search()
 
+    def _on_books_button_clicked(self) -> None:
+        library = self._effective_library_filter()
+        author = self._author_edit.text().strip() or None
+        category = self._category_edit.text().strip() or None
+        all_books = self._browser.list_books_by_filters(library, author, category)
+        books_with_ids = tuple((b.book_id, b.title) for b in all_books)
+
+        dialog = BookScopeDialog(
+            books_with_ids,
+            self._multi_book_selection,
+            self._translator,
+            self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self._multi_book_selection = dialog.selected_book_ids()
+        self._update_books_button_label()
+        if self._query_edit.text().strip():
+            self._run_search()
+
     def _update_libraries_button_label(self) -> None:
         tr = self._translator.tr
         if self._multi_library_selection is None:
@@ -801,6 +828,12 @@ class SearchScreen(QWidget):
             self._libraries_button.setText(
                 tr("search-libraries-count").format(count=len(self._multi_library_selection))
             )
+
+    def _update_books_button_label(self) -> None:
+        if self._multi_book_selection is None:
+            self._books_button.setText("Select Books...")
+        else:
+            self._books_button.setText(f"Books ({len(self._multi_book_selection)} Selected)")
 
     def _effective_library_filter(self) -> str | tuple[str, ...] | None:
         """Return the real library filter to search/browse with - the
@@ -825,10 +858,6 @@ class SearchScreen(QWidget):
         match_mode = self._match_mode_combo.currentData()  # "all" | "any" | "phrase"
 
         if not query:
-            # No search text - the Author/Category/Library filters can still
-            # be used on their own (e.g. typed directly into the Author or
-            # Category box, then Search clicked) to browse straight to the
-            # matching books, same as clicking a name in the left pane does.
             if author or category or library:
                 self._browse_by_filters(library, author, category)
             else:
@@ -838,10 +867,6 @@ class SearchScreen(QWidget):
         self._recent_searches.record(query)
         match_query = _apply_match_mode(query, match_mode)
 
-        # Book-name search and content search each run only when the real
-        # "Search in" choice includes them - "Name + content" (the default)
-        # runs both and shows two clearly labeled groups, title matches
-        # first since that's usually what a name-shaped query means.
         title_matches: tuple[BookSummary, ...] = ()
         if search_target in ("title", "both"):
             title_matches = self._browser.search_by_title(
@@ -860,6 +885,11 @@ class SearchScreen(QWidget):
             except ValueError:
                 self._status_label.setText(self._translator.tr("search-error-enter-term"))
                 return
+
+        if self._multi_book_selection is not None:
+            selected_set = set(self._multi_book_selection)
+            title_matches = tuple(b for b in title_matches if b.book_id in selected_set)
+            results = tuple(r for r in results if r.book_id in selected_set)
 
         matched_keys = {(result.book_id, result.page_number) for result in results}
         self._current_query = query

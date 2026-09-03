@@ -3,11 +3,12 @@
 import sqlite3
 from pathlib import Path
 
-from islamic_research_hub.domain.models.book import Book, Page
+from islamic_research_hub.domain.models.book import Book, Category, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
-from islamic_research_hub.interfaces.catalog_export_cli import main
+from islamic_research_hub.infrastructure.persistence.migration_runner import MigrationRunner
+from islamic_research_hub.interfaces.catalog_export_cli import MOBILE_ROOM_SCHEMA_VERSION, main
 
 
 def _seed_database(database_path: Path) -> None:
@@ -109,3 +110,90 @@ def test_re_running_overwrites_the_previous_export(tmp_path: Path) -> None:
     with sqlite3.connect(output_path) as connection:
         count = connection.execute("SELECT COUNT(*) FROM Books").fetchone()[0]
     assert count == 2  # not 4
+
+
+def test_output_file_carries_the_room_expected_schema_version(tmp_path: Path) -> None:
+    """Real regression guard for the confirmed Room prepackaged-database
+    crash (2026-08-12): Android's `SQLiteOpenHelper` treats a copied file
+    at `user_version = 0` as uninitialized and tries to CREATE TABLEs
+    that already exist. Stamping this must never regress."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "catalog.db"
+    _seed_database(database_path)
+
+    main(["--database", str(database_path), "--output", str(output_path)])
+
+    with sqlite3.connect(output_path) as connection:
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+    assert version == MOBILE_ROOM_SCHEMA_VERSION
+
+
+def test_exports_real_named_categories_and_their_book_links(tmp_path: Path) -> None:
+    """Books.Category (mostly empty/raw MJCN numbers on the real
+    production database) is deliberately not what the mobile Categories
+    tab groups by - CategoryTaxonomy's real names, joined to real
+    per-book membership, are. The exported Name is the Urdu display
+    translation ("فقہ"), not the raw canonical key ("Fiqh") - see
+    `_display_category_name()`."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "catalog.db"
+    book = Book(
+        information={"Name": "Book of Fiqh", "ANAME": "Author One", "Language": "Arabic"},
+        categories=(Category(mjcn=42, name="Fiqh", parent_mjcn=None, sort_key=1),),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Real content", None),),
+    )
+    MasterBookRepository().import_books(database_path, (book,), (database_path.parent / "a.mjbz",))
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    main(["--database", str(database_path), "--output", str(output_path)])
+
+    with sqlite3.connect(output_path) as connection:
+        category_row = connection.execute(
+            "SELECT MJCN, Name, ParentMJCN FROM CategoryNames"
+        ).fetchone()
+        link_row = connection.execute("SELECT BookID, MJCN FROM BookCategories").fetchone()
+    assert category_row == (42, "فقہ", None)
+    assert link_row == (1, 42)
+
+
+def test_excludes_purely_numeric_placeholder_category_names(tmp_path: Path) -> None:
+    """A bare MJCN number with no real taxonomy name resolved for it is
+    never a legitimate category to show a user - mirrors
+    BookBrowserRepository.get_category_tree()'s own real-data guard."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "catalog.db"
+    book = Book(
+        information={"Name": "Book of Fiqh"},
+        categories=(Category(mjcn=99, name="630", parent_mjcn=None, sort_key=1),),
+        table_of_contents=(),
+        pages=(Page(1, 1, "Real content", None),),
+    )
+    MasterBookRepository().import_books(database_path, (book,), (database_path.parent / "a.mjbz",))
+    with sqlite3.connect(database_path) as connection:
+        MigrationRunner().migrate(connection)
+
+    main(["--database", str(database_path), "--output", str(output_path)])
+
+    with sqlite3.connect(output_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM CategoryNames").fetchone()[0]
+    assert count == 0
+
+
+def test_missing_category_taxonomy_degrades_to_an_empty_categories_export(
+    tmp_path: Path,
+) -> None:
+    """A database that hasn't run migration 3 yet (no CategoryTaxonomy)
+    exports cleanly with empty category tables, not an error - same
+    honest degradation `_has_series_columns` already models."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "catalog.db"
+    _seed_database(database_path)  # no migrate() call - CategoryTaxonomy absent
+
+    exit_code = main(["--database", str(database_path), "--output", str(output_path)])
+
+    assert exit_code == 0
+    with sqlite3.connect(output_path) as connection:
+        count = connection.execute("SELECT COUNT(*) FROM CategoryNames").fetchone()[0]
+    assert count == 0

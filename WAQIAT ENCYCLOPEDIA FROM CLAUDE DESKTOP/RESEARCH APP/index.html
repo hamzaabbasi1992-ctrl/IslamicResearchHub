@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>واقعات انسائیکلوپیڈیا — پورٹل و ایڈوانسڈ سرچ ڈیش بورڈ</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&family=Noto+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme size-medium font-nastaliq weight-normal bg-navy">
+    <div class="app-container">
+        <!-- Sidebar Navigation & Filters -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">📖</div>
+                <div class="brand-text">
+                    <h1>واقعات انسائیکلوپیڈیا</h1>
+                    <span>اسلامک ریسرچ ہب AI</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" id="nav-all">
+                    <span class="icon">📚</span>
+                    <span>تمام واقعات (<span id="nav-total-count">36,055</span>)</span>
+                </button>
+                <button class="nav-item" id="nav-favs">
+                    <span class="icon">⭐</span>
+                    <span>منتخب واقعات (<span id="fav-count">0</span>)</span>
+                </button>
+            </nav>
+
+            <div class="filter-section">
+                <!-- SORTING -->
+                <div class="filter-group">
+                    <label class="filter-label">🔃 ترتیبِ نتائج (Sort By):</label>
+                    <select id="sort-order-select" class="custom-select">
+                        <option value="relevance" selected>سب سے زیادہ مطابقت (Relevance)</option>
+                        <option value="book_order">ترتیبِ کتب و جلد (Book Sequence)</option>
+                        <option value="longest">طویل ترین تا مختصر (Longest First)</option>
+                        <option value="shortest">مختصر ترین تا طویل (Shortest First)</option>
+                        <option value="title_asc">حروفِ تہجی عنوان (Alphabetical A-Z)</option>
+                    </select>
+                </div>
+
+                <!-- SEARCH MODE -->
+                <div class="filter-group">
+                    <label class="filter-label">🎯 طریقہ تلاش (Search Mode):</label>
+                    <select id="search-mode-select" class="custom-select">
+                        <option value="all" selected>تمام الفاظ لازمی (AND Search)</option>
+                        <option value="any">کوئی بھی لفظ (OR Search)</option>
+                        <option value="exact">ہوبہو جملہ (Exact Phrase)</option>
+                    </select>
+                </div>
+
+                <!-- BOOK FILTER -->
+                <div class="filter-group">
+                    <label class="filter-label">📚 فلٹر ماخذ (کتاب / مجموعہ):</label>
+                    <select id="book-filter" class="custom-select">
+                        <option value="">تمام کتب و مجموعات</option>
+                    </select>
+                </div>
+
+                <!-- PERSONALITY / SPEAKER FILTER -->
+                <div class="filter-group">
+                    <label class="filter-label">👤 فلٹر شخصیت / متکلم:</label>
+                    <select id="personality-filter" class="custom-select">
+                        <option value="">تمام شخصیات و مقررین</option>
+                    </select>
+                </div>
+
+                <!-- SUBJECT FILTER -->
+                <div class="filter-group">
+                    <label class="filter-label">🏷️ فلٹر موضوع / عنوان:</label>
+                    <select id="subject-filter" class="custom-select">
+                        <option value="">تمام موضوعات</option>
+                    </select>
+                </div>
+
+                <!-- LENGTH FILTER -->
+                <div class="filter-group">
+                    <label class="filter-label">📏 واقعہ کا حجم (Length):</label>
+                    <select id="length-filter" class="custom-select">
+                        <option value="all" selected>تمام سائز (All Lengths)</option>
+                        <option value="short">مختصر واقعات (&lt; 200 الفاظ)</option>
+                        <option value="medium">درمیانے واقعات (200 - 500 الفاظ)</option>
+                        <option value="long">تفصیلی و طویل واقعات (&gt; 500 الفاظ)</option>
+                    </select>
+                </div>
+
+                <!-- DISPLAY SETTINGS PANEL -->
+                <div class="settings-panel">
+                    <h3>⚙️ ڈسپلے سیٹنگز</h3>
+                    
+                    <label class="setting-label">خط (Font Style):</label>
+                    <select id="font-style-select" class="custom-select">
+                        <option value="font-nastaliq" selected>جمیل نوری نستعلیق</option>
+                        <option value="font-amiri">خط عامری (Amiri)</option>
+                        <option value="font-sans">خط نسخ (Noto Sans)</option>
+                    </select>
+
+                    <label class="setting-label">فانٹ سائز (Font Size):</label>
+                    <select id="font-size-select" class="custom-select">
+                        <option value="size-small">چھوٹا (14px)</option>
+                        <option value="size-medium" selected>درمیانہ (16px)</option>
+                        <option value="size-large">بڑا (19px)</option>
+                        <option value="size-xlarge">بہت بڑا (23px)</option>
+                    </select>
+
+                    <label class="setting-label">متن کی موٹائی (Weight):</label>
+                    <select id="font-weight-select" class="custom-select">
+                        <option value="weight-normal" selected>نارمل</option>
+                        <option value="weight-bold">بولڈ (Bold)</option>
+                    </select>
+
+                    <label class="setting-label">بیک گراؤنڈ رنگ (Theme):</label>
+                    <select id="bg-color-select" class="custom-select">
+                        <option value="bg-navy" selected>نائٹ نیوی (Dark)</option>
+                        <option value="bg-black">پیور بلیک (OLED Black)</option>
+                        <option value="bg-sepia">سیپیا / کاغذی رنگ (Sepia)</option>
+                        <option value="bg-white">روشن سفید (Light White)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats-card">
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-total">36,055</span>
+                    <span class="stat-label">مجموعی واقعات</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-books">180+</span>
+                    <span class="stat-label">جلدیں و کتب</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="عنوان، متن، مطلوبہ الفاظ، شخصیت یا ماخذ سے تلاش کریں..." autocomplete="off">
+                    <button id="clear-search" class="clear-btn" style="display:none;">✕</button>
+                </div>
+
+                <div class="header-actions">
+                    <span class="results-badge" id="results-count">36,055 واقعات ملے۔</span>
+                </div>
+            </header>
+
+            <!-- Quick Filter Chips -->
+            <div class="quick-chips-bar">
+                <button class="chip-btn active" data-book="">سب کتب</button>
+                <button class="chip-btn" data-book="مواعظِ شمسیہ">مواعظِ شمسیہ</button>
+                <button class="chip-btn" data-book="خطبات فقیر">خطباتِ فقیر</button>
+                <button class="chip-btn" data-book="خطبات حکیم الاسلام">خطباتِ حکیم الاسلام</button>
+                <button class="chip-btn" data-book="خطبات متکلم اسلام">خطباتِ متکلم اسلام</button>
+                <button class="chip-btn" data-book="خطبات ذوالفقار">خطباتِ ذوالفقار</button>
+                <button class="chip-btn" data-book="تفسیر">تفاسیر و شانِ نزول</button>
+            </div>
+
+            <!-- Stories Container -->
+            <div class="stories-scroll-container" id="stories-scroll-container">
+                <div id="stories-grid" class="stories-grid">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>واقعات کی انسائیکلوپیڈیا لوڈ ہو رہی ہے...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination / Load More -->
+                <div class="load-more-wrapper">
+                    <button id="load-more-btn" class="btn-primary" style="display:none;">مزید واقعات لوڈ کریں</button>
+                </div>
+            </div>
+
+            <!-- Floating Top / Bottom Navigation Buttons -->
+            <div class="floating-nav-buttons">
+                <button id="scroll-to-top" class="floating-btn" title="اوپر جائیں (Jump to Top)">
+                    ▲ اوپر
+                </button>
+                <button id="scroll-to-bottom" class="floating-btn" title="نیچے جائیں (Jump to Bottom)">
+                    ▼ نیچے
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">متن کاپی ہو گیا!</div>
+
+    <!-- Embedded Data Script -->
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

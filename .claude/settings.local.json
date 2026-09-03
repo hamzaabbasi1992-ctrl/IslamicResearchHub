@@ -28,7 +28,23 @@
       "Bash(python -m pytest tests/test_search_screen.py -q)",
       "Bash(python -m pytest tests/test_migration_runner.py -q)",
       "Bash(python -c ' *)",
-      "Bash(HF_HUB_OFFLINE=1 python -c ' *)"
+      "Bash(HF_HUB_OFFLINE=1 python -c ' *)",
+      "Bash(git fetch *)",
+      "Bash(git diff *)",
+      "Bash(git restore *)",
+      "Bash(where python *)",
+      "Bash(where.exe python3 *)",
+      "Bash(py --version)",
+      "Bash(sqlite3 --version)",
+      "PowerShell(winget --version 2>&1)",
+      "PowerShell(winget install --id Python.Python.3.12 -e --silent --accept-package-agreements --accept-source-agreements)",
+      "Bash(/c/Users/hamza/AppData/Local/Programs/Python/Python312/python.exe --version)",
+      "Bash(/c/Users/hamza/AppData/Local/Programs/Python/Python312/python.exe -m venv .venv)",
+      "Bash(\"/f/ISLAMIC RESEARCH HUB AI/.venv/Scripts/python.exe\" -m pip install --upgrade pip -q)",
+      "Bash(\"/f/ISLAMIC RESEARCH HUB AI/.venv/Scripts/python.exe\" -m pip install -e . -q)",
+      "Bash(cd \"C:\\Users\\hamza\\AppData\\Local\\Temp\\claude\\f--ISLAMIC-RESEARCH-HUB-AI\\*\" && PYTHONIOENCODING=utf-8 python *)",
+      "Bash(PYTHONIOENCODING=utf-8 python *)",
+      "Bash(PYTHONIOENCODING=utf-8 \"F:\\ISLAMIC RESEARCH HUB AI\\.venv\\Scripts\\python.exe\" *)"
     ]
   }
 }

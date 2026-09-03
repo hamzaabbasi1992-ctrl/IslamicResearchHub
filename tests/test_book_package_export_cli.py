@@ -7,7 +7,10 @@ from islamic_research_hub.domain.models.book import Book, Chapter, Page
 from islamic_research_hub.infrastructure.persistence.master_book_repository import (
     MasterBookRepository,
 )
-from islamic_research_hub.interfaces.book_package_export_cli import main
+from islamic_research_hub.interfaces.book_package_export_cli import (
+    MOBILE_ROOM_SCHEMA_VERSION,
+    main,
+)
 
 
 def _seed_database(database_path: Path) -> int:
@@ -150,3 +153,23 @@ def test_a_book_with_no_chapters_exports_cleanly(tmp_path: Path) -> None:
     with sqlite3.connect(output_path) as connection:
         chapter_count = connection.execute("SELECT COUNT(*) FROM Chapters").fetchone()[0]
     assert chapter_count == 0
+
+
+def test_output_file_carries_the_room_expected_schema_version(tmp_path: Path) -> None:
+    """Real regression guard for the confirmed Room prepackaged-database
+    crash (2026-08-12) - see the identical test in test_catalog_export_cli.py."""
+    database_path = tmp_path / "books.db"
+    output_path = tmp_path / "book_1.db"
+    book_id = _seed_database(database_path)
+
+    main(
+        [
+            "--database", str(database_path),
+            "--book-id", str(book_id),
+            "--output", str(output_path),
+        ]
+    )
+
+    with sqlite3.connect(output_path) as connection:
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+    assert version == MOBILE_ROOM_SCHEMA_VERSION
